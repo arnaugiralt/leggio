@@ -74,6 +74,7 @@ export function applyToRoot(settings, root = document.documentElement) {
   root.style.setProperty('--font-family', fonts.body)
   root.style.setProperty('--code-font-family', fonts.code)
   applyDiagramTheme(settings.diagramTheme, root)
+  root.style.colorScheme = isDark(settings.bg) ? 'dark' : 'light'
 }
 
 const PAGE_DIAGRAM_COLORS = { bg: 'var(--color-bg)', fg: 'var(--color-fg)', accent: 'var(--color-accent)' }
@@ -101,4 +102,11 @@ export function applyFontUrl(url, doc = document) {
   }
   const href = withSwap(url)
   if (link.href !== href) link.href = href
+}
+
+// Native form controls and scrollbars follow the page: relative luminance of the hex background.
+function isDark(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
 }

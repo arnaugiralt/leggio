@@ -133,3 +133,12 @@ test('DIAGRAM_THEMES starts with page and lists the built-in themes', () => {
   assert.ok(DIAGRAM_THEMES.includes('github-light'))
   assert.equal(DIAGRAM_THEMES.length, 16)
 })
+
+test('applyToRoot sets the color scheme from the background lightness', () => {
+  const light = fakeRoot()
+  applyToRoot(DEFAULTS, light)
+  assert.equal(light.style.colorScheme, 'light')
+  const dark = fakeRoot()
+  applyToRoot({ ...DEFAULTS, bg: '#111111' }, dark)
+  assert.equal(dark.style.colorScheme, 'dark')
+})

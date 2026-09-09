@@ -1,19 +1,66 @@
 import { DIAGRAM_THEMES } from './settings.js'
 
-// [key, label, input type, step, min, max]
-const FIELDS = [
-  ['fontUrl', 'Google Fonts URL (first family is text, second is code)', 'url'],
-  ['fontSize', 'Font size (px)', 'number', 1],
-  ['fontWeight', 'Font weight (must be included in the font URL)', 'number', 100, 100, 900],
-  ['lineHeight', 'Line height', 'number', 0.05],
-  ['contentWidth', 'Content width (px)', 'number', 10],
-  ['codeFontSize', 'Code font size (px)', 'number', 1],
-  ['bg', 'Background', 'color'],
-  ['fg', 'Text', 'color'],
-  ['accent', 'Accent', 'color'],
-  ['codeBg', 'Code background', 'color'],
-  ['diagramTheme', 'Diagram theme', 'select'],
+const GROUPS = [
+  {
+    title: 'Type',
+    fields: [
+      {
+        key: 'fontUrl',
+        label: 'Google Fonts URL',
+        type: 'url',
+        placeholder: 'https://fonts.googleapis.com/css2?family=…',
+        hint: 'First family is used for text, second for code. Include the weights you want.',
+      },
+      { key: 'fontSize', label: 'Size', type: 'number', step: 1, min: 10, max: 40 },
+      { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
+      { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, min: 1, max: 2.5 },
+    ],
+  },
+  {
+    title: 'Layout',
+    fields: [{ key: 'contentWidth', label: 'Text width', type: 'number', step: 10, min: 400, max: 1400 }],
+  },
+  {
+    title: 'Code',
+    fields: [
+      { key: 'codeFontSize', label: 'Size', type: 'number', step: 1, min: 8, max: 32 },
+      { key: 'codeBg', label: 'Background', type: 'color' },
+    ],
+  },
+  {
+    title: 'Colors',
+    fields: [
+      { key: 'bg', label: 'Page', type: 'color' },
+      { key: 'fg', label: 'Text', type: 'color' },
+      { key: 'accent', label: 'Accent', type: 'color' },
+    ],
+  },
+  {
+    title: 'Diagrams',
+    fields: [{ key: 'diagramTheme', label: 'Theme', type: 'select' }],
+  },
 ]
+
+function Field({ field, value, onInput }) {
+  const { key, label, type, hint, ...attrs } = field
+  const control =
+    type === 'select' ? (
+      <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
+        {DIAGRAM_THEMES.map(name => (
+          <option key={name} value={name}>{name === 'page' ? 'Follow page colors' : name}</option>
+        ))}
+      </select>
+    ) : (
+      <input type={type} {...attrs} value={value} onInput={e => onInput(key, type, e.currentTarget)} />
+    )
+  return (
+    <label class={`field field-${type}`}>
+      <span class="field-label">{label}</span>
+      {control}
+      {hint && <span class="field-hint">{hint}</span>}
+    </label>
+  )
+}
 
 export function Settings({ settings, onChange, onReset }) {
   function update(key, type, input) {
@@ -28,21 +75,15 @@ export function Settings({ settings, onChange, onReset }) {
 
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
-      {FIELDS.map(([key, label, type, step, min, max]) => (
-        <label key={key}>
-          <span>{label}</span>
-          {type === 'select' ? (
-            <select value={settings[key]} onChange={e => update(key, type, e.currentTarget)}>
-              {DIAGRAM_THEMES.map(name => (
-                <option key={name} value={name}>{name === 'page' ? 'Follow page colors' : name}</option>
-              ))}
-            </select>
-          ) : (
-            <input type={type} step={step} min={min} max={max} value={settings[key]} onInput={e => update(key, type, e.currentTarget)} />
-          )}
-        </label>
+      {GROUPS.map(group => (
+        <fieldset key={group.title}>
+          <legend>{group.title}</legend>
+          {group.fields.map(field => (
+            <Field key={field.key} field={field} value={settings[field.key]} onInput={update} />
+          ))}
+        </fieldset>
       ))}
-      <button type="button" onClick={onReset}>Reset to defaults</button>
+      <button type="button" class="quiet reset" onClick={onReset}>Reset to defaults</button>
     </form>
   )
 }
