@@ -280,6 +280,98 @@ kbd {
   transition: transform 180ms var(--ease-out);
 }
 
+.sidebar { padding: 1rem 0.75rem 2rem; }
+.sidebar section + section { margin-top: 1.25rem; }
+.sidebar h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0.5rem 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ui-muted);
+}
+.quiet.small { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+.side-hint { margin: 0 0.5rem; font-size: 0.78rem; color: var(--ui-faint); }
+
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree .tree { padding-left: 0.9rem; }
+.row {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .row:hover { background: var(--ui-hover); }
+}
+.row.active { background: var(--ui-surface); }
+.row.active .row-name { color: var(--color-fg); }
+.row.active::before {
+  content: '';
+  width: 2px;
+  height: 1rem;
+  margin-left: 0.25rem;
+  border-radius: 1px;
+  background: var(--color-accent);
+}
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.row-note { margin-left: auto; font-size: 0.72rem; color: var(--ui-faint); }
+.row.missing .row-name { text-decoration: line-through; }
+.chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 1.5px solid var(--ui-faint);
+  border-bottom: 1.5px solid var(--ui-faint);
+  transform: rotate(-45deg);
+  transition: transform 150ms var(--ease-out);
+  flex-shrink: 0;
+  margin-left: 0.1rem;
+}
+.chevron.open { transform: rotate(45deg); }
+.kind {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--ui-faint);
+  flex-shrink: 0;
+}
+.kind.directory { border-radius: 2px 2px 1px 1px; background: var(--ui-muted); }
+.pin {
+  flex-shrink: 0;
+  padding: 0.2rem 0.45rem;
+  margin-right: 0.25rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-faint);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.row:hover .pin, .row:focus-within .pin { opacity: 1; }
+.pin:hover { color: var(--color-fg); }
+
 .settings fieldset {
   margin: 0 0 1.25rem;
   padding: 0;
