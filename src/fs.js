@@ -5,6 +5,7 @@ export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' 
 const MARKDOWN = /\.(md|markdown|txt)$/i
 export const isMarkdownName = name => MARKDOWN.test(name)
 
+// A leading "word:" reads as a scheme, as in a real href; write ./notes:draft.md to force a relative path.
 // Relative means: no fragment, not root-relative, not protocol-relative, no scheme.
 export const isRelative = url => !/^(#|\/|[a-z][a-z0-9+.-]*:)/i.test(url)
 

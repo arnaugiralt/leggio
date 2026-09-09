@@ -20,6 +20,7 @@
   --ui-hover: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
   --bar-h: 2.75rem;
   --sheet-w: 320px;
+  --side-w: 260px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -70,6 +71,8 @@ body {
   line-height: 1;
 }
 .bar-title {
+  flex: 1;
+  text-align: center;
   color: var(--ui-muted);
   overflow: hidden;
   white-space: nowrap;
@@ -104,9 +107,10 @@ body {
 
 .main {
   min-height: calc(100vh - var(--bar-h));
-  transition: padding-right 180ms var(--ease-out);
+  transition: padding-right 180ms var(--ease-out), padding-left 180ms var(--ease-out);
 }
 .settings-open .main { padding-right: var(--sheet-w); }
+.sidebar-open .main { padding-left: var(--side-w); }
 
 .error {
   max-width: var(--content-width);
@@ -137,6 +141,7 @@ body {
   color: var(--ui-muted);
 }
 .empty-hint { margin: 0; font-size: 0.8rem; color: var(--ui-faint); }
+.empty-actions { display: flex; gap: 0.5rem; }
 kbd {
   font: inherit;
   padding: 0.1em 0.4em;
@@ -249,6 +254,32 @@ kbd {
   transition: transform 180ms var(--ease-out);
 }
 
+/* Files sidebar: same slide and push as the settings sheet, from the left */
+
+.side {
+  position: fixed;
+  top: var(--bar-h);
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: var(--side-w);
+  overflow-y: auto;
+  background: var(--color-bg);
+  border-right: 1px solid var(--ui-hairline);
+  font-family: var(--ui-font);
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.4;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 180ms var(--ease-out), visibility 0s linear 180ms;
+}
+.sidebar-open .side {
+  transform: none;
+  visibility: visible;
+  transition: transform 180ms var(--ease-out);
+}
+
 .settings fieldset {
   margin: 0 0 1.25rem;
   padding: 0;
@@ -313,7 +344,9 @@ kbd {
   font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.3;
+  transition: left 180ms var(--ease-out);
 }
+.sidebar-open .outline { left: calc(var(--side-w) + 0.75rem); }
 .outline ol {
   list-style: none;
   margin: 0;

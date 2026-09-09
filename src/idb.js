@@ -14,15 +14,21 @@ function run(mode, op) {
   return open().then(
     db =>
       new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, mode)
-        const req = op(tx.objectStore(STORE))
-        tx.oncomplete = () => {
+        let req
+        try {
+          const tx = db.transaction(STORE, mode)
+          req = op(tx.objectStore(STORE))
+          tx.oncomplete = () => {
+            db.close()
+            resolve(req.result)
+          }
+          tx.onerror = () => {
+            db.close()
+            reject(tx.error)
+          }
+        } catch (err) {
           db.close()
-          resolve(req.result)
-        }
-        tx.onerror = () => {
-          db.close()
-          reject(tx.error)
+          reject(err)
         }
       }),
   )
