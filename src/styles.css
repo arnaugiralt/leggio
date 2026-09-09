@@ -1,0 +1,15 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+}
+.empty {
+  padding: 3rem;
+  text-align: center;
+  opacity: 0.6;
+}

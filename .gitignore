@@ -1,0 +1,23 @@
+# AI assistant working files
+.ai/
+CLAUDE.local.md
+.claude/settings.local.json
+
+# dependencies and build output
+node_modules/
+dist/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# env
+.env
+.env.*
