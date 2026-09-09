@@ -59,7 +59,7 @@ export function App() {
       </header>
       {showSettings && (
         <aside class="settings-panel">
-          <Settings settings={settings} onChange={setSettings} onReset={() => setSettings({ ...DEFAULTS })} />
+          <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} onReset={() => setSettings({ ...DEFAULTS })} />
         </aside>
       )}
       {error && <p class="error">{error}</p>}

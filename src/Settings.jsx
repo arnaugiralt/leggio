@@ -18,9 +18,9 @@ export function Settings({ settings, onChange, onReset }) {
     if (type === 'number') {
       const value = input.valueAsNumber
       if (Number.isNaN(value)) return
-      onChange({ ...settings, [key]: value })
+      onChange({ [key]: value })
     } else {
-      onChange({ ...settings, [key]: input.value })
+      onChange({ [key]: input.value })
     }
   }
 
