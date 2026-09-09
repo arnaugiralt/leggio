@@ -88,6 +88,7 @@ export function App() {
       }
       const tree = await fs.listMarkdown(handle)
       setFolder({ handle, name: handle.name, tree })
+      setUi(u => ({ ...u, sidebarOpen: true })) // show the result; otherwise opening a folder looks like nothing happened
       setRestorable(null)
       setError('')
       idb.set('last', { folder: handle, filePath: null })
