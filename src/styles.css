@@ -22,6 +22,9 @@ body {
   font-size: var(--font-size);
   font-weight: var(--font-weight);
   line-height: var(--line-height);
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-optical-sizing: auto;
 }
 
 .bar {
@@ -55,11 +58,14 @@ body {
   max-width: var(--content-width);
   margin: 0 auto;
   padding: 2rem 1rem 6rem;
+  overflow-wrap: anywhere;
 }
 .prose h1, .prose h2, .prose h3, .prose h4 { line-height: 1.25; margin: 1.5em 0 0.5em; }
 .prose h1 { font-size: 2em; }
 .prose h2 { font-size: 1.5em; }
 .prose h3 { font-size: 1.25em; }
+.prose p, .prose li { text-wrap: pretty; }
+.prose h1, .prose h2, .prose h3, .prose h4 { text-wrap: balance; }
 .prose a { color: var(--color-accent); }
 .prose img { max-width: 100%; }
 .prose blockquote {
@@ -79,6 +85,7 @@ body {
   background: var(--color-code-bg);
   padding: 0.1em 0.3em;
   border-radius: 3px;
+  font-variant-ligatures: none;
 }
 .prose pre {
   background: var(--color-code-bg);
