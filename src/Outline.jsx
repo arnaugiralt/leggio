@@ -24,6 +24,11 @@ export function Outline({ articleRef, text }) {
         if (node.getBoundingClientRect().top <= TOP_OFFSET) current = node.id
         else break
       }
+      // Short trailing content can leave the last heading below TOP_OFFSET even at
+      // max scroll. Snap to it once there is no more page left to scroll.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        current = nodes[nodes.length - 1].id
+      }
       setActive(current)
     }
     const onScroll = () => {
