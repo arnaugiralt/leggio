@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULTS, STORAGE_KEY, load, save, applyToRoot, fontFamilies, withSwap } from '../src/settings.js'
+import { DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, load, save, applyToRoot, fontFamilies, withSwap } from '../src/settings.js'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -12,7 +12,7 @@ function fakeStorage(initial = {}) {
 
 function fakeRoot() {
   const vars = {}
-  return { vars, style: { setProperty: (k, v) => { vars[k] = v } } }
+  return { vars, style: { setProperty: (k, v) => { vars[k] = v }, removeProperty: k => { delete vars[k] } } }
 }
 
 test('load returns defaults when storage is empty', () => {
@@ -94,7 +94,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   assert.equal(root.vars['--color-fg'], DEFAULTS.fg)
   assert.equal(root.vars['--color-accent'], DEFAULTS.accent)
   assert.equal(root.vars['--color-code-bg'], DEFAULTS.codeBg)
-  assert.equal(Object.keys(root.vars).length, 11)
+  assert.equal(Object.keys(root.vars).length, 14)
 })
 
 test('applyToRoot derives font families from the url', () => {
@@ -102,4 +102,34 @@ test('applyToRoot derives font families from the url', () => {
   applyToRoot({ ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora&family=Fira+Code' }, root)
   assert.equal(root.vars['--font-family'], "'Lora', ui-serif, Georgia, serif")
   assert.equal(root.vars['--code-font-family'], "'Fira Code', ui-monospace, monospace")
+})
+
+test('applyToRoot points diagram colors at the page palette by default', () => {
+  const root = fakeRoot()
+  applyToRoot(DEFAULTS, root)
+  assert.equal(DEFAULTS.diagramTheme, 'page')
+  assert.equal(root.vars['--diagram-bg'], 'var(--color-bg)')
+  assert.equal(root.vars['--diagram-fg'], 'var(--color-fg)')
+  assert.equal(root.vars['--diagram-accent'], 'var(--color-accent)')
+  assert.equal('--diagram-line' in root.vars, false)
+  assert.equal('--diagram-muted' in root.vars, false)
+})
+
+test('applyToRoot applies a named diagram theme and clears it again', () => {
+  const root = fakeRoot()
+  applyToRoot({ ...DEFAULTS, diagramTheme: 'dracula' }, root)
+  assert.equal(root.vars['--diagram-bg'], '#282a36')
+  assert.equal(root.vars['--diagram-fg'], '#f8f8f2')
+  assert.equal(root.vars['--diagram-line'], '#6272a4')
+  assert.equal(root.vars['--diagram-accent'], '#bd93f9')
+  assert.equal(root.vars['--diagram-muted'], '#6272a4')
+  applyToRoot({ ...DEFAULTS, diagramTheme: 'page' }, root)
+  assert.equal(root.vars['--diagram-bg'], 'var(--color-bg)')
+  assert.equal('--diagram-line' in root.vars, false)
+})
+
+test('DIAGRAM_THEMES starts with page and lists the built-in themes', () => {
+  assert.equal(DIAGRAM_THEMES[0], 'page')
+  assert.ok(DIAGRAM_THEMES.includes('github-light'))
+  assert.equal(DIAGRAM_THEMES.length, 16)
 })

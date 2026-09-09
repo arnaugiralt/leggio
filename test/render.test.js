@@ -44,7 +44,8 @@ test('leaves unknown languages as escaped plain code', () => {
 
 test('renders supported mermaid as inline svg', () => {
   assert.match(out, /<figure class="diagram"><svg /)
-  assert.match(out, /--bg:var\(--color-bg\)/)
+  assert.match(out, /--bg:var\(--diagram-bg\)/)
+  assert.match(out, /--line:var\(--diagram-line\)/)
   assert.doesNotMatch(out, /--bg:var\(--bg\)/)
   assert.doesNotMatch(out, /fonts\.googleapis/)
   assert.match(out, /text \{ font-family: system-ui, sans-serif; \}/)

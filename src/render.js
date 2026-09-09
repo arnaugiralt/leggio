@@ -18,10 +18,13 @@ for (const [name, definition] of Object.entries(languages)) hljs.registerLanguag
 
 // Names must not collide with the --bg/--fg/--accent that beautiful-mermaid sets on its own <svg>,
 // or the SVG ends up with `--bg: var(--bg)` and every derived color goes invalid.
+// The --diagram-* variables are set on the root by settings.js: the page palette or a named theme.
 const diagramColors = {
-  bg: 'var(--color-bg)',
-  fg: 'var(--color-fg)',
-  accent: 'var(--color-accent)',
+  bg: 'var(--diagram-bg)',
+  fg: 'var(--diagram-fg)',
+  line: 'var(--diagram-line)',
+  accent: 'var(--diagram-accent)',
+  muted: 'var(--diagram-muted)',
 }
 
 // beautiful-mermaid hardcodes Google Fonts imports (Inter, and JetBrains Mono for class/ER diagrams) into every SVG.

@@ -1,4 +1,9 @@
+import { THEMES } from 'beautiful-mermaid'
+
 export const STORAGE_KEY = 'md-reader.settings'
+
+// 'page' means diagrams follow the page palette; any other entry is a beautiful-mermaid built-in theme.
+export const DIAGRAM_THEMES = ['page', ...Object.keys(THEMES)]
 
 export const DEFAULTS = {
   fontUrl: '',
@@ -11,6 +16,7 @@ export const DEFAULTS = {
   fg: '#1a1a1a',
   accent: '#2563eb',
   codeBg: '#f5f5f5',
+  diagramTheme: 'page',
 }
 
 // setting key -> [css variable, unit]. fontUrl is handled by fontFamilies and applyFontUrl.
@@ -67,6 +73,18 @@ export function applyToRoot(settings, root = document.documentElement) {
   const fonts = fontFamilies(settings.fontUrl)
   root.style.setProperty('--font-family', fonts.body)
   root.style.setProperty('--code-font-family', fonts.code)
+  applyDiagramTheme(settings.diagramTheme, root)
+}
+
+const PAGE_DIAGRAM_COLORS = { bg: 'var(--color-bg)', fg: 'var(--color-fg)', accent: 'var(--color-accent)' }
+
+// Unset keys are removed so beautiful-mermaid falls back to colors derived from bg and fg.
+function applyDiagramTheme(name, root) {
+  const colors = THEMES[name] ?? PAGE_DIAGRAM_COLORS
+  for (const key of ['bg', 'fg', 'line', 'accent', 'muted']) {
+    if (colors[key]) root.style.setProperty(`--diagram-${key}`, colors[key])
+    else root.style.removeProperty(`--diagram-${key}`)
+  }
 }
 
 export function applyFontUrl(url, doc = document) {

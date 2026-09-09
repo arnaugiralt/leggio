@@ -136,7 +136,7 @@ body {
   gap: 0.25rem;
   margin-bottom: 0.9rem;
 }
-.settings input {
+.settings input, .settings select {
   width: 100%;
   padding: 0.3rem 0.4rem;
   border: 1px solid color-mix(in oklab, var(--color-fg) 25%, var(--color-bg));

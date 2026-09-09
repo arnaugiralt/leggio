@@ -1,3 +1,5 @@
+import { DIAGRAM_THEMES } from './settings.js'
+
 // [key, label, input type, step, min, max]
 const FIELDS = [
   ['fontUrl', 'Google Fonts URL (first family is text, second is code)', 'url'],
@@ -10,6 +12,7 @@ const FIELDS = [
   ['fg', 'Text', 'color'],
   ['accent', 'Accent', 'color'],
   ['codeBg', 'Code background', 'color'],
+  ['diagramTheme', 'Diagram theme', 'select'],
 ]
 
 export function Settings({ settings, onChange, onReset }) {
@@ -28,7 +31,15 @@ export function Settings({ settings, onChange, onReset }) {
       {FIELDS.map(([key, label, type, step, min, max]) => (
         <label key={key}>
           <span>{label}</span>
-          <input type={type} step={step} min={min} max={max} value={settings[key]} onInput={e => update(key, type, e.currentTarget)} />
+          {type === 'select' ? (
+            <select value={settings[key]} onChange={e => update(key, type, e.currentTarget)}>
+              {DIAGRAM_THEMES.map(name => (
+                <option key={name} value={name}>{name === 'page' ? 'Follow page colors' : name}</option>
+              ))}
+            </select>
+          ) : (
+            <input type={type} step={step} min={min} max={max} value={settings[key]} onInput={e => update(key, type, e.currentTarget)} />
+          )}
         </label>
       ))}
       <button type="button" onClick={onReset}>Reset to defaults</button>
