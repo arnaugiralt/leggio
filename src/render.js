@@ -22,7 +22,6 @@ const diagramColors = {
   bg: 'var(--color-bg)',
   fg: 'var(--color-fg)',
   accent: 'var(--color-accent)',
-  surface: 'var(--color-code-bg)',
 }
 
 // beautiful-mermaid hardcodes Google Fonts imports (Inter, and JetBrains Mono for class/ER diagrams) into every SVG.
