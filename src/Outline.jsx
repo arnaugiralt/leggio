@@ -26,7 +26,8 @@ export function Outline({ articleRef, text }) {
       }
       // Short trailing content can leave the last heading below TOP_OFFSET even at
       // max scroll. Snap to it once there is no more page left to scroll.
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+      const canScroll = document.documentElement.scrollHeight > window.innerHeight + 2
+      if (canScroll && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
         current = nodes[nodes.length - 1].id
       }
       setActive(current)

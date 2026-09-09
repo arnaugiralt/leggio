@@ -333,18 +333,22 @@ kbd {
   text-decoration: none;
   border-radius: 4px;
 }
+/* Same box for every tick; the visible line length encodes the heading level. */
 .outline .tick {
   flex-shrink: 0;
-  height: 2px;
   width: 1.25rem;
-  border-radius: 1px;
-  background: var(--ui-faint);
-  transition: background-color 150ms ease;
+  height: 2px;
+  color: var(--ui-faint);
+  background: linear-gradient(currentColor, currentColor) 0 0 / var(--tick-w, 100%) 100% no-repeat;
+  transition: color 150ms ease;
 }
-.outline .level-2 .tick { width: 0.9rem; }
-.outline .level-3 .tick { width: 0.6rem; }
-.outline .level-4 .tick { width: 0.4rem; }
-.outline .active .tick { background: var(--color-accent); }
+.outline .level-2 { --tick-w: 70%; }
+.outline .level-3 { --tick-w: 45%; }
+.outline .level-4 { --tick-w: 30%; }
+.outline .active .tick { color: var(--color-accent); }
+.outline .level-2 .title { padding-left: 0.5rem; }
+.outline .level-3 .title { padding-left: 1rem; }
+.outline .level-4 .title { padding-left: 1.5rem; }
 .outline .active a { color: var(--color-fg); }
 .outline .title {
   max-width: 16rem;
@@ -362,5 +366,5 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .quiet, .main, .sheet, .app::after, .outline ol, .outline .tick, .outline .title { transition: none; }
+  *, ::before, ::after { transition: none !important; }
 }
