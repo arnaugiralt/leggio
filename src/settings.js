@@ -3,6 +3,7 @@ export const STORAGE_KEY = 'md-reader.settings'
 export const DEFAULTS = {
   fontUrl: '',
   fontSize: 17,
+  fontWeight: 400,
   lineHeight: 1.6,
   contentWidth: 720,
   codeFontSize: 14,
@@ -15,6 +16,7 @@ export const DEFAULTS = {
 // setting key -> [css variable, unit]. fontUrl is handled by fontFamilies and applyFontUrl.
 const CSS_VARS = {
   fontSize: ['--font-size', 'px'],
+  fontWeight: ['--font-weight'],
   lineHeight: ['--line-height'],
   contentWidth: ['--content-width', 'px'],
   codeFontSize: ['--code-font-size', 'px'],

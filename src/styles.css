@@ -1,6 +1,7 @@
 :root {
   --font-family: system-ui, sans-serif;
   --font-size: 17px;
+  --font-weight: 400;
   --line-height: 1.6;
   --content-width: 720px;
   --code-font-family: ui-monospace, monospace;
@@ -19,6 +20,7 @@ body {
   color: var(--color-fg);
   font-family: var(--font-family);
   font-size: var(--font-size);
+  font-weight: var(--font-weight);
   line-height: var(--line-height);
 }
 
