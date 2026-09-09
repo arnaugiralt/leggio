@@ -140,6 +140,7 @@ export function App() {
           })
         } catch {
           setError(`${handle.name} was deleted or moved.`)
+          stopFileWatch.current() // nothing left to watch
         }
       })
       return true

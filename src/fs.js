@@ -111,6 +111,7 @@ export function resolvePath(dirPath, relative) {
   return out.length ? out : null
 }
 
+// A decoded segment may contain '/' (from %2F); getDirectoryHandle and getFileHandle reject such names, so it fails closed.
 export async function getFileByPath(root, segments) {
   let dir = root
   for (const seg of segments.slice(0, -1)) dir = await dir.getDirectoryHandle(seg)
