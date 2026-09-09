@@ -5,18 +5,18 @@
   --content-width: 720px;
   --code-font-family: ui-monospace, monospace;
   --code-font-size: 14px;
-  --bg: #ffffff;
-  --fg: #1a1a1a;
-  --accent: #2563eb;
-  --code-bg: #f5f5f5;
+  --color-bg: #ffffff;
+  --color-fg: #1a1a1a;
+  --color-accent: #2563eb;
+  --color-code-bg: #f5f5f5;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--color-bg);
+  color: var(--color-fg);
   font-family: var(--font-family);
   font-size: var(--font-size);
   line-height: var(--line-height);
@@ -28,13 +28,13 @@ body {
   gap: 1rem;
   padding: 0.5rem 1rem;
   font-size: 0.85rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--fg) 12%, var(--bg));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 12%, var(--color-bg));
 }
 .bar .name { opacity: 0.6; }
 .bar button, .bar .open {
   cursor: pointer;
   padding: 0.25rem 0.75rem;
-  border: 1px solid color-mix(in oklab, var(--fg) 25%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--color-fg) 25%, var(--color-bg));
   border-radius: 4px;
   background: transparent;
   color: inherit;
@@ -58,28 +58,28 @@ body {
 .prose h1 { font-size: 2em; }
 .prose h2 { font-size: 1.5em; }
 .prose h3 { font-size: 1.25em; }
-.prose a { color: var(--accent); }
+.prose a { color: var(--color-accent); }
 .prose img { max-width: 100%; }
 .prose blockquote {
   margin: 1em 0;
   padding: 0 1em;
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--color-accent);
   opacity: 0.85;
 }
 .prose table { border-collapse: collapse; margin: 1em 0; display: block; overflow-x: auto; }
-.prose th, .prose td { padding: 0.4em 0.8em; border: 1px solid color-mix(in oklab, var(--fg) 20%, var(--bg)); }
-.prose th { background: var(--code-bg); }
-.prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--fg) 20%, var(--bg)); margin: 2em 0; }
+.prose th, .prose td { padding: 0.4em 0.8em; border: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); }
+.prose th { background: var(--color-code-bg); }
+.prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
 
 .prose code {
   font-family: var(--code-font-family);
   font-size: var(--code-font-size);
-  background: var(--code-bg);
+  background: var(--color-code-bg);
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
 .prose pre {
-  background: var(--code-bg);
+  background: var(--color-code-bg);
   padding: 1em;
   border-radius: 6px;
   overflow-x: auto;
@@ -99,10 +99,10 @@ body {
 }
 
 /* highlight.js tokens derived from the palette, no theme file */
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--accent); }
-.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: color-mix(in oklab, var(--accent) 60%, var(--fg)); }
-.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-regexp { color: color-mix(in oklab, var(--accent) 35%, var(--fg)); }
-.hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--fg) 55%, var(--bg)); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--color-accent); }
+.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: color-mix(in oklab, var(--color-accent) 60%, var(--color-fg)); }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-regexp { color: color-mix(in oklab, var(--color-accent) 35%, var(--color-fg)); }
+.hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--color-fg) 55%, var(--color-bg)); font-style: italic; }
 .hljs-title, .hljs-section, .hljs-name { font-weight: 600; }
 .hljs-deletion { text-decoration: line-through; }
 
@@ -116,8 +116,8 @@ body {
   width: 300px;
   padding: 1rem;
   overflow-y: auto;
-  background: var(--bg);
-  border-left: 1px solid color-mix(in oklab, var(--fg) 12%, var(--bg));
+  background: var(--color-bg);
+  border-left: 1px solid color-mix(in oklab, var(--color-fg) 12%, var(--color-bg));
   font-size: 0.85rem;
 }
 .settings label {
@@ -128,9 +128,9 @@ body {
 .settings input {
   width: 100%;
   padding: 0.3rem 0.4rem;
-  border: 1px solid color-mix(in oklab, var(--fg) 25%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--color-fg) 25%, var(--color-bg));
   border-radius: 4px;
-  background: var(--code-bg);
+  background: var(--color-code-bg);
   color: inherit;
   font: inherit;
 }
@@ -139,7 +139,7 @@ body {
   cursor: pointer;
   width: 100%;
   padding: 0.4rem;
-  border: 1px solid color-mix(in oklab, var(--fg) 25%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--color-fg) 25%, var(--color-bg));
   border-radius: 4px;
   background: transparent;
   color: inherit;

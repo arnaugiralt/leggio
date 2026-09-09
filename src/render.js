@@ -16,12 +16,23 @@ import { renderMermaidSVG } from 'beautiful-mermaid'
 const languages = { javascript, typescript, json, bash, python, yaml, xml, css, markdown }
 for (const [name, definition] of Object.entries(languages)) hljs.registerLanguage(name, definition)
 
-// CSS variable references, not hex: the SVG recolors live when the palette changes.
+// Names must not collide with the --bg/--fg/--accent that beautiful-mermaid sets on its own <svg>,
+// or the SVG ends up with `--bg: var(--bg)` and every derived color goes invalid.
 const diagramColors = {
-  bg: 'var(--bg)',
-  fg: 'var(--fg)',
-  accent: 'var(--accent)',
-  surface: 'var(--code-bg)',
+  bg: 'var(--color-bg)',
+  fg: 'var(--color-fg)',
+  accent: 'var(--color-accent)',
+  surface: 'var(--color-code-bg)',
+}
+
+// beautiful-mermaid hardcodes a Google Fonts import for Inter into every SVG. Diagrams use the system font.
+const FONT_IMPORT = /@import url\('https:\/\/fonts\.googleapis\.com[^']*'\);\s*/
+const FONT_RULE = /text \{ font-family: [^}]+\}/
+
+function diagram(code) {
+  return renderMermaidSVG(code, diagramColors)
+    .replace(FONT_IMPORT, '')
+    .replace(FONT_RULE, 'text { font-family: system-ui, sans-serif; }')
 }
 
 const md = new MarkdownIt({
@@ -39,7 +50,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
   if (token.info.trim() !== 'mermaid') return defaultFence(tokens, idx, options, env, self)
   try {
-    return `<figure class="diagram">${renderMermaidSVG(token.content, diagramColors)}</figure>\n`
+    return `<figure class="diagram">${diagram(token.content)}</figure>\n`
   } catch (err) {
     const code = md.utils.escapeHtml(token.content)
     const message = md.utils.escapeHtml(err.message)

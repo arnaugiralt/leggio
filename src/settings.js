@@ -22,10 +22,10 @@ const CSS_VARS = {
   contentWidth: ['--content-width', 'px'],
   codeFontFamily: ['--code-font-family'],
   codeFontSize: ['--code-font-size', 'px'],
-  bg: ['--bg'],
-  fg: ['--fg'],
-  accent: ['--accent'],
-  codeBg: ['--code-bg'],
+  bg: ['--color-bg'],
+  fg: ['--color-fg'],
+  accent: ['--color-accent'],
+  codeBg: ['--color-code-bg'],
 }
 
 export function load(storage = globalThis.localStorage) {
