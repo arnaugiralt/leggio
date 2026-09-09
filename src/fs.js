@@ -1,0 +1,117 @@
+// The only module that touches the File System Access API. A Tauri backend would replace this file.
+
+export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window
+
+const MARKDOWN = /\.(md|markdown|txt)$/i
+export const isMarkdownName = name => MARKDOWN.test(name)
+
+// Relative means: no fragment, not root-relative, not protocol-relative, no scheme.
+export const isRelative = url => !/^(#|\/|[a-z][a-z0-9+.-]*:)/i.test(url)
+
+export async function pickDirectory() {
+  try {
+    return await window.showDirectoryPicker({ mode: 'read' })
+  } catch (err) {
+    if (err.name === 'AbortError') return null
+    throw err
+  }
+}
+
+export async function pickFile() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown'], 'text/plain': ['.txt'] } }],
+    })
+    return handle
+  } catch (err) {
+    if (err.name === 'AbortError') return null
+    throw err
+  }
+}
+
+// Must be called synchronously inside the drop handler; dataTransfer items are gone after the event.
+export function handleFromDrop(dataTransfer) {
+  const item = dataTransfer.items?.[0]
+  return item?.getAsFileSystemHandle ? item.getAsFileSystemHandle() : Promise.resolve(null)
+}
+
+// Call from a user gesture whenever a prompt is possible.
+export async function ensurePermission(handle) {
+  if (!handle.queryPermission) return true
+  const opts = { mode: 'read' }
+  if ((await handle.queryPermission(opts)) === 'granted') return true
+  return (await handle.requestPermission(opts)) === 'granted'
+}
+
+const byName = (a, b) => a.name.localeCompare(b.name)
+
+// Markdown files only; hidden folders and node_modules skipped; folders without markdown pruned; folders first.
+export async function listMarkdown(dir) {
+  const files = []
+  const dirs = []
+  for await (const [name, handle] of dir.entries()) {
+    if (name.startsWith('.') || name === 'node_modules') continue
+    if (handle.kind === 'directory') {
+      const child = await listMarkdown(handle)
+      if (child.children.length) dirs.push(child)
+    } else if (MARKDOWN.test(name)) {
+      files.push({ name, kind: 'file', handle })
+    }
+  }
+  return { name: dir.name, kind: 'directory', handle: dir, children: [...dirs.sort(byName), ...files.sort(byName)] }
+}
+
+export const readText = async handle => (await handle.getFile()).text()
+
+// FileSystemObserver where present. Fallback polls lastModified once a second for files only;
+// folders without the observer are relisted on window focus by the caller.
+export function watch(handle, onChange) {
+  if (typeof FileSystemObserver === 'function') {
+    const observer = new FileSystemObserver(() => onChange())
+    observer.observe(handle, { recursive: handle.kind === 'directory' }).catch(() => {})
+    return () => observer.disconnect()
+  }
+  if (handle.kind !== 'file') return () => {}
+  let last = null
+  const tick = async () => {
+    if (document.visibilityState !== 'visible') return
+    try {
+      const { lastModified } = await handle.getFile()
+      if (last !== null && lastModified !== last) onChange()
+      last = lastModified
+    } catch {}
+  }
+  tick()
+  const id = setInterval(tick, 1000)
+  return () => clearInterval(id)
+}
+
+function decode(segment) {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
+// dirPath: the current file's directory as segments from the folder root. Returns null when the path escapes the root or is empty.
+export function resolvePath(dirPath, relative) {
+  const out = [...dirPath]
+  for (const raw of relative.split('/')) {
+    const seg = decode(raw)
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') {
+      if (!out.length) return null
+      out.pop()
+      continue
+    }
+    out.push(seg)
+  }
+  return out.length ? out : null
+}
+
+export async function getFileByPath(root, segments) {
+  let dir = root
+  for (const seg of segments.slice(0, -1)) dir = await dir.getDirectoryHandle(seg)
+  return dir.getFileHandle(segments[segments.length - 1])
+}
