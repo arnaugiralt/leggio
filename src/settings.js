@@ -35,9 +35,10 @@ export function fontFamilies(url) {
   try {
     names = new URL(url).searchParams.getAll('family').map(f => f.split(':')[0].trim()).filter(Boolean)
   } catch {}
+  const quote = name => `'${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
   return {
-    body: names[0] ? `'${names[0]}', ${SYSTEM_BODY}` : SYSTEM_BODY,
-    code: names[1] ? `'${names[1]}', ${SYSTEM_CODE}` : SYSTEM_CODE,
+    body: names[0] ? `${quote(names[0])}, ${SYSTEM_BODY}` : SYSTEM_BODY,
+    code: names[1] ? `${quote(names[1])}, ${SYSTEM_CODE}` : SYSTEM_CODE,
   }
 }
 
@@ -49,7 +50,8 @@ export function withSwap(url) {
 export function load(storage = globalThis.localStorage) {
   let stored = {}
   try {
-    stored = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}')
+    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}')
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) stored = parsed
   } catch {}
   return Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, stored[key] ?? DEFAULTS[key]]))
 }

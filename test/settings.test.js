@@ -32,6 +32,12 @@ test('load ignores corrupt json', () => {
   assert.deepEqual(load(storage), DEFAULTS)
 })
 
+test('load treats non-object stored json as empty', () => {
+  assert.deepEqual(load(fakeStorage({ [STORAGE_KEY]: 'null' })), DEFAULTS)
+  assert.deepEqual(load(fakeStorage({ [STORAGE_KEY]: '[1,2]' })), DEFAULTS)
+  assert.deepEqual(load(fakeStorage({ [STORAGE_KEY]: '"text"' })), DEFAULTS)
+})
+
 test('save round-trips through load', () => {
   const storage = fakeStorage()
   const s = { ...DEFAULTS, lineHeight: 1.8, fontUrl: 'https://fonts.googleapis.com/css2?family=Inter&display=swap' }
@@ -62,6 +68,10 @@ test('fontFamilies falls back to system fonts', () => {
     body: "'Lora', system-ui, sans-serif",
     code: 'ui-monospace, monospace',
   })
+})
+
+test('fontFamilies escapes quotes in family names', () => {
+  assert.equal(fontFamilies("https://fonts.googleapis.com/css2?family=O'Neil").body, "'O\\'Neil', system-ui, sans-serif")
 })
 
 test('withSwap appends display=swap once', () => {

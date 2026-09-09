@@ -25,14 +25,17 @@ const diagramColors = {
   surface: 'var(--color-code-bg)',
 }
 
-// beautiful-mermaid hardcodes a Google Fonts import for Inter into every SVG. Diagrams use the system font.
-const FONT_IMPORT = /@import url\('https:\/\/fonts\.googleapis\.com[^']*'\);\s*/
-const FONT_RULE = /text \{ font-family: [^}]+\}/
+// beautiful-mermaid hardcodes Google Fonts imports (Inter, and JetBrains Mono for class/ER diagrams) into every SVG.
+// Diagrams use system fonts, so strip all imports and point both font rules at system families.
+const FONT_IMPORTS = /@import url\('https:\/\/fonts\.googleapis\.com[^']*'\);\s*/g
+const TEXT_FONT_RULE = /text \{ font-family: [^}]+\}/g
+const MONO_FONT_RULE = /\.mono \{ font-family: [^}]+\}/g
 
 function diagram(code) {
   return renderMermaidSVG(code, diagramColors)
-    .replace(FONT_IMPORT, '')
-    .replace(FONT_RULE, 'text { font-family: system-ui, sans-serif; }')
+    .replace(FONT_IMPORTS, '')
+    .replace(TEXT_FONT_RULE, 'text { font-family: system-ui, sans-serif; }')
+    .replace(MONO_FONT_RULE, '.mono { font-family: ui-monospace, monospace; }')
 }
 
 const md = new MarkdownIt({

@@ -64,3 +64,11 @@ test('escapes raw html', () => {
 test('linkifies bare urls', () => {
   assert.match(out, /<a href="https:\/\/example.com">https:\/\/example.com<\/a>/)
 })
+
+test('class diagrams carry no font imports or web font names', () => {
+  const svg = render('```mermaid\nclassDiagram\n  class A {\n    +int x\n  }\n  A <|-- B\n```')
+  assert.match(svg, /<figure class="diagram"><svg /)
+  assert.doesNotMatch(svg, /fonts\.googleapis|Inter|JetBrains/)
+  assert.match(svg, /text \{ font-family: system-ui, sans-serif; \}/)
+  assert.match(svg, /\.mono \{ font-family: ui-monospace, monospace; \}/)
+})
