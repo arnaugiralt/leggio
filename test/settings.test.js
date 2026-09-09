@@ -55,23 +55,23 @@ test('load drops keys that are no longer settings', () => {
 test('fontFamilies reads body and code families from a Google Fonts url', () => {
   const url = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=JetBrains+Mono&display=swap'
   assert.deepEqual(fontFamilies(url), {
-    body: "'Inter', system-ui, sans-serif",
+    body: "'Inter', ui-serif, Georgia, serif",
     code: "'JetBrains Mono', ui-monospace, monospace",
   })
 })
 
 test('fontFamilies falls back to system fonts', () => {
-  const fallback = { body: 'system-ui, sans-serif', code: 'ui-monospace, monospace' }
+  const fallback = { body: 'ui-serif, Georgia, serif', code: 'ui-monospace, monospace' }
   assert.deepEqual(fontFamilies(''), fallback)
   assert.deepEqual(fontFamilies('not a url'), fallback)
   assert.deepEqual(fontFamilies('https://fonts.googleapis.com/css2?family=Lora'), {
-    body: "'Lora', system-ui, sans-serif",
+    body: "'Lora', ui-serif, Georgia, serif",
     code: 'ui-monospace, monospace',
   })
 })
 
 test('fontFamilies escapes quotes in family names', () => {
-  assert.equal(fontFamilies("https://fonts.googleapis.com/css2?family=O'Neil").body, "'O\\'Neil', system-ui, sans-serif")
+  assert.equal(fontFamilies("https://fonts.googleapis.com/css2?family=O'Neil").body, "'O\\'Neil', ui-serif, Georgia, serif")
 })
 
 test('withSwap appends display=swap once', () => {
@@ -88,7 +88,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   assert.equal(root.vars['--code-font-size'], '13px')
   assert.equal(root.vars['--line-height'], '1.7')
   assert.equal(root.vars['--font-weight'], '400')
-  assert.equal(root.vars['--font-family'], 'system-ui, sans-serif')
+  assert.equal(root.vars['--font-family'], 'ui-serif, Georgia, serif')
   assert.equal(root.vars['--code-font-family'], 'ui-monospace, monospace')
   assert.equal(root.vars['--color-bg'], DEFAULTS.bg)
   assert.equal(root.vars['--color-fg'], DEFAULTS.fg)
@@ -100,6 +100,6 @@ test('applyToRoot writes every setting as a css variable with units', () => {
 test('applyToRoot derives font families from the url', () => {
   const root = fakeRoot()
   applyToRoot({ ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora&family=Fira+Code' }, root)
-  assert.equal(root.vars['--font-family'], "'Lora', system-ui, sans-serif")
+  assert.equal(root.vars['--font-family'], "'Lora', ui-serif, Georgia, serif")
   assert.equal(root.vars['--code-font-family'], "'Fira Code', ui-monospace, monospace")
 })

@@ -26,7 +26,7 @@ const CSS_VARS = {
   codeBg: ['--color-code-bg'],
 }
 
-const SYSTEM_BODY = 'system-ui, sans-serif'
+const SYSTEM_BODY = 'ui-serif, Georgia, serif'
 const SYSTEM_CODE = 'ui-monospace, monospace'
 
 // First `family` param is the body font, second is the code font. Anything else falls back to system fonts.
