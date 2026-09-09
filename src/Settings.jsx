@@ -18,7 +18,10 @@ const GROUPS = [
   },
   {
     title: 'Layout',
-    fields: [{ key: 'contentWidth', label: 'Text width', type: 'number', step: 10, min: 400, max: 1400 }],
+    fields: [
+      { key: 'contentWidth', label: 'Text width', type: 'number', step: 10, min: 400, max: 1400 },
+      { key: 'tableWidth', label: 'Table width', type: 'number', step: 50, min: 400, max: 2400, hint: 'Tables may grow past the text column up to this width.' },
+    ],
   },
   {
     title: 'Code',

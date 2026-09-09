@@ -81,3 +81,9 @@ test('headings get stable, unique ids', () => {
   assert.match(html, /<h3 id="café-crème">/)
   assert.match(html, /<h4 id="code-title">/)
 })
+
+test('tables are wrapped so they can break out of the text column', () => {
+  const html = render('| a | b |\n|---|---|\n| 1 | 2 |')
+  assert.match(html, /<div class="table-wrap"><table>/)
+  assert.match(html, /<\/table>\n<\/div>/)
+})

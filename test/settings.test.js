@@ -85,6 +85,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   applyToRoot({ ...DEFAULTS, fontSize: 18, contentWidth: 800, codeFontSize: 13, lineHeight: 1.7 }, root)
   assert.equal(root.vars['--font-size'], '18px')
   assert.equal(root.vars['--content-width'], '800px')
+  assert.equal(root.vars['--table-width'], '1200px')
   assert.equal(root.vars['--code-font-size'], '13px')
   assert.equal(root.vars['--line-height'], '1.7')
   assert.equal(root.vars['--font-weight'], '400')
@@ -94,7 +95,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   assert.equal(root.vars['--color-fg'], DEFAULTS.fg)
   assert.equal(root.vars['--color-accent'], DEFAULTS.accent)
   assert.equal(root.vars['--color-code-bg'], DEFAULTS.codeBg)
-  assert.equal(Object.keys(root.vars).length, 14)
+  assert.equal(Object.keys(root.vars).length, 15)
 })
 
 test('applyToRoot derives font families from the url', () => {

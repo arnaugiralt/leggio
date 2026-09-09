@@ -81,6 +81,10 @@ md.core.ruler.push('heading_ids', state => {
   }
 })
 
+// Tables get a wrapper so they can be wider than the text column and scroll when wider than the window.
+md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
+md.renderer.rules.table_close = () => '</table>\n</div>\n'
+
 export function render(text) {
   return md.render(text)
 }

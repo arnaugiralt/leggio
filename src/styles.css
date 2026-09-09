@@ -4,6 +4,7 @@
   --font-weight: 400;
   --line-height: 1.6;
   --content-width: 720px;
+  --table-width: 1200px;
   --code-font-family: ui-monospace, monospace;
   --code-font-size: 14px;
   --color-bg: #ffffff;
@@ -107,6 +108,7 @@ body {
 
 .main {
   min-height: calc(100vh - var(--bar-h));
+  container-type: inline-size; /* lets tables size against the visible column, sidebar and sheet included */
   transition: padding-right 180ms var(--ease-out), padding-left 180ms var(--ease-out);
 }
 .settings-open .main { padding-right: var(--sheet-w); }
@@ -186,8 +188,24 @@ kbd {
   border-left: 3px solid var(--color-accent);
   opacity: 0.85;
 }
-.prose table { border-collapse: collapse; margin: 1em 0; display: block; overflow-x: auto; }
-.prose th, .prose td { padding: 0.4em 0.8em; border: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); }
+/* Tables break out of the text column, centered on it, up to --table-width or the visible width; wider still scrolls. */
+.prose .table-wrap {
+  position: relative;
+  left: 50%;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(var(--table-width), 100cqw - 6rem); /* 3rem gutter each side keeps the outline rail clear */
+  transform: translateX(-50%);
+  margin: 1em 0;
+  overflow-x: auto;
+}
+.prose table { border-collapse: collapse; width: 100%; }
+.prose th, .prose td {
+  padding: 0.4em 0.8em;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg));
+  vertical-align: top;
+  overflow-wrap: break-word; /* never below the longest word; `anywhere` on .prose would let columns squeeze to single characters */
+}
 .prose th { background: var(--ui-surface); }
 .prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
 
