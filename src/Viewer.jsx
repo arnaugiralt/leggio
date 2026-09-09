@@ -16,10 +16,18 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
     }
     urls.current.forEach(URL.revokeObjectURL)
     urls.current = []
+    // Setting img.src also rewrites the src attribute, so the original relative path is
+    // captured once per element and restored here before any re-resolution. Without this,
+    // reopening the same (memoized, unchanged) html without folder context would leave a
+    // stale, revoked blob: URL on the image instead of falling back to the relative path.
+    for (const img of article.querySelectorAll('img[src]')) {
+      if (img.dataset.origSrc === undefined) img.dataset.origSrc = img.getAttribute('src')
+      img.src = img.dataset.origSrc
+    }
     if (!root || !dirPath) return
     let cancelled = false
     for (const img of article.querySelectorAll('img[src]')) {
-      const src = img.getAttribute('src')
+      const src = img.dataset.origSrc
       if (!isRelative(src)) continue
       const segments = resolvePath(dirPath, src)
       if (!segments) continue
