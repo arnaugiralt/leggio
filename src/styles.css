@@ -301,6 +301,7 @@ kbd {
   display: flex;
   align-items: center;
   border-radius: 6px;
+  position: relative;
 }
 @media (hover: hover) and (pointer: fine) {
   .row:hover { background: var(--ui-hover); }
@@ -309,9 +310,12 @@ kbd {
 .row.active .row-name { color: var(--color-fg); }
 .row.active::before {
   content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
   width: 2px;
   height: 1rem;
-  margin-left: 0.25rem;
+  transform: translateY(-50%);
   border-radius: 1px;
   background: var(--color-accent);
 }
