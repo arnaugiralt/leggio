@@ -30,7 +30,7 @@ plain text
 const out = render(fixture)
 
 test('renders headings', () => {
-  assert.match(out, /<h1>Title<\/h1>/)
+  assert.match(out, /<h1 id="title">Title<\/h1>/)
 })
 
 test('highlights known languages with hljs spans', () => {
@@ -72,4 +72,12 @@ test('class diagrams carry no font imports or web font names', () => {
   assert.doesNotMatch(svg, /fonts\.googleapis|Inter|JetBrains/)
   assert.match(svg, /text \{ font-family: system-ui, sans-serif; \}/)
   assert.match(svg, /\.mono \{ font-family: ui-monospace, monospace; \}/)
+})
+
+test('headings get stable, unique ids', () => {
+  const html = render('# Hello World\n\n## Hello World\n\n### Café & crème\n\n#### `code` title')
+  assert.match(html, /<h1 id="hello-world">/)
+  assert.match(html, /<h2 id="hello-world-1">/)
+  assert.match(html, /<h3 id="café-crème">/)
+  assert.match(html, /<h4 id="code-title">/)
 })

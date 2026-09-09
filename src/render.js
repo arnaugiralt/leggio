@@ -63,6 +63,24 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   }
 }
 
+// Heading ids for the outline rail. Duplicate slugs get a numeric suffix.
+md.core.ruler.push('heading_ids', state => {
+  const seen = new Map()
+  for (let i = 0; i < state.tokens.length; i++) {
+    const token = state.tokens[i]
+    if (token.type !== 'heading_open') continue
+    const text = state.tokens[i + 1].children
+      .filter(t => t.type === 'text' || t.type === 'code_inline')
+      .map(t => t.content)
+      .join('')
+    let slug = text.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'section'
+    const count = seen.get(slug) ?? 0
+    seen.set(slug, count + 1)
+    if (count) slug = `${slug}-${count}`
+    token.attrSet('id', slug)
+  }
+})
+
 export function render(text) {
   return md.render(text)
 }
