@@ -1,11 +1,9 @@
 // [key, label, input type, step]
 const FIELDS = [
-  ['fontFamily', 'Font family', 'text'],
-  ['fontUrl', 'Google Fonts stylesheet URL', 'url'],
+  ['fontUrl', 'Google Fonts URL (first family is text, second is code)', 'url'],
   ['fontSize', 'Font size (px)', 'number', 1],
   ['lineHeight', 'Line height', 'number', 0.05],
   ['contentWidth', 'Content width (px)', 'number', 10],
-  ['codeFontFamily', 'Code font family', 'text'],
   ['codeFontSize', 'Code font size (px)', 'number', 1],
   ['bg', 'Background', 'color'],
   ['fg', 'Text', 'color'],
