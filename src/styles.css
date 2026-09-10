@@ -477,7 +477,7 @@ kbd {
   width: 2rem;
   pointer-events: auto;
 }
-.outline:hover a, .outline:focus-within a { pointer-events: auto; }
+.outline:hover, .outline:focus-within { pointer-events: auto; } /* open: the whole rail, gaps included, or crossing a gap would close it */
 .outline a {
   position: relative;
   display: flex;
