@@ -1,6 +1,29 @@
 import { useEffect, useState } from 'preact/hooks'
 
 const TOP_OFFSET = 96 // px below the viewport top at which a heading counts as current
+const JUMP_MS = 280 // Chromium's own smooth scroll scales with distance and crawls across a long document
+
+// `behavior: instant` on every step: the root's scroll-behavior: smooth would otherwise
+// queue a UA animation per frame. Cancelled by any real scroll input.
+function scrollToY(target) {
+  const start = window.scrollY
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || start === target) {
+    window.scrollTo({ top: target, behavior: 'instant' })
+    return
+  }
+  let cancelled = false
+  const stop = () => { cancelled = true }
+  for (const type of ['wheel', 'touchstart', 'keydown']) addEventListener(type, stop, { once: true, passive: true })
+  const t0 = performance.now()
+  const step = now => {
+    const p = Math.min((now - t0) / JUMP_MS, 1)
+    if (cancelled) return
+    window.scrollTo({ top: start + (target - start) * (1 - (1 - p) ** 3), behavior: 'instant' })
+    if (p < 1) requestAnimationFrame(step)
+    else for (const type of ['wheel', 'touchstart', 'keydown']) removeEventListener(type, stop)
+  }
+  requestAnimationFrame(step)
+}
 
 // Reads headings from the rendered article so the document is parsed once.
 // Shows nothing for documents with fewer than two headings.
@@ -47,7 +70,10 @@ export function Outline({ articleRef, text }) {
 
   function jump(e, id) {
     e.preventDefault()
-    document.getElementById(id)?.scrollIntoView({ block: 'start' })
+    const el = document.getElementById(id)
+    if (!el) return
+    const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0
+    scrollToY(el.getBoundingClientRect().top + window.scrollY - pad)
     history.replaceState(null, '', `#${id}`)
   }
 
