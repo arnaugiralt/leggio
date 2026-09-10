@@ -244,12 +244,22 @@ kbd {
   color: color-mix(in oklab, #c0392b 80%, var(--color-fg));
 }
 
-/* highlight.js tokens derived from the code theme, no theme file */
+/* highlight.js tokens, no theme file: hues rotate off the code accent in oklch so a
+   block reads as syntax rather than one tint. Chroma is floored, or a grey accent
+   would collapse every token back to the text color. */
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--code-accent); }
-.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: color-mix(in oklab, var(--code-accent) 60%, var(--code-fg)); }
-.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-regexp { color: color-mix(in oklab, var(--code-accent) 35%, var(--code-fg)); }
+.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-selector-attr {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 145));
+}
+.hljs-number, .hljs-literal, .hljs-regexp, .hljs-deletion, .hljs-selector-pseudo {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h - 75));
+}
+.hljs-title, .hljs-section, .hljs-name, .hljs-class, .hljs-function {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 65));
+  font-weight: 600;
+}
+.hljs-variable, .hljs-template-variable, .hljs-property, .hljs-params { color: var(--code-fg); }
 .hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--code-fg) 55%, var(--code-bg)); font-style: italic; }
-.hljs-title, .hljs-section, .hljs-name { font-weight: 600; }
 .hljs-deletion { text-decoration: line-through; }
 
 /* Settings sheet */
