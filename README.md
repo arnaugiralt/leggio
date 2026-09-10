@@ -1,6 +1,6 @@
 # md reader
 
-A read-only markdown viewer. Drop a file, read it. Mermaid diagrams render inline. Fonts, sizes, and colors are yours to set.
+A read-only markdown viewer. Drop a file, read it. Mermaid diagrams render inline, and click one to see it full size. Fonts, sizes, and colors are yours to set.
 
 ## Run
 

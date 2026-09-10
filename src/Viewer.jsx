@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { render } from './render.js'
 import { isRelative, isMarkdownName, resolvePath, getFileByPath } from './fs.js'
 
@@ -6,6 +6,7 @@ import { isRelative, isMarkdownName, resolvePath, getFileByPath } from './fs.js'
 export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
   const html = useMemo(() => render(text), [text])
   const urls = useRef([])
+  const [zoomed, setZoomed] = useState(null)
 
   useEffect(() => {
     const article = articleRef.current
@@ -23,6 +24,12 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
     for (const img of article.querySelectorAll('img[src]')) {
       if (img.dataset.origSrc === undefined) img.dataset.origSrc = img.getAttribute('src')
       img.src = img.dataset.origSrc
+    }
+    // Above the folder check: diagrams open in the lightbox with or without one.
+    for (const fig of article.querySelectorAll('.diagram')) {
+      fig.tabIndex = 0
+      fig.setAttribute('role', 'button')
+      fig.setAttribute('aria-label', 'Open diagram full size')
     }
     if (!root || !dirPath) return
     let cancelled = false
@@ -52,7 +59,22 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
 
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), [])
 
+  function zoom(target) {
+    const svg = target.closest('.diagram')?.querySelector('svg')
+    if (!svg) return false
+    // The viewBox ratio sizes the dialog to the diagram: without it the svg letterboxes
+    // inside a full-viewport box and the lightbox is mostly empty background.
+    const [, , w, h] = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
+    setZoomed({ html: svg.outerHTML, ratio: w && h ? w / h : null })
+    return true
+  }
+
+  function onKeyDown(e) {
+    if ((e.key === 'Enter' || e.key === ' ') && zoom(e.target)) e.preventDefault()
+  }
+
   function onClick(e) {
+    if (zoom(e.target)) return
     const a = e.target.closest('a[data-internal]')
     if (!a || !dirPath) return
     e.preventDefault()
@@ -61,5 +83,27 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
     if (segments) onOpenRelative(segments, hash)
   }
 
-  return <article ref={articleRef} class="prose" dangerouslySetInnerHTML={{ __html: html }} onClick={onClick} />
+  return (
+    <>
+      <article ref={articleRef} class="prose" dangerouslySetInnerHTML={{ __html: html }} onClick={onClick} onKeyDown={onKeyDown} />
+      {zoomed && <Lightbox {...zoomed} onClose={() => setZoomed(null)} />}
+    </>
+  )
+}
+
+// <dialog> carries the top layer, the backdrop, focus containment and Esc; only the
+// backdrop click is ours. Mounted on demand, so there is no exit transition to stage.
+function Lightbox({ html, ratio, onClose }) {
+  const ref = useRef(null)
+  useEffect(() => ref.current.showModal(), [])
+  return (
+    <dialog
+      ref={ref}
+      class="lightbox"
+      style={ratio ? { '--diagram-ar': ratio } : undefined}
+      onClose={onClose}
+      onClick={() => ref.current.close()} // the whole surface is the way out; the svg fills it
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
 }

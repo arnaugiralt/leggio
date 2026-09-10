@@ -238,6 +238,33 @@ kbd {
   text-align: center;
 }
 .diagram svg { max-width: 100%; height: auto; }
+.diagram { cursor: zoom-in; }
+.diagram:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+
+.lightbox {
+  max-width: 100vw;
+  max-height: 100vh;
+  padding: 1rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--diagram-bg, var(--color-bg));
+  cursor: zoom-out;
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 150ms ease, transform 150ms var(--ease-out);
+}
+.lightbox[open] { opacity: 1; transform: scale(1); }
+@starting-style {
+  .lightbox[open] { opacity: 0; transform: scale(0.97); }
+}
+/* Widest the diagram can be without its height overflowing, so it scales up to fit
+   and the dialog wraps it. --diagram-ar comes from the svg's viewBox. */
+.lightbox svg {
+  display: block;
+  width: min(100vw - 5rem, (100vh - 5rem) * var(--diagram-ar, 1));
+  height: auto;
+}
+.lightbox::backdrop { background: rgb(0 0 0 / 0.55); }
 .diagram-error {
   margin: -0.5em 0 1.5em;
   font-size: 0.85em;
