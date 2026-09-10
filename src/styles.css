@@ -265,6 +265,12 @@ kbd {
   height: auto;
 }
 .lightbox::backdrop { background: rgb(0 0 0 / 0.55); }
+/* showModal() blocks interaction but not the wheel; scrollbar-gutter holds the layout
+   still where the scrollbar takes space (it is a no-op under overlay scrollbars). */
+html:has(dialog.lightbox[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
 .diagram-error {
   margin: -0.5em 0 1.5em;
   font-size: 0.85em;
