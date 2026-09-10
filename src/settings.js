@@ -7,11 +7,11 @@ export const DIAGRAM_THEMES = ['page', ...Object.keys(THEMES)]
 
 export const DEFAULTS = {
   fontUrl: '',
-  fontSize: 17,
+  fontSize: 18,
   fontWeight: 400,
   lineHeight: 1.6,
-  contentWidth: 720,
-  tableWidth: 1200,
+  contentWidth: 700,
+  wideWidth: 1200,
   codeFontSize: 14,
   bg: '#ffffff',
   fg: '#1a1a1a',
@@ -26,7 +26,7 @@ const CSS_VARS = {
   fontWeight: ['--font-weight'],
   lineHeight: ['--line-height'],
   contentWidth: ['--content-width', 'px'],
-  tableWidth: ['--table-width', 'px'],
+  wideWidth: ['--wide-width', 'px'],
   codeFontSize: ['--code-font-size', 'px'],
   bg: ['--color-bg'],
   fg: ['--color-fg'],

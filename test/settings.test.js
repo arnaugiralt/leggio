@@ -85,7 +85,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   applyToRoot({ ...DEFAULTS, fontSize: 18, contentWidth: 800, codeFontSize: 13, lineHeight: 1.7 }, root)
   assert.equal(root.vars['--font-size'], '18px')
   assert.equal(root.vars['--content-width'], '800px')
-  assert.equal(root.vars['--table-width'], '1200px')
+  assert.equal(root.vars['--wide-width'], '1200px')
   assert.equal(root.vars['--code-font-size'], '13px')
   assert.equal(root.vars['--line-height'], '1.7')
   assert.equal(root.vars['--font-weight'], '400')
