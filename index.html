@@ -4,10 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>md reader</title>
+  <meta name="theme-color" content="#2563eb">
+  <!-- .json, not .webmanifest: esbuild's dev server has no mime type for the latter. -->
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="dist/app.css">
 </head>
 <body>
   <div id="app"></div>
   <script type="module" src="dist/app.js"></script>
+  <script>
+    // Relative path, so the scope follows wherever the app is served from.
+    navigator.serviceWorker?.register('sw.js')
+  </script>
 </body>
 </html>

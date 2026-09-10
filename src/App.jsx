@@ -49,6 +49,14 @@ export function App() {
     document.title = current ? current.name : 'md reader'
   }, [current])
 
+  // Files opened from the OS: only fires in an installed PWA, and only once per launch.
+  // The queue hands over real FileSystemFileHandles, so watching and relative images keep working.
+  useEffect(() => {
+    window.launchQueue?.setConsumer(({ files }) => {
+      if (files?.length) openFile(files[0])
+    })
+  }, [])
+
   // Pins and the restore record, once.
   useEffect(() => {
     idb.get('pinned').then(items => items && setPinned(items))

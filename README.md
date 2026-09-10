@@ -19,6 +19,10 @@ Preact, markdown-it, highlight.js, beautiful-mermaid, esbuild. Thirteen packages
 
 Open a folder (Chrome, Edge) to browse its markdown files in the Files panel (⌘B). Pin files or folders to keep them across sessions. Relative images and links resolve inside the open folder, and the view reloads when the file changes on disk. On launch, one click restores where you left off.
 
+## Install it
+
+The app is a PWA. Open it in Chrome and use the install button in the address bar: it gets its own window, works offline, and registers as a handler for `.md` files, so opening one from Finder opens it here. Installing needs a secure origin, which `localhost` counts as.
+
 ## Not yet
 
 Editing (never). Search, tabs, Tauri packaging: phase 3.
