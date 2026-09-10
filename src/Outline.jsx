@@ -52,17 +52,23 @@ export function Outline({ articleRef, text }) {
   }
 
   return (
-    <nav class="outline" aria-label="Contents">
-      <ol>
+    <div class="outline">
+      <div class="rail" aria-hidden="true">
         {headings.map(h => (
-          <li key={h.id} class={`level-${h.level}${h.id === active ? ' active' : ''}`}>
-            <a href={`#${h.id}`} aria-current={h.id === active ? 'true' : undefined} onClick={e => jump(e, h.id)}>
-              <span class="tick" aria-hidden="true" />
-              <span class="title">{h.text}</span>
-            </a>
-          </li>
+          <span key={h.id} class={`tick level-${h.level}${h.id === active ? ' active' : ''}`} />
         ))}
-      </ol>
-    </nav>
+      </div>
+      <nav class="panel" aria-label="Contents">
+        <ol>
+          {headings.map(h => (
+            <li key={h.id} class={`level-${h.level}${h.id === active ? ' active' : ''}`}>
+              <a href={`#${h.id}`} aria-current={h.id === active ? 'true' : undefined} onClick={e => jump(e, h.id)}>
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </div>
   )
 }

@@ -442,79 +442,86 @@ kbd {
 
 /* Outline rail: one tick per heading, titles on hover */
 
+/* Heading rail: compact ticks at rest, a panel on hover or keyboard focus.
+   The two are separate boxes, so the pointer target is the rail, never the text behind the panel. */
 .outline {
   position: fixed;
   top: 50%;
   left: 0.75rem;
   z-index: 2;
   transform: translateY(-50%);
-  max-height: calc(100vh - var(--bar-h) - 2rem);
-  overflow-y: auto;
   font-family: var(--ui-font);
-  font-size: 0.8rem;
-  font-weight: 400;
-  line-height: 1.3;
   transition: left 180ms var(--ease-out);
 }
 .sidebar-open .outline { left: calc(var(--side-w) + 0.75rem); }
-.outline ol {
-  list-style: none;
-  margin: 0;
-  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+
+.rail {
   display: grid;
-  gap: 0.5rem;
-  border-radius: 8px;
+  gap: 5px;
+  padding: 0.5rem 1rem 0.5rem 0.5rem; /* right padding is hover slack between the ticks and the text */
+  max-height: calc(100vh - var(--bar-h) - 2rem);
+  overflow: hidden;
+  transition: opacity 150ms ease;
+}
+.rail .tick {
+  width: 1rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ui-faint);
   transition: background-color 150ms ease;
 }
-.outline:hover ol, .outline:focus-within ol { background: var(--color-bg); }
-/* Collapsed, only the tick column takes the pointer: the titles keep their width
-   while invisible, so without this the rail opens from anywhere over the text. */
-.outline { pointer-events: none; }
-.outline a::before {
-  content: '';
+.rail .level-2 { width: 0.7rem; }
+.rail .level-3 { width: 0.45rem; }
+.rail .level-4 { width: 0.3rem; }
+.rail .active { background: var(--color-accent); }
+
+.panel {
   position: absolute;
-  inset: -0.25rem auto -0.25rem 0; /* spans the row gap so moving between ticks never drops the hover */
-  width: 2rem;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%) scale(0.97);
+  transform-origin: left center; /* grows out of the rail it replaces */
+  min-width: 11rem;
+  max-height: calc(100vh - var(--bar-h) - 2rem);
+  overflow-y: auto;
+  padding: 0.375rem;
+  border: 1px solid var(--ui-hairline);
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: 0 8px 24px -12px color-mix(in oklab, var(--color-fg) 40%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease, transform 150ms var(--ease-out);
+}
+.outline:hover .panel, .outline:focus-within .panel {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
   pointer-events: auto;
 }
-.outline:hover, .outline:focus-within { pointer-events: auto; } /* open: the whole rail, gaps included, or crossing a gap would close it */
-.outline a {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.15rem 0;
+.outline:hover .rail, .outline:focus-within .rail { opacity: 0; }
+
+.panel ol { list-style: none; margin: 0; padding: 0; }
+.panel a {
+  display: block;
+  max-width: 15rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
   color: var(--ui-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
   text-decoration: none;
-  border-radius: 4px;
-}
-/* Same box for every tick; the visible line length encodes the heading level. */
-.outline .tick {
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 2px;
-  color: var(--ui-faint);
-  background: linear-gradient(currentColor, currentColor) 0 0 / var(--tick-w, 100%) 100% no-repeat;
-  transition: color 150ms ease;
-}
-.outline .level-2 { --tick-w: 70%; }
-.outline .level-3 { --tick-w: 45%; }
-.outline .level-4 { --tick-w: 30%; }
-.outline .active .tick { color: var(--color-accent); }
-.outline .level-2 .title { padding-left: 0.5rem; }
-.outline .level-3 .title { padding-left: 1rem; }
-.outline .level-4 .title { padding-left: 1.5rem; }
-.outline .active a { color: var(--color-fg); }
-.outline .title {
-  max-width: 16rem;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 150ms ease, transform 150ms var(--ease-out);
+  transition: background-color 120ms ease, color 120ms ease;
 }
-.outline:hover .title, .outline:focus-within .title { opacity: 1; transform: none; }
+.panel .level-2 a { padding-left: 1.1rem; }
+.panel .level-3 a { padding-left: 1.7rem; }
+.panel .level-4 a { padding-left: 2.3rem; }
+.panel .active > a { color: var(--color-fg); font-weight: 500; }
+@media (hover: hover) and (pointer: fine) {
+  .panel a:hover { background: var(--ui-hover); color: var(--color-fg); }
+}
 @media (max-width: 1100px) {
   .outline { display: none; }
 }
