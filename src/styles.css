@@ -26,6 +26,8 @@
 }
 
 * { box-sizing: border-box; }
+/* The whole reset this app needs: Chromium-only, and inside .prose the UA styles are the feature. */
+button, input, select, textarea, kbd { font: inherit; }
 
 html {
   scroll-behavior: smooth;
@@ -88,7 +90,6 @@ body {
   border-radius: 6px;
   background: transparent;
   color: var(--ui-muted);
-  font: inherit;
   line-height: 1;
   transition: transform 160ms var(--ease-out), background-color 120ms ease, color 120ms ease;
 }
@@ -145,7 +146,6 @@ body {
 .empty-hint { margin: 0; font-size: 0.8rem; color: var(--ui-faint); }
 .empty-actions { display: flex; gap: 0.5rem; }
 kbd {
-  font: inherit;
   padding: 0.1em 0.4em;
   border: 1px solid var(--ui-hairline);
   border-radius: 4px;
@@ -346,7 +346,6 @@ kbd {
   border: 0;
   background: transparent;
   color: var(--ui-muted);
-  font: inherit;
   text-align: left;
   cursor: pointer;
 }
@@ -384,7 +383,6 @@ kbd {
   border-radius: 4px;
   background: transparent;
   color: var(--ui-faint);
-  font: inherit;
   font-size: 0.72rem;
   cursor: pointer;
   opacity: 0;
@@ -426,7 +424,6 @@ kbd {
   border-radius: 6px;
   background: var(--ui-surface);
   color: inherit;
-  font: inherit;
 }
 .settings input[type="number"] { width: 5.5rem; text-align: right; }
 .settings input[type="url"] { width: 100%; }
