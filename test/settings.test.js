@@ -95,7 +95,7 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   assert.equal(root.vars['--color-fg'], DEFAULTS.fg)
   assert.equal(root.vars['--color-accent'], DEFAULTS.accent)
   assert.equal(root.vars['--color-code-bg'], DEFAULTS.codeBg)
-  assert.equal(Object.keys(root.vars).length, 15)
+  assert.equal(Object.keys(root.vars).length, 18)
 })
 
 test('applyToRoot derives font families from the url', () => {
@@ -114,6 +114,15 @@ test('applyToRoot points diagram colors at the page palette by default', () => {
   assert.equal(root.vars['--diagram-accent'], 'var(--color-accent)')
   assert.equal('--diagram-line' in root.vars, false)
   assert.equal('--diagram-muted' in root.vars, false)
+  assert.equal(root.vars['--code-bg'], 'var(--color-code-bg)')
+  assert.equal(root.vars['--code-fg'], 'var(--color-fg)')
+  assert.equal(root.vars['--code-accent'], 'var(--color-accent)')
+})
+
+test('applyToRoot falls back to the theme text color when it has no accent', () => {
+  const root = fakeRoot()
+  applyToRoot({ ...DEFAULTS, diagramTheme: 'zinc-dark' }, root)
+  assert.equal(root.vars['--code-accent'], '#FAFAFA')
 })
 
 test('applyToRoot applies a named diagram theme and clears it again', () => {
@@ -124,6 +133,9 @@ test('applyToRoot applies a named diagram theme and clears it again', () => {
   assert.equal(root.vars['--diagram-line'], '#6272a4')
   assert.equal(root.vars['--diagram-accent'], '#bd93f9')
   assert.equal(root.vars['--diagram-muted'], '#6272a4')
+  assert.equal(root.vars['--code-bg'], '#282a36')
+  assert.equal(root.vars['--code-fg'], '#f8f8f2')
+  assert.equal(root.vars['--code-accent'], '#bd93f9')
   applyToRoot({ ...DEFAULTS, diagramTheme: 'page' }, root)
   assert.equal(root.vars['--diagram-bg'], 'var(--color-bg)')
   assert.equal('--diagram-line' in root.vars, false)

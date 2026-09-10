@@ -75,19 +75,25 @@ export function applyToRoot(settings, root = document.documentElement) {
   const fonts = fontFamilies(settings.fontUrl)
   root.style.setProperty('--font-family', fonts.body)
   root.style.setProperty('--code-font-family', fonts.code)
-  applyDiagramTheme(settings.diagramTheme, root)
+  applyTheme(settings.diagramTheme, root)
   root.style.colorScheme = isDark(settings.bg) ? 'dark' : 'light'
 }
 
 const PAGE_DIAGRAM_COLORS = { bg: 'var(--color-bg)', fg: 'var(--color-fg)', accent: 'var(--color-accent)' }
 
-// Unset keys are removed so beautiful-mermaid falls back to colors derived from bg and fg.
-function applyDiagramTheme(name, root) {
-  const colors = THEMES[name] ?? PAGE_DIAGRAM_COLORS
+// Diagrams and code blocks share one theme. Unset diagram keys are removed so
+// beautiful-mermaid falls back to colors derived from bg and fg; the code surfaces
+// point back at the page palette instead, so 'page' keeps the user's own code background.
+function applyTheme(name, root) {
+  const theme = THEMES[name]
+  const colors = theme ?? PAGE_DIAGRAM_COLORS
   for (const key of ['bg', 'fg', 'line', 'accent', 'muted']) {
     if (colors[key]) root.style.setProperty(`--diagram-${key}`, colors[key])
     else root.style.removeProperty(`--diagram-${key}`)
   }
+  root.style.setProperty('--code-bg', theme?.bg ?? 'var(--color-code-bg)')
+  root.style.setProperty('--code-fg', theme?.fg ?? 'var(--color-fg)')
+  root.style.setProperty('--code-accent', theme?.accent ?? theme?.fg ?? 'var(--color-accent)')
 }
 
 export function applyFontUrl(url, doc = document) {

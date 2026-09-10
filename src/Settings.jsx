@@ -39,8 +39,8 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Diagrams',
-    fields: [{ key: 'diagramTheme', label: 'Theme', type: 'select' }],
+    title: 'Diagrams and code',
+    fields: [{ key: 'diagramTheme', label: 'Theme', type: 'select', hint: 'Applies to both mermaid diagrams and code blocks.' }],
   },
 ]
 

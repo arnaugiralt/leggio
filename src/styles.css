@@ -11,6 +11,10 @@
   --color-fg: #1a1a1a;
   --color-accent: #2563eb;
   --color-code-bg: #f5f5f5;
+  /* Code surfaces: the page palette until settings.js points them at a theme. */
+  --code-bg: var(--color-code-bg);
+  --code-fg: var(--color-fg);
+  --code-accent: var(--color-accent);
 
   /* UI tokens, all derived from the palette. Prefixed so they never leak into beautiful-mermaid's SVG variables. */
   --ui-font: system-ui, -apple-system, sans-serif;
@@ -22,6 +26,7 @@
   --bar-h: 2.75rem;
   --sheet-w: 320px;
   --side-w: 260px;
+  --rail-space: 4.5rem; /* kept clear on both sides of a wide block so the heading rail never sits against one */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -174,7 +179,9 @@ kbd {
   padding: 2.5rem 1.5rem 8rem;
   overflow-wrap: anywhere;
 }
-.prose h1, .prose h2, .prose h3, .prose h4 { line-height: 1.25; margin: 1.5em 0 0.5em; }
+.prose h1, .prose h2, .prose h3, .prose h4 { line-height: 1.25; margin: 1.8em 0 0.5em; }
+.prose h1 { margin-top: 1.2em; } /* 2em type already carries the space a smaller heading needs from its margin */
+.prose > :first-child { margin-top: 0; }
 .prose h1 { font-size: 2em; }
 .prose h2 { font-size: 1.5em; }
 .prose h3 { font-size: 1.25em; }
@@ -194,11 +201,11 @@ kbd {
   left: 50%;
   width: max-content;
   min-width: 100%;
-  max-width: min(var(--wide-width), 100cqw - 6rem); /* 3rem gutter each side keeps the outline rail clear */
+  max-width: min(var(--wide-width), 100cqw - 2 * var(--rail-space));
   transform: translateX(-50%);
   overflow-x: auto;
 }
-.prose .table-wrap { margin: 1em 0; }
+.prose .table-wrap { margin: 2em 0; }
 .prose table { border-collapse: collapse; width: 100%; }
 .prose th, .prose td {
   padding: 0.4em 0.8em;
@@ -212,21 +219,22 @@ kbd {
 .prose code {
   font-family: var(--code-font-family);
   font-size: var(--code-font-size);
-  background: var(--color-code-bg);
+  background: var(--color-code-bg); /* inline code stays on the page palette; a dark theme chip mid-sentence is a shout */
   padding: 0.1em 0.3em;
   border-radius: 3px;
   font-variant-ligatures: none;
 }
 .prose pre {
-  background: var(--color-code-bg);
+  margin: 1.5em 0;
+  background: var(--code-bg);
   padding: 1em;
   border-radius: 6px;
   overflow-x: auto;
 }
-.prose pre code { padding: 0; background: none; }
+.prose pre code { padding: 0; background: none; color: var(--code-fg); }
 
 .diagram {
-  margin: 1.5em 0;
+  margin: 2em 0;
   text-align: center;
 }
 .diagram svg { max-width: 100%; height: auto; }
@@ -236,11 +244,11 @@ kbd {
   color: color-mix(in oklab, #c0392b 80%, var(--color-fg));
 }
 
-/* highlight.js tokens derived from the palette, no theme file */
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--color-accent); }
-.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: color-mix(in oklab, var(--color-accent) 60%, var(--color-fg)); }
-.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-regexp { color: color-mix(in oklab, var(--color-accent) 35%, var(--color-fg)); }
-.hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--color-fg) 55%, var(--color-bg)); font-style: italic; }
+/* highlight.js tokens derived from the code theme, no theme file */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--code-accent); }
+.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition { color: color-mix(in oklab, var(--code-accent) 60%, var(--code-fg)); }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-regexp { color: color-mix(in oklab, var(--code-accent) 35%, var(--code-fg)); }
+.hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--code-fg) 55%, var(--code-bg)); font-style: italic; }
 .hljs-title, .hljs-section, .hljs-name { font-weight: 600; }
 .hljs-deletion { text-decoration: line-through; }
 
