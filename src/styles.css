@@ -295,13 +295,17 @@ kbd {
 /* The sentence being read aloud. ::highlight paints over a Range, so the rendered markdown is
    never wrapped, split or otherwise touched. */
 ::highlight(spoken) {
-  background-color: color-mix(in oklab, var(--color-accent) 20%, var(--color-bg));
+  background-color: color-mix(in oklab, var(--color-accent) 12%, var(--color-bg));
   color: var(--color-fg);
 }
 /* The word being spoken, where the voice reports one. It rides on top of the sentence wash rather
-   than replacing it: alone, a single lit word gives no sense of where you are. */
+   than replacing it: alone, a single lit word gives no sense of where you are.
+   Both bands take their height from the run's font-size, so inline code sits lower than the prose
+   around it. ::highlight takes no box properties, so the only cures were sizing code like body
+   text or underlining instead of filling. Neither was worth it; the wash is light enough to live
+   with the notch. */
 ::highlight(spoken-word) {
-  background-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-bg));
+  background-color: color-mix(in oklab, var(--color-accent) 35%, var(--color-bg));
   color: var(--color-fg);
 }
 
