@@ -125,7 +125,11 @@ export function Speech({ articleRef, text, settings }) {
   // The voice and rate are read once at play(), so without this the picker does nothing until
   // the next Read.
   useEffect(() => {
-    if (playing) speech.retune({ voiceName: settings.voice, rate: settings.speechRate })
+    if (!playing) return
+    // The new voice may report no words at all, and retune restarts the same index, so the effect
+    // that normally clears this one never fires. Without it the last word stays lit for good.
+    CSS.highlights?.delete(WORD)
+    speech.retune({ voiceName: settings.voice, rate: settings.speechRate })
   }, [settings.voice, settings.speechRate])
 
   function jump(delta) {
