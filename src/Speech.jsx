@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as speech from './speech.js'
+import { Pause, Play, SkipBack, SkipForward } from './icons.jsx'
 
 // Read aloud, one sentence per utterance. Everything DOM-shaped lives here; speech.js owns the queue.
 // Blocks whose text is not prose: read aloud they are noise.
@@ -131,9 +132,15 @@ export function Speech({ articleRef, text, settings }) {
           <span class="player-count">
             {index + 1} of {items.current.length}
           </span>
-          <button type="button" class="quiet" aria-label="Previous sentence" onClick={() => jump(-1)}>‹</button>
-          <button type="button" class="quiet player-wide" onClick={() => speech.toggle()}>{paused ? 'Resume' : 'Pause'}</button>
-          <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>›</button>
+          <button type="button" class="quiet" aria-label="Previous sentence" onClick={() => jump(-1)}>
+            <SkipBack />
+          </button>
+          <button type="button" class="quiet" aria-label={paused ? 'Resume' : 'Pause'} onClick={() => speech.toggle()}>
+            {paused ? <Play /> : <Pause />}
+          </button>
+          <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>
+            <SkipForward />
+          </button>
         </div>
       )}
     </>

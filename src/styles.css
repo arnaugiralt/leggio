@@ -182,7 +182,12 @@ kbd {
   color: var(--ui-muted);
   font-variant-numeric: tabular-nums; /* the count must not resize the pill as it climbs */
 }
-.player button { color: var(--ui-strong); }
+.player button {
+  display: inline-flex; /* centres the glyph in the hit area, which text padding does not */
+  align-items: center;
+  padding: 0.35rem;
+  color: var(--ui-strong);
+}
 /* Above the pill, so saying something does not resize it. */
 .player-hint {
   position: absolute;
@@ -196,7 +201,6 @@ kbd {
   font-size: 0.78rem;
   white-space: nowrap;
 }
-.player-wide { min-width: 4.5rem; } /* Pause and Resume are different widths; the pill should not twitch */
 .reading-toggle { min-width: 4.5rem; } /* likewise, so Pin and Open never move */
 .reading-toggle[aria-pressed='true'] { color: var(--color-accent); } /* it is a switch; show that it is on */
 
@@ -486,24 +490,16 @@ html:has(dialog.lightbox[open]) {
 .row-note { margin-left: auto; font-size: 0.72rem; color: var(--ui-faint); }
 .row.missing .row-name { text-decoration: line-through; }
 .chevron {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-right: 1.5px solid var(--ui-faint);
-  border-bottom: 1.5px solid var(--ui-faint);
-  transform: rotate(-45deg);
+  flex-shrink: 0;
+  color: var(--ui-faint);
   transition: transform 150ms var(--ease-out);
-  flex-shrink: 0;
-  margin-left: 0.1rem;
 }
-.chevron.open { transform: rotate(45deg); }
+.chevron.open { transform: rotate(90deg); }
+/* The file and folder marks sit in the chevron's column, so names line up whatever the row is. */
 .kind {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 2px;
-  background: var(--ui-faint);
   flex-shrink: 0;
+  color: var(--ui-faint);
 }
-.kind.directory { border-radius: 2px 2px 1px 1px; background: var(--ui-muted); }
 .pin {
   flex-shrink: 0;
   padding: 0.2rem 0.45rem;

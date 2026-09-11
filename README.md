@@ -13,7 +13,7 @@ pnpm test
 
 ## Stack
 
-Preact, markdown-it, highlight.js, beautiful-mermaid, esbuild. Thirteen packages in total, exact versions, install scripts disabled.
+Preact, markdown-it, highlight.js, beautiful-mermaid, esbuild. Thirteen packages in total, exact versions, install scripts disabled. The seven icons are paths copied from [Lucide](https://lucide.dev) (ISC) rather than a dependency.
 
 ## Folders
 

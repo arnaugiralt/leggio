@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks'
 import * as fs from './fs.js'
+import { ChevronRight, FileText, Folder } from './icons.jsx'
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
   return (
@@ -21,7 +22,7 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
             <li key={key}>
               <div class="row">
                 <button type="button" class="row-main" aria-expanded={open} onClick={() => toggle(key)}>
-                  <span class={`chevron${open ? ' open' : ''}`} aria-hidden="true" />
+                  <ChevronRight size={14} class={`chevron${open ? ' open' : ''}`} />
                   <span class="row-name">{child.name}</span>
                 </button>
                 <PinButton item={child} onTogglePin={onTogglePin} />
@@ -35,6 +36,7 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
           <li key={key}>
             <div class={`row${active ? ' active' : ''}`}>
               <button type="button" class="row-main" aria-current={active ? 'page' : undefined} onClick={() => onOpenFile(child.handle, path, root)}>
+                <FileText size={14} class="kind" />
                 <span class="row-name">{child.name}</span>
               </button>
               <PinButton item={child} onTogglePin={onTogglePin} />
@@ -68,7 +70,7 @@ export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onP
             <li key={i}>
               <div class={`row${item.missing ? ' missing' : ''}`}>
                 <button type="button" class="row-main" onClick={() => onOpenPinned(item, i)}>
-                  <span class={`kind ${item.kind}`} aria-hidden="true" />
+                  {item.kind === 'directory' ? <Folder size={14} class="kind" /> : <FileText size={14} class="kind" />}
                   <span class="row-name">{item.name}</span>
                   {item.missing && <span class="row-note">missing</span>}
                 </button>
