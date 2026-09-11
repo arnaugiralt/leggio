@@ -242,7 +242,7 @@ kbd {
   border-bottom: 2px solid var(--color-accent);
   padding-bottom: 0.45em;
 }
-.prose td { color: color-mix(in oklab, var(--color-fg) 80%, var(--color-bg)); }
+.prose td { color: var(--ui-strong); }
 .prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
 .prose tbody tr + tr td { border-top: 1px solid var(--table-row-rule); }
 
