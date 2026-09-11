@@ -34,6 +34,7 @@ export function App() {
   const article = useRef()
   const stopFileWatch = useRef(() => {})
   const stopFolderWatch = useRef(() => {})
+  const folderRef = useRef(null)
   const keepScroll = useRef(null)
 
   useEffect(() => {
@@ -64,7 +65,9 @@ export function App() {
     idb.get('pinned').then(items => items && setPinned(items))
     idb.get('last').then(async last => {
       if (!last?.folder) return
-      if ((await fs.hasPermission(last.folder)) && (await restore(last))) return
+      // A pinned file can live outside the folder, so it carries its own grant.
+      const granted = (await fs.hasPermission(last.folder)) && (!last.file || (await fs.hasPermission(last.file)))
+      if (granted && (await restore(last))) return
       setRestorable(last)
     })
   }, [])
@@ -102,10 +105,11 @@ export function App() {
       }
       const tree = await fs.listMarkdown(handle)
       setFolder({ handle, name: handle.name, tree })
+      folderRef.current = handle // openFile can be called from a mount-time closure (drop, shortcuts), where the state read is stale
       setUi(u => ({ ...u, sidebarOpen: true })) // show the result; otherwise opening a folder looks like nothing happened
       setRestorable(null)
       setError('')
-      idb.set('last', { folder: handle, filePath: null })
+      idb.set('last', { folder: handle, filePath: null, file: null })
       stopFolderWatch.current()
       let timer = 0
       const relist = () => {
@@ -143,7 +147,10 @@ export function App() {
       setRestorable(null)
       setError('')
       window.scrollTo(0, 0)
-      if (root && dirPath) idb.set('last', { folder: root, filePath: [...dirPath, handle.name] })
+      // The path is what survives a folder being re-granted, but pins and the picker give no path,
+      // so the handle rides along as the fallback.
+      const inFolder = root ?? folderRef.current
+      if (inFolder) idb.set('last', { folder: inFolder, filePath: root && dirPath ? [...dirPath, handle.name] : null, file: handle })
       stopFileWatch.current()
       stopFileWatch.current = fs.watch(handle, async () => {
         try {
@@ -209,12 +216,12 @@ export function App() {
 
   async function restore(last = restorable) {
     if (!(await openFolder(last.folder))) return false
-    if (!last.filePath) return true
+    if (!last.filePath && !last.file) return true
     try {
-      const handle = await fs.getFileByPath(last.folder, last.filePath)
-      await openFile(handle, { dirPath: last.filePath.slice(0, -1), root: last.folder })
+      const handle = last.filePath ? await fs.getFileByPath(last.folder, last.filePath) : last.file
+      await openFile(handle, { dirPath: last.filePath?.slice(0, -1) ?? null, root: last.filePath ? last.folder : null })
     } catch {
-      setError(`${last.filePath.join('/')} was not found.`)
+      setError(`${last.filePath?.join('/') ?? last.file.name} was not found.`)
     }
     return true
   }
