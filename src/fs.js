@@ -36,6 +36,12 @@ export function handleFromDrop(dataTransfer) {
   return item?.getAsFileSystemHandle ? item.getAsFileSystemHandle() : Promise.resolve(null)
 }
 
+// Safe outside a user gesture: it never prompts, it only reports an already-granted handle.
+export async function hasPermission(handle) {
+  if (!handle.queryPermission) return true
+  return (await handle.queryPermission({ mode: 'read' })) === 'granted'
+}
+
 // Call from a user gesture whenever a prompt is possible.
 export async function ensurePermission(handle) {
   if (!handle.queryPermission) return true

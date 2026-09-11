@@ -58,10 +58,15 @@ export function App() {
     })
   }, [])
 
-  // Pins and the restore record, once.
+  // Pins and the restore record, once. A handle that is still granted needs no gesture,
+  // so skip the welcome screen entirely and put the reader back in the document.
   useEffect(() => {
     idb.get('pinned').then(items => items && setPinned(items))
-    idb.get('last').then(last => last?.folder && setRestorable(last))
+    idb.get('last').then(async last => {
+      if (!last?.folder) return
+      if ((await fs.hasPermission(last.folder)) && (await restore(last))) return
+      setRestorable(last)
+    })
   }, [])
 
   // After a live reload re-render, put the reader back where they were.
@@ -202,16 +207,16 @@ export function App() {
     idb.set('pinned', next.map(({ kind, name, handle }) => ({ kind, name, handle })))
   }
 
-  async function restore() {
-    const last = restorable
-    if (!(await openFolder(last.folder))) return
-    if (!last.filePath) return
+  async function restore(last = restorable) {
+    if (!(await openFolder(last.folder))) return false
+    if (!last.filePath) return true
     try {
       const handle = await fs.getFileByPath(last.folder, last.filePath)
       await openFile(handle, { dirPath: last.filePath.slice(0, -1), root: last.folder })
     } catch {
       setError(`${last.filePath.join('/')} was not found.`)
     }
+    return true
   }
 
   async function pickFile() {
@@ -319,7 +324,7 @@ export function App() {
           <div class="empty">
             <p class="empty-title">{restorable ? 'Welcome back' : 'Drop a markdown file or folder here'}</p>
             {restorable ? (
-              <button type="button" class="quiet primary" onClick={restore}>Continue in {restorable.folder.name}</button>
+              <button type="button" class="quiet primary" onClick={() => restore()}>Continue in {restorable.folder.name}</button>
             ) : (
               <button type="button" class="quiet primary" onClick={pickFile}>Open a file</button>
             )}
