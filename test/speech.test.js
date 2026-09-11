@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sentences, resolveVoice, play, stop, subscribe } from '../src/speech.js'
+import { sentences, resolveVoice, play, stop, subscribe, retune } from '../src/speech.js'
 
 const spans = text => sentences(text).map(({ start, end }) => text.slice(start, end).trim())
 
@@ -58,11 +58,15 @@ test('an unreachable or missing voice falls back to a local one', () => {
 })
 
 // A fake engine, because the bug lives in how the queue reacts to the events, not in the audio.
-function stubSynthesis({ fireStart }) {
+function stubSynthesis({ fireStart, fireEnd = true }) {
   const synth = {
     spoken: [],
+    voices: [],
     cancelled: 0,
-    getVoices: () => [{ name: 'Local', localService: true, default: true }],
+    getVoices: () => [
+      { name: 'Local', localService: true, default: true },
+      { name: 'Other', localService: true },
+    ],
     cancel() {
       this.cancelled++
     },
@@ -70,8 +74,9 @@ function stubSynthesis({ fireStart }) {
     resume() {},
     speak(u) {
       this.spoken.push(u.text)
+      this.voices.push(u.voice?.name)
       if (fireStart) u.onstart?.()
-      u.onend?.()
+      if (fireEnd) u.onend?.()
     },
   }
   globalThis.speechSynthesis = synth
@@ -110,6 +115,34 @@ test('a voice that actually starts drains the queue', () => {
   assert.equal(state.playing, false, 'and the queue closes itself at the end')
   assert.equal(state.stalled, false)
   unsubscribe()
+  stop()
+  delete globalThis.speechSynthesis
+  delete globalThis.SpeechSynthesisUtterance
+})
+
+test('changing the voice mid-read restarts the sentence being spoken', async () => {
+  // fireEnd false holds the queue on its first utterance, the way a real voice mid-sentence would.
+  const synth = stubSynthesis({ fireStart: true, fireEnd: false })
+  play(CHUNKS, { voiceName: 'Local' })
+  assert.deepEqual(synth.voices, ['Local'])
+
+  retune({ voiceName: 'Other', rate: 1 })
+  await new Promise(r => setTimeout(r, 10)) // retune cancels, then speaks on the next tick
+  assert.deepEqual(synth.spoken, [CHUNKS[0], CHUNKS[0]], 'the same sentence is spoken again')
+  assert.deepEqual(synth.voices, ['Local', 'Other'], 'the second time on the new voice')
+
+  stop()
+  delete globalThis.speechSynthesis
+  delete globalThis.SpeechSynthesisUtterance
+})
+
+test('retune with nothing changed leaves the utterance alone', async () => {
+  const synth = stubSynthesis({ fireStart: true, fireEnd: false })
+  play(CHUNKS, { voiceName: 'Local' })
+  retune({ voiceName: 'Local', rate: 1 })
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(synth.spoken.length, 1, 'no restart, so no stutter while the settings sheet is open')
+
   stop()
   delete globalThis.speechSynthesis
   delete globalThis.SpeechSynthesisUtterance

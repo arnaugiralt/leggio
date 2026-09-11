@@ -159,6 +159,20 @@ export function skip(delta) {
   setTimeout(() => speakAt(next), 0)
 }
 
+// Settings changed mid-read. A voice cannot be swapped inside an utterance, so the sentence being
+// spoken restarts on the new one and the rest of the queue simply follows. While paused there is
+// nothing to restart, so the new values wait for the next sentence.
+export function retune({ voiceName = '', rate: speed = 1 } = {}) {
+  const next = resolveVoice(voiceName)
+  const changed = next?.name !== voice?.name || speed !== rate // by name: getVoices() need not return the same objects twice
+  voice = next
+  rate = speed
+  if (!changed || index < 0 || paused) return
+  const at = index
+  cancel()
+  setTimeout(() => speakAt(at), 0) // same cancel-then-next-tick dance as skip()
+}
+
 export function toggle() {
   if (index < 0) return
   paused = !paused

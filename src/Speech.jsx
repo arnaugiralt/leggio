@@ -101,6 +101,12 @@ export function Speech({ articleRef, text, settings }) {
     })
   }
 
+  // The voice and rate are read once at play(), so without this the picker does nothing until
+  // the next Read.
+  useEffect(() => {
+    if (playing) speech.retune({ voiceName: settings.voice, rate: settings.speechRate })
+  }, [settings.voice, settings.speechRate])
+
   function jump(delta) {
     follow.current = true
     speech.skip(delta)
