@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sentences, resolveVoice } from '../src/speech.js'
+import { sentences, resolveVoice, play, stop, subscribe } from '../src/speech.js'
 
 const spans = text => sentences(text).map(({ start, end }) => text.slice(start, end).trim())
 
@@ -55,4 +55,62 @@ test('an unreachable or missing voice falls back to a local one', () => {
   assert.equal(resolveVoice('Google UK English Male').name, 'Samantha', 'a network voice offline falls back to the default local one')
   assert.equal(resolveVoice('Gone').name, 'Samantha', 'a name from another browser falls back too')
   delete globalThis.speechSynthesis
+})
+
+// A fake engine, because the bug lives in how the queue reacts to the events, not in the audio.
+function stubSynthesis({ fireStart }) {
+  const synth = {
+    spoken: [],
+    cancelled: 0,
+    getVoices: () => [{ name: 'Local', localService: true, default: true }],
+    cancel() {
+      this.cancelled++
+    },
+    pause() {},
+    resume() {},
+    speak(u) {
+      this.spoken.push(u.text)
+      if (fireStart) u.onstart?.()
+      u.onend?.()
+    },
+  }
+  globalThis.speechSynthesis = synth
+  globalThis.SpeechSynthesisUtterance = class {
+    constructor(text) {
+      this.text = text
+    }
+  }
+  return synth
+}
+
+const CHUNKS = ['One sentence.', 'Two sentences.', 'Three sentences.']
+
+test('a muted tab halts the queue instead of draining it', () => {
+  // A muted tab ends every utterance without ever starting it. Chaining on that used to race
+  // through the whole document and drag the page to the last sentence.
+  const synth = stubSynthesis({ fireStart: false })
+  let state
+  const unsubscribe = subscribe(s => (state = s))
+  play(CHUNKS, { voiceName: 'Local' })
+  assert.equal(synth.spoken.length, 1, 'it stops after the first utterance fails to start')
+  assert.equal(state.index, 0, 'and holds its place')
+  assert.equal(state.stalled, true, 'so the player can say why nothing is happening')
+  unsubscribe()
+  stop()
+  delete globalThis.speechSynthesis
+  delete globalThis.SpeechSynthesisUtterance
+})
+
+test('a voice that actually starts drains the queue', () => {
+  const synth = stubSynthesis({ fireStart: true })
+  let state
+  const unsubscribe = subscribe(s => (state = s))
+  play(CHUNKS, { voiceName: 'Local' })
+  assert.deepEqual(synth.spoken, CHUNKS, 'every chunk is spoken in order')
+  assert.equal(state.playing, false, 'and the queue closes itself at the end')
+  assert.equal(state.stalled, false)
+  unsubscribe()
+  stop()
+  delete globalThis.speechSynthesis
+  delete globalThis.SpeechSynthesisUtterance
 })

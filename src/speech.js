@@ -88,13 +88,22 @@ function speakAt(i) {
   const u = new SpeechSynthesisUtterance(queue[i])
   if (voice) u.voice = voice
   u.rate = rate
+  let started = false
   u.onstart = () => {
+    started = true
     clearTimeout(stallTimer)
     if (!stalled) return
     stalled = false
     emit()
   }
-  u.onend = () => current === u && speakAt(i + 1)
+  // A muted tab ends every utterance at once without ever starting it. Chained, that drains the
+  // whole queue as fast as JS runs and drags the page to the last sentence, which is what a reader
+  // sees as "it scrolled to the bottom by itself". An end without a start never played: halt there.
+  u.onend = () => {
+    if (current !== u) return
+    if (!started) return halt()
+    speakAt(i + 1)
+  }
   u.onerror = e => {
     if (current !== u) return // cancel() reports 'interrupted' on the utterance we just replaced
     if (e.error === 'interrupted' || e.error === 'canceled') return
@@ -113,6 +122,16 @@ function speakAt(i) {
     emit()
   }, STALL_MS)
   speechSynthesis.speak(u)
+  emit()
+}
+
+// Stop speaking but hold the place, so the hint has something to sit on and skipping retries.
+function halt() {
+  current = null
+  clearTimeout(stallTimer)
+  speechSynthesis.cancel()
+  stalled = true
+  paused = false
   emit()
 }
 
