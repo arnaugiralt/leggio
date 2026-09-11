@@ -222,8 +222,10 @@ kbd {
   line-height: 1.45; /* tighter than the prose measure: a table is scanned, not read */
   font-variant-numeric: tabular-nums; /* digits line up down a column, at any measure */
 }
+.prose th { padding: 0.55em 1.25em; }
+.prose td { padding: 0.75em 1.25em; }
+.prose tbody td { font-size: 0.9em; } /* data reads smaller than the prose it sits in; the em paddings follow it down */
 .prose th, .prose td {
-  padding: 0.55em 1.25em;
   vertical-align: top;
   overflow-wrap: break-word; /* never below the longest word; `anywhere` on .prose would let columns squeeze to single characters */
 }
@@ -242,7 +244,6 @@ kbd {
 .prose td { color: color-mix(in oklab, var(--color-fg) 80%, var(--color-bg)); }
 .prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
 .prose tbody tr + tr td { border-top: 1px solid var(--table-row-rule); }
-.prose tbody tr:first-child td { padding-top: 0.7em; } /* the accent rule needs air under it */
 
 .prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
 
