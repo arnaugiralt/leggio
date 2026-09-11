@@ -114,19 +114,23 @@ export function Speech({ articleRef, text, settings }) {
   }, [playing])
 
   if (!speech.supported) return null
-  if (!playing) {
-    return (
-      <button type="button" class="quiet" onClick={start}>
-        Read
-      </button>
-    )
-  }
+  // The bar button is the on/off switch and never changes width, so nothing beside it moves.
+  // Everything else lives on the player, because reading is a mode and a mode gets its own surface.
   return (
     <>
-      <button type="button" class="quiet" aria-label="Previous sentence" onClick={() => jump(-1)}>‹</button>
-      <button type="button" class="quiet" onClick={() => speech.toggle()}>{paused ? 'Resume' : 'Pause'}</button>
-      <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>›</button>
-      <button type="button" class="quiet" onClick={() => speech.stop()}>Stop</button>
+      <button type="button" class="quiet reading-toggle" aria-pressed={playing} onClick={playing ? () => speech.stop() : start}>
+        {playing ? 'Reading' : 'Read'}
+      </button>
+      {playing && (
+        <div class="player" role="group" aria-label="Reading controls">
+          <span class="player-count">
+            {index + 1} of {items.current.length}
+          </span>
+          <button type="button" class="quiet" aria-label="Previous sentence" onClick={() => jump(-1)}>‹</button>
+          <button type="button" class="quiet player-wide" onClick={() => speech.toggle()}>{paused ? 'Resume' : 'Pause'}</button>
+          <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>›</button>
+        </div>
+      )}
     </>
   )
 }
