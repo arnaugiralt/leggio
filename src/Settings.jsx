@@ -9,7 +9,7 @@ const GROUPS = [
         label: 'Google Fonts URL',
         type: 'url',
         placeholder: 'https://fonts.googleapis.com/css2?family=…',
-        hint: 'First family is used for text, second for code. Include the weights you want.',
+        hint: 'First family is used for text, second for code. Ask for 400 and 600; bold text and headings use 600.',
       },
       { key: 'fontSize', label: 'Size', type: 'number', step: 1, min: 10, max: 40 },
       { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },

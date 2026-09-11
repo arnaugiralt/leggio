@@ -187,6 +187,9 @@ kbd {
 .prose h3 { font-size: 1.25em; }
 .prose p, .prose li { text-wrap: pretty; }
 .prose h1, .prose h2, .prose h3, .prose h4 { text-wrap: balance; }
+/* 600 carries emphasis without the stamp of 700. Variable faces (ui-serif is New York on macOS) hit it
+   exactly; families that only ship 400 and 700 round up to 700, which is where this started. */
+.prose :is(h1, h2, h3, h4, h5, h6), .prose :is(strong, b) { font-weight: 600; }
 .prose a { color: var(--color-accent); }
 .prose img { max-width: 100%; }
 .prose blockquote {
@@ -206,14 +209,32 @@ kbd {
   overflow-x: auto;
 }
 .prose .table-wrap { margin: 2em 0; }
-.prose table { border-collapse: collapse; width: 100%; }
+/* Set like a book table, not a spreadsheet: no vertical rules, no header fill, three horizontal
+   rules. Outer rules are the heavier pair, as in booktabs. Named --table-* so they cannot collide
+   with the variables beautiful-mermaid reads inside its own SVG. */
+.prose table {
+  --table-rule: color-mix(in oklab, var(--color-fg) 35%, var(--color-bg));
+  --table-rule-thin: color-mix(in oklab, var(--color-fg) 18%, var(--color-bg));
+  border-collapse: collapse;
+  width: 100%;
+  border-block: 1px solid var(--table-rule);
+  font-variant-numeric: tabular-nums; /* digits line up down a column, at any measure */
+}
 .prose th, .prose td {
-  padding: 0.4em 0.8em;
-  border: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg));
+  padding: 0.55em 1.25em;
   vertical-align: top;
   overflow-wrap: break-word; /* never below the longest word; `anywhere` on .prose would let columns squeeze to single characters */
 }
-.prose th { background: var(--ui-surface); }
+/* Flush with the text column, so the rules span the measure instead of floating inside it. */
+.prose :is(th, td):first-child { padding-inline-start: 0; }
+.prose :is(th, td):last-child { padding-inline-end: 0; }
+.prose th {
+  font-weight: 600;
+  text-align: left; /* markdown's own :--: alignment arrives as an inline style and still wins */
+  border-bottom: 1px solid var(--table-rule-thin);
+  padding-bottom: 0.7em;
+}
+.prose tbody tr:first-child td { padding-top: 0.7em; } /* booktabs \addlinespace: the header rule needs air under it */
 .prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
 
 .prose code {
