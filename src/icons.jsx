@@ -18,65 +18,65 @@ const base = {
   focusable: 'false',
 }
 
-// Transport shapes are filled: at 16px a 2px outline leaves too little counter for a triangle to
-// read as one. The bar in skip-back and skip-forward has no area, so it stays a stroke regardless.
-const Solid = ({ size = 16, children, ...rest }) => (
-  <svg {...base} {...rest} width={size} height={size} fill="currentColor">
-    {children}
-  </svg>
-)
-
-const Line = ({ size = 16, children, ...rest }) => (
+// Everything is stroked. Filled transport shapes read as blobs beside this app's hairlines; the
+// cost is that a triangle needs room for its counter, so the player draws these at 18px.
+const Icon = ({ size = 16, children, ...rest }) => (
   <svg {...base} {...rest} width={size} height={size} fill="none">
     {children}
   </svg>
 )
 
 export const SkipBack = props => (
-  <Solid {...props}>
+  <Icon {...props}>
     <path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z" />
     <path d="M3 20V4" />
-  </Solid>
+  </Icon>
 )
 
 export const SkipForward = props => (
-  <Solid {...props}>
+  <Icon {...props}>
     <path d="M21 4v16" />
     <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
-  </Solid>
+  </Icon>
 )
 
 export const Play = props => (
-  <Solid {...props}>
+  <Icon {...props}>
     <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
-  </Solid>
+  </Icon>
 )
 
 export const Pause = props => (
-  <Solid {...props}>
+  <Icon {...props}>
     <rect x="14" y="3" width="5" height="18" rx="1" />
     <rect x="5" y="3" width="5" height="18" rx="1" />
-  </Solid>
+  </Icon>
 )
 
 export const Folder = props => (
-  <Line {...props}>
+  <Icon {...props}>
     <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-  </Line>
+  </Icon>
 )
 
 export const FileText = props => (
-  <Line {...props}>
+  <Icon {...props}>
     <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
     <path d="M14 2v5a1 1 0 0 0 1 1h5" />
     <path d="M10 9H8" />
     <path d="M16 13H8" />
     <path d="M16 17H8" />
-  </Line>
+  </Icon>
+)
+
+export const FolderOpen = props => (
+  <Icon {...props}>
+    <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+  </Icon>
 )
 
 export const ChevronRight = props => (
-  <Line {...props}>
+  <Icon {...props}>
     <path d="m9 18 6-6-6-6" />
-  </Line>
+  </Icon>
 )

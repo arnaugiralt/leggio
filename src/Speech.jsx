@@ -133,13 +133,13 @@ export function Speech({ articleRef, text, settings }) {
             {index + 1} of {items.current.length}
           </span>
           <button type="button" class="quiet" aria-label="Previous sentence" onClick={() => jump(-1)}>
-            <SkipBack />
+            <SkipBack size={18} />
           </button>
           <button type="button" class="quiet" aria-label={paused ? 'Resume' : 'Pause'} onClick={() => speech.toggle()}>
-            {paused ? <Play /> : <Pause />}
+            {paused ? <Play size={18} /> : <Pause size={18} />}
           </button>
           <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>
-            <SkipForward />
+            <SkipForward size={18} />
           </button>
         </div>
       )}

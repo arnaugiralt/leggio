@@ -176,7 +176,10 @@ kbd {
   box-shadow: 0 1px 2px color-mix(in oklab, var(--color-fg) 10%, transparent),
     0 10px 28px -12px color-mix(in oklab, var(--color-fg) 45%, transparent);
   font-size: 0.85rem;
+  transition: right 180ms var(--ease-out); /* keeps pace with the sheet sliding in beside it */
 }
+/* The sheet owns the right edge while it is open, so the player stays over the document. */
+.settings-open .player { right: calc(1.5rem + var(--sheet-w)); }
 .player-count {
   margin-right: 0.55rem;
   color: var(--ui-muted);
@@ -489,13 +492,7 @@ html:has(dialog.lightbox[open]) {
 }
 .row-note { margin-left: auto; font-size: 0.72rem; color: var(--ui-faint); }
 .row.missing .row-name { text-decoration: line-through; }
-.chevron {
-  flex-shrink: 0;
-  color: var(--ui-faint);
-  transition: transform 150ms var(--ease-out);
-}
-.chevron.open { transform: rotate(90deg); }
-/* The file and folder marks sit in the chevron's column, so names line up whatever the row is. */
+/* One mark per row, in one column, so names line up whether the row is a file or a folder. */
 .kind {
   flex-shrink: 0;
   color: var(--ui-faint);

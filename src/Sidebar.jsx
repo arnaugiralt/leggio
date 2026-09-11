@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks'
 import * as fs from './fs.js'
-import { ChevronRight, FileText, Folder } from './icons.jsx'
+import { FileText, Folder, FolderOpen } from './icons.jsx'
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
   return (
@@ -22,7 +22,7 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
             <li key={key}>
               <div class="row">
                 <button type="button" class="row-main" aria-expanded={open} onClick={() => toggle(key)}>
-                  <ChevronRight size={14} class={`chevron${open ? ' open' : ''}`} />
+                  {open ? <FolderOpen size={14} class="kind" /> : <Folder size={14} class="kind" />}
                   <span class="row-name">{child.name}</span>
                 </button>
                 <PinButton item={child} onTogglePin={onTogglePin} />
