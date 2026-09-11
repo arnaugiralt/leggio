@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'preact/hooks'
 import { DIAGRAM_THEMES } from './settings.js'
+import * as speech from './speech.js'
 
 const GROUPS = [
   {
@@ -39,18 +41,25 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Reading aloud',
+    fields: [
+      { key: 'voice', label: 'Voice', type: 'select', hint: 'Online voices sound better and need a connection. Without one, the reader falls back to a local voice.' },
+      { key: 'speechRate', label: 'Rate', type: 'number', step: 0.05, min: 0.5, max: 2 },
+    ],
+  },
+  {
     title: 'Diagrams and code',
     fields: [{ key: 'diagramTheme', label: 'Theme', type: 'select', hint: 'Applies to both mermaid diagrams and code blocks.' }],
   },
 ]
 
-function Field({ field, value, onInput }) {
+function Field({ field, value, options, onInput }) {
   const { key, label, type, hint, ...attrs } = field
   const control =
     type === 'select' ? (
       <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
-        {DIAGRAM_THEMES.map(name => (
-          <option key={name} value={name}>{name === 'page' ? 'Follow page colors' : name}</option>
+        {options.map(([option, text]) => (
+          <option key={option} value={option}>{text}</option>
         ))}
       </select>
     ) : (
@@ -65,7 +74,24 @@ function Field({ field, value, onInput }) {
   )
 }
 
+const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, name === 'page' ? 'Follow page colors' : name])
+
 export function Settings({ settings, onChange, onReset }) {
+  // getVoices() is empty until the list loads, and Chrome refills it when the network voices arrive.
+  const [voices, setVoices] = useState(speech.voices)
+  useEffect(() => {
+    if (!speech.supported) return
+    const update = () => setVoices(speech.voices())
+    update() // voiceschanged fires once, and often before this effect runs
+    speechSynthesis.addEventListener('voiceschanged', update)
+    return () => speechSynthesis.removeEventListener('voiceschanged', update)
+  }, [])
+
+  const optionsFor = key =>
+    key === 'voice'
+      ? [['', 'Browser default'], ...voices.map(v => [v.name, v.localService ? v.name : `${v.name} (online)`])]
+      : THEME_OPTIONS
+
   function update(key, type, input) {
     if (type === 'number') {
       const value = input.valueAsNumber
@@ -82,7 +108,7 @@ export function Settings({ settings, onChange, onReset }) {
         <fieldset key={group.title}>
           <legend>{group.title}</legend>
           {group.fields.map(field => (
-            <Field key={field.key} field={field} value={settings[field.key]} onInput={update} />
+            <Field key={field.key} field={field} value={settings[field.key]} options={optionsFor(field.key)} onInput={update} />
           ))}
         </fieldset>
       ))}

@@ -3,6 +3,7 @@ import { Viewer } from './Viewer.jsx'
 import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
 import { Sidebar } from './Sidebar.jsx'
+import { Speech } from './Speech.jsx'
 import { DEFAULTS, load, save, applyToRoot, applyFontUrl } from './settings.js'
 import * as fs from './fs.js'
 import * as idb from './idb.js'
@@ -282,6 +283,7 @@ export function App() {
         </div>
         <span class="bar-title">{current ? current.name : 'md reader'}</span>
         <div class="bar-actions">
+          {current && <Speech articleRef={article} text={current.text} settings={settings} />}
           {current?.handle && (
             <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
               {currentPinned ? 'Unpin' : 'Pin'}

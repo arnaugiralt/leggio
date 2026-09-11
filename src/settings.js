@@ -18,6 +18,8 @@ export const DEFAULTS = {
   accent: '#2563eb',
   codeBg: '#f5f5f5',
   diagramTheme: 'page',
+  voice: '', // speechSynthesis voice name; '' means whatever the browser picks
+  speechRate: 1,
 }
 
 // setting key -> [css variable, unit]. fontUrl is handled by fontFamilies and applyFontUrl.

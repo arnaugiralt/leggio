@@ -243,6 +243,13 @@ kbd {
 .prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
 .prose tbody tr + tr td { border-top: 1px solid color-mix(in oklab, var(--color-fg) 8%, var(--color-bg)); } /* lighter than --ui-rule: inside the table, not the edge of it */
 
+/* The sentence being read aloud. ::highlight paints over a Range, so the rendered markdown is
+   never wrapped, split or otherwise touched. */
+::highlight(spoken) {
+  background-color: color-mix(in oklab, var(--color-accent) 20%, var(--color-bg));
+  color: var(--color-fg);
+}
+
 .prose hr { border: 0; border-top: 1px solid var(--ui-rule); margin: 2em 0; }
 
 .prose code {
