@@ -209,15 +209,17 @@ kbd {
   overflow-x: auto;
 }
 .prose .table-wrap { margin: 2em 0; }
-/* Set like a book table, not a spreadsheet: no vertical rules, no header fill, three horizontal
-   rules. Outer rules are the heavier pair, as in booktabs. Named --table-* so they cannot collide
-   with the variables beautiful-mermaid reads inside its own SVG. */
+/* Set like a book table, not a spreadsheet: no vertical rules, no fill. The header is a different
+   class of type rather than just bolder data - small caps, muted - and the accent rule under it is
+   the only colour a table spends. Named --table-* so they cannot collide with the variables
+   beautiful-mermaid reads inside its own SVG. */
 .prose table {
-  --table-rule: color-mix(in oklab, var(--color-fg) 35%, var(--color-bg));
   --table-rule-thin: color-mix(in oklab, var(--color-fg) 18%, var(--color-bg));
+  --table-row-rule: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
   border-collapse: collapse;
   width: 100%;
-  border-block: 1px solid var(--table-rule);
+  border-bottom: 1px solid var(--table-rule-thin);
+  line-height: 1.45; /* tighter than the prose measure: a table is scanned, not read */
   font-variant-numeric: tabular-nums; /* digits line up down a column, at any measure */
 }
 .prose th, .prose td {
@@ -229,12 +231,19 @@ kbd {
 .prose :is(th, td):first-child { padding-inline-start: 0; }
 .prose :is(th, td):last-child { padding-inline-end: 0; }
 .prose th {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
   font-weight: 600;
+  color: var(--ui-muted);
   text-align: left; /* markdown's own :--: alignment arrives as an inline style and still wins */
-  border-bottom: 1px solid var(--table-rule-thin);
-  padding-bottom: 0.7em;
+  border-bottom: 2px solid var(--color-accent);
+  padding-bottom: 0.45em;
 }
-.prose tbody tr:first-child td { padding-top: 0.7em; } /* booktabs \addlinespace: the header rule needs air under it */
+.prose td { color: color-mix(in oklab, var(--color-fg) 80%, var(--color-bg)); }
+.prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
+.prose tbody tr + tr td { border-top: 1px solid var(--table-row-rule); }
+.prose tbody tr:first-child td { padding-top: 0.7em; } /* the accent rule needs air under it */
+
 .prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
 
 .prose code {
