@@ -50,12 +50,19 @@ export function resolveVoice(name) {
 
 const localFallback = all => all.find(v => v.localService && v.default) ?? all.find(v => v.localService)
 
+// Nothing tells a page that its tab is muted, so the only honest signal is silence: an utterance
+// that never reports starting. The same watchdog catches a wedged engine or a voice that never
+// arrives, which from the reader's side is the same complaint - it did nothing.
+const STALL_MS = 3000
+
 let queue = []
 let index = -1
 let voice = null
 let rate = 1
 let paused = false
 let current = null // the utterance we are chained to; a superseded one must not advance the queue
+let stalled = false
+let stallTimer = 0
 const listeners = new Set()
 
 export function subscribe(fn) {
@@ -64,7 +71,7 @@ export function subscribe(fn) {
   return () => listeners.delete(fn)
 }
 
-const state = () => ({ index, playing: index >= 0, paused })
+const state = () => ({ index, playing: index >= 0, paused, stalled })
 const emit = () => listeners.forEach(fn => fn(state()))
 
 export function play(chunks, { from = 0, voiceName = '', rate: speed = 1 } = {}) {
@@ -81,6 +88,12 @@ function speakAt(i) {
   const u = new SpeechSynthesisUtterance(queue[i])
   if (voice) u.voice = voice
   u.rate = rate
+  u.onstart = () => {
+    clearTimeout(stallTimer)
+    if (!stalled) return
+    stalled = false
+    emit()
+  }
   u.onend = () => current === u && speakAt(i + 1)
   u.onerror = e => {
     if (current !== u) return // cancel() reports 'interrupted' on the utterance we just replaced
@@ -94,12 +107,18 @@ function speakAt(i) {
   }
   current = u
   paused = false
+  clearTimeout(stallTimer)
+  stallTimer = setTimeout(() => {
+    stalled = true
+    emit()
+  }, STALL_MS)
   speechSynthesis.speak(u)
   emit()
 }
 
 function cancel() {
   current = null
+  clearTimeout(stallTimer)
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
 }
 
@@ -108,6 +127,7 @@ export function stop() {
   queue = []
   index = -1
   paused = false
+  stalled = false
   emit()
 }
 

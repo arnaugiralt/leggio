@@ -52,7 +52,7 @@ function collect(article) {
 }
 
 export function Speech({ articleRef, text, settings }) {
-  const [{ playing, paused, index }, setStatus] = useState({ playing: false, paused: false, index: -1 })
+  const [{ playing, paused, index, stalled }, setStatus] = useState({ playing: false, paused: false, index: -1, stalled: false })
   const items = useRef([])
   const follow = useRef(true)
 
@@ -123,6 +123,11 @@ export function Speech({ articleRef, text, settings }) {
       </button>
       {playing && (
         <div class="player" role="group" aria-label="Reading controls">
+          {stalled && (
+            <span class="player-hint" role="status">
+              No sound? Check the tab is not muted.
+            </span>
+          )}
           <span class="player-count">
             {index + 1} of {items.current.length}
           </span>

@@ -163,8 +163,7 @@ kbd {
 .player {
   position: fixed;
   bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 1.5rem;
   z-index: 4;
   display: flex;
   align-items: center;
@@ -184,6 +183,19 @@ kbd {
   font-variant-numeric: tabular-nums; /* the count must not resize the pill as it climbs */
 }
 .player button { color: var(--ui-strong); }
+/* Above the pill, so saying something does not resize it. */
+.player-hint {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.5rem);
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--ui-hairline);
+  background: var(--color-bg);
+  color: var(--ui-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
 .player-wide { min-width: 4.5rem; } /* Pause and Resume are different widths; the pill should not twitch */
 .reading-toggle { min-width: 4.5rem; } /* likewise, so Pin and Open never move */
 .reading-toggle[aria-pressed='true'] { color: var(--color-accent); } /* it is a switch; show that it is on */
