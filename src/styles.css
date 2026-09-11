@@ -21,6 +21,7 @@
   --ui-hairline: color-mix(in oklab, var(--color-fg) 12%, var(--color-bg));
   --ui-muted: color-mix(in oklab, var(--color-fg) 60%, var(--color-bg));
   --ui-strong: color-mix(in oklab, var(--color-fg) 80%, var(--color-bg)); /* dimmed, but still reads as text rather than as a label */
+  --ui-rule: color-mix(in oklab, var(--color-fg) 18%, var(--color-bg)); /* a rule across the content column: an hr, the foot of a table */
   --ui-faint: color-mix(in oklab, var(--color-fg) 30%, var(--color-bg));
   --ui-surface: color-mix(in oklab, var(--color-fg) 5%, var(--color-bg));
   --ui-hover: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
@@ -209,27 +210,24 @@ kbd {
   transform: translateX(-50%);
   overflow-x: auto;
 }
-.prose .table-wrap { margin: 2em 0; }
+.prose .table-wrap { margin: 1.5em 0 2em; } /* the header's own leading stands in for the top rule the table no longer has */
 /* Set like a book table, not a spreadsheet: no vertical rules, no fill. The header is a different
-   class of type rather than just bolder data - small caps, muted - and the accent rule under it is
-   the only colour a table spends. Named --table-* so they cannot collide with the variables
-   beautiful-mermaid reads inside its own SVG. */
+   class of type rather than just bolder data - small caps, tracked out - and the accent rule under
+   it is the only colour a table spends. */
 .prose table {
-  --table-rule-thin: color-mix(in oklab, var(--color-fg) 18%, var(--color-bg));
-  --table-row-rule: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
   border-collapse: collapse;
   width: 100%;
-  border-bottom: 1px solid var(--table-rule-thin);
+  border-bottom: 1px solid var(--ui-rule);
   line-height: 1.45; /* tighter than the prose measure: a table is scanned, not read */
   font-variant-numeric: tabular-nums; /* digits line up down a column, at any measure */
 }
-.prose th { padding: 0.55em 1.25em; }
-.prose td { padding: 0.75em 1.25em; }
-.prose tbody td { font-size: 0.9em; } /* data reads smaller than the prose it sits in; the em paddings follow it down */
 .prose th, .prose td {
+  padding: 0.55em 1.25em;
   vertical-align: top;
   overflow-wrap: break-word; /* never below the longest word; `anywhere` on .prose would let columns squeeze to single characters */
 }
+.prose td { padding: 0.75em 1.25em; color: var(--ui-strong); }
+.prose tbody td { font-size: 0.9em; } /* data reads smaller than the prose it sits in; the em paddings follow it down */
 /* Flush with the text column, so the rules span the measure instead of floating inside it. */
 .prose :is(th, td):first-child { padding-inline-start: 0; }
 .prose :is(th, td):last-child { padding-inline-end: 0; }
@@ -242,11 +240,10 @@ kbd {
   border-bottom: 2px solid var(--color-accent);
   padding-bottom: 0.45em;
 }
-.prose td { color: var(--ui-strong); }
 .prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
-.prose tbody tr + tr td { border-top: 1px solid var(--table-row-rule); }
+.prose tbody tr + tr td { border-top: 1px solid color-mix(in oklab, var(--color-fg) 8%, var(--color-bg)); } /* lighter than --ui-rule: inside the table, not the edge of it */
 
-.prose hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-fg) 20%, var(--color-bg)); margin: 2em 0; }
+.prose hr { border: 0; border-top: 1px solid var(--ui-rule); margin: 2em 0; }
 
 .prose code {
   font-family: var(--code-font-family);
