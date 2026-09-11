@@ -298,6 +298,12 @@ kbd {
   background-color: color-mix(in oklab, var(--color-accent) 20%, var(--color-bg));
   color: var(--color-fg);
 }
+/* The word being spoken, where the voice reports one. It rides on top of the sentence wash rather
+   than replacing it: alone, a single lit word gives no sense of where you are. */
+::highlight(spoken-word) {
+  background-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-bg));
+  color: var(--color-fg);
+}
 
 .prose hr { border: 0; border-top: 1px solid var(--ui-rule); margin: 2em 0; }
 

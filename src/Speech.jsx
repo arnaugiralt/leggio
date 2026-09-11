@@ -6,6 +6,7 @@ import { Pause, Play, SkipBack, SkipForward } from './icons.jsx'
 // Blocks whose text is not prose: read aloud they are noise.
 const SKIP = 'pre, table, .table-wrap, .diagram'
 const HIGHLIGHT = 'spoken'
+const WORD = 'spoken-word'
 
 // One string per block with the text nodes behind it, so a sentence that straddles <strong> or
 // <code> still becomes a single utterance and a single Range.
@@ -46,7 +47,8 @@ function collect(article) {
   const out = []
   for (const { text, parts } of blocks(article)) {
     for (const { start, end } of speech.sentences(text)) {
-      if (text.slice(start, end).trim()) out.push({ text: text.slice(start, end), range: rangeFor(parts, start, end) })
+      // parts and start are kept so a word boundary can be turned into a Range inside the sentence.
+      if (text.slice(start, end).trim()) out.push({ text: text.slice(start, end), range: rangeFor(parts, start, end), parts, start })
     }
   }
   return out
@@ -62,7 +64,26 @@ export function Speech({ articleRef, text, settings }) {
   // A new document invalidates every Range we are holding.
   useEffect(() => () => speech.stop(), [text])
 
+  // Local voices report word boundaries; cloud voices never do, so the word layer simply stays
+  // empty and the sentence wash carries on alone. Painting happens here rather than in state
+  // because a boundary lands several times a second and must not re-render.
   useEffect(() => {
+    if (!CSS.highlights) return
+    speech.setWordHandler((i, charIndex, charLength) => {
+      const item = items.current[i]
+      if (!item) return
+      const length = charLength || (item.text.slice(charIndex).match(/^\S+/)?.[0].length ?? 0)
+      if (!length) return
+      const range = rangeFor(item.parts, item.start + charIndex, item.start + charIndex + length)
+      const highlight = new Highlight(range)
+      highlight.priority = 1 // paints over the sentence wash
+      CSS.highlights.set(WORD, highlight)
+    })
+    return () => speech.setWordHandler(null)
+  }, [])
+
+  useEffect(() => {
+    CSS.highlights?.delete(WORD) // the old word belongs to the sentence we just left
     if (!playing || index < 0) {
       CSS.highlights?.delete(HIGHLIGHT)
       return

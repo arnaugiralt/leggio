@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sentences, resolveVoice, play, stop, subscribe, retune } from '../src/speech.js'
+import { sentences, resolveVoice, play, stop, subscribe, retune, setWordHandler } from '../src/speech.js'
 
 const spans = text => sentences(text).map(({ start, end }) => text.slice(start, end).trim())
 
@@ -58,7 +58,7 @@ test('an unreachable or missing voice falls back to a local one', () => {
 })
 
 // A fake engine, because the bug lives in how the queue reacts to the events, not in the audio.
-function stubSynthesis({ fireStart, fireEnd = true }) {
+function stubSynthesis({ fireStart, fireEnd = true, boundaries = [] }) {
   const synth = {
     spoken: [],
     voices: [],
@@ -76,6 +76,7 @@ function stubSynthesis({ fireStart, fireEnd = true }) {
       this.spoken.push(u.text)
       this.voices.push(u.voice?.name)
       if (fireStart) u.onstart?.()
+      for (const b of boundaries) u.onboundary?.(b)
       if (fireEnd) u.onend?.()
     },
   }
@@ -143,6 +144,24 @@ test('retune with nothing changed leaves the utterance alone', async () => {
   await new Promise(r => setTimeout(r, 10))
   assert.equal(synth.spoken.length, 1, 'no restart, so no stutter while the settings sheet is open')
 
+  stop()
+  delete globalThis.speechSynthesis
+  delete globalThis.SpeechSynthesisUtterance
+})
+
+test('word boundaries reach the caller with the sentence they belong to', () => {
+  // Only local voices fire these; the handler is what paints the word layer.
+  const synth = stubSynthesis({
+    fireStart: true,
+    fireEnd: false,
+    boundaries: [{ name: 'word', charIndex: 0 }, { name: 'sentence', charIndex: 4 }, { name: 'word', charIndex: 4, charLength: 8 }],
+  })
+  const seen = []
+  setWordHandler((...args) => seen.push(args))
+  play(CHUNKS, { voiceName: 'Local' })
+  assert.deepEqual(seen, [[0, 0, undefined], [0, 4, 8]], 'word events only, tagged with the queue index')
+
+  setWordHandler(null)
   stop()
   delete globalThis.speechSynthesis
   delete globalThis.SpeechSynthesisUtterance

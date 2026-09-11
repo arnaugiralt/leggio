@@ -65,6 +65,14 @@ let stalled = false
 let stallTimer = 0
 const listeners = new Set()
 
+// Word boundaries fire several times a second, so they bypass subscribe() and its re-render: the
+// caller gets a raw callback and is expected to paint without going through component state.
+// Only local voices fire these at all; a cloud voice simply never calls it.
+let onWord = null
+export function setWordHandler(fn) {
+  onWord = fn
+}
+
 export function subscribe(fn) {
   listeners.add(fn)
   fn(state())
@@ -103,6 +111,9 @@ function speakAt(i) {
     if (current !== u) return
     if (!started) return halt()
     speakAt(i + 1)
+  }
+  u.onboundary = e => {
+    if (current === u && e.name === 'word') onWord?.(i, e.charIndex, e.charLength)
   }
   u.onerror = e => {
     if (current !== u) return // cancel() reports 'interrupted' on the utterance we just replaced
