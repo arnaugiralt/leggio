@@ -22,6 +22,45 @@ export const DEFAULTS = {
   speechRate: 1,
 }
 
+// The keys a preset owns: the whole look, nothing personal. Everything else
+// (sizes, widths, voice) survives a theme change, and every one of these stays
+// editable afterwards — picking a preset is a one-shot write, not a mode.
+export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 'lineHeight']
+
+export const PRESETS = [
+  { name: 'Default', ...Object.fromEntries(LOOK.map(key => [key, DEFAULTS[key]])) },
+  {
+    name: 'Paper',
+    bg: '#fbf7ef', fg: '#2e2a25', accent: '#9a5b2a', codeBg: '#f3ecdf',
+    diagramTheme: 'solarized-light',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=JetBrains+Mono:wght@400;600',
+    lineHeight: 1.7,
+  },
+  {
+    name: 'Ink',
+    bg: '#16181d', fg: '#d5d9e0', accent: '#7aa2f7', codeBg: '#1b1e24',
+    diagramTheme: 'tokyo-night',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600',
+    lineHeight: 1.65,
+  },
+  {
+    name: 'Nord',
+    // A step darker than the nord theme's own #2e3440, so code blocks and diagrams
+    // read as a surface on the page instead of vanishing into it.
+    bg: '#272b34', fg: '#d8dee9', accent: '#88c0d0', codeBg: '#2e3440',
+    diagramTheme: 'nord',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600',
+    lineHeight: 1.6,
+  },
+  {
+    name: 'Contrast',
+    bg: '#ffffff', fg: '#000000', accent: '#0b3fd1', codeBg: '#ededed',
+    diagramTheme: 'page', // every built-in light theme is white-on-white here; the palette gives code its own surface
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600',
+    lineHeight: 1.75,
+  },
+]
+
 // setting key -> [css variable, unit]. fontUrl is handled by fontFamilies and applyFontUrl.
 const CSS_VARS = {
   fontSize: ['--font-size', 'px'],

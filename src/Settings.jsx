@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { DIAGRAM_THEMES } from './settings.js'
+import { DIAGRAM_THEMES, LOOK, PRESETS } from './settings.js'
 import * as speech from './speech.js'
 
 const GROUPS = [
@@ -76,6 +76,33 @@ function Field({ field, value, options, onInput }) {
 
 const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, name === 'page' ? 'Follow page colors' : name])
 
+// A swatch is a miniature of the page it paints: its own background, "Aa" in its
+// text color, a rule in its accent. The active one is derived by comparing values,
+// so tweaking any control afterwards simply deselects — there is no stored theme.
+function Themes({ settings, onChange }) {
+  return (
+    <fieldset>
+      <legend>Theme</legend>
+      <div class="themes">
+        {PRESETS.map(({ name, ...look }) => (
+          <button
+            key={name}
+            type="button"
+            class="theme"
+            aria-pressed={LOOK.every(key => settings[key] === look[key])}
+            style={`background:${look.bg};color:${look.fg}`}
+            onClick={() => onChange(look)}
+          >
+            <span class="theme-sample">Aa</span>
+            <span class="theme-accent" style={`background:${look.accent}`} />
+            <span class="theme-name">{name}</span>
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 export function Settings({ settings, onChange, onReset }) {
   // getVoices() is empty until the list loads, and Chrome refills it when the network voices arrive.
   const [voices, setVoices] = useState(speech.voices)
@@ -104,6 +131,7 @@ export function Settings({ settings, onChange, onReset }) {
 
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
+      <Themes settings={settings} onChange={onChange} />
       {GROUPS.map(group => (
         <fieldset key={group.title}>
           <legend>{group.title}</legend>

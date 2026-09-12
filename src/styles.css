@@ -570,6 +570,28 @@ html:has(dialog.lightbox[open]) {
 }
 .settings input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 .settings input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.5rem;
+}
+.theme {
+  display: grid;
+  justify-items: start;
+  gap: 0.3rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--ui-hairline);
+  border-radius: 8px;
+  font-family: var(--ui-font);
+  cursor: pointer;
+}
+/* The ring is drawn in the page accent, not the swatch's own, so the selection
+   reads against the sheet rather than disappearing into a dark preset. */
+.theme[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.theme-sample { font-size: 1.05rem; font-weight: 600; line-height: 1; }
+.theme-accent { width: 1.5rem; height: 3px; border-radius: 2px; }
+.theme-name { font-size: 0.72rem; opacity: 0.65; }
+
 .settings .reset { width: 100%; margin-top: 0.5rem; border: 1px solid var(--ui-hairline); }
 
 /* Outline rail: one tick per heading, titles on hover */
