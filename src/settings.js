@@ -44,12 +44,11 @@ export const PRESETS = [
     lineHeight: 1.65,
   },
   {
-    name: 'Nord',
-    // A step darker than the nord theme's own #2e3440, so code blocks and diagrams
-    // read as a surface on the page instead of vanishing into it.
-    bg: '#272b34', fg: '#d8dee9', accent: '#88c0d0', codeBg: '#2e3440',
-    diagramTheme: 'nord',
-    fontUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600',
+    name: 'Cobalt',
+    bg: '#fffdfa', fg: '#002885', accent: '#0952f1', codeBg: '#f5f5f5',
+    diagramTheme: 'page',
+    // One family only: Literata sets the text, code stays on the system mono.
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&display=swap',
     lineHeight: 1.6,
   },
   {
