@@ -33,12 +33,14 @@ export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 
 export const PRESETS = [
   { name: 'Default', ...Object.fromEntries(LOOK.map(key => [key, DEFAULTS[key]])) },
   {
-    name: 'Paper',
-    bg: '#fbf7ef', fg: '#2e2a25', accent: '#9a5b2a', codeBg: '#f3ecdf',
-    diagramTheme: 'solarized-light',
-    fontUrl: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=JetBrains+Mono:wght@400;600',
-    textFont: 'Lora', codeFont: 'JetBrains Mono', uiFont: 'Lora',
-    lineHeight: 1.7,
+    name: 'Quiet',
+    bg: '#ffffff', fg: '#363737', accent: '#363737', codeBg: '#f0f0f0',
+    // Monochrome on purpose, so the palette makes better diagrams than a built-in theme,
+    // and code keeps the grey surface that zinc-light would have painted white.
+    diagramTheme: 'page',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght,MONO@0,300..800,1;1,300..800,1&family=Spectral:ital,wght@0,400;0,600;1,400;1,600&display=swap',
+    textFont: 'Spectral', codeFont: 'Google Sans Code', uiFont: 'ui-sans-serif',
+    lineHeight: 1.65,
   },
   {
     name: 'Ink',
