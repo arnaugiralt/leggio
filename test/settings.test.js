@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, load, save, applyToRoot, fontFamilies, withSwap } from '../src/settings.js'
+import { DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, withSwap } from '../src/settings.js'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -52,26 +52,49 @@ test('load drops keys that are no longer settings', () => {
   assert.equal('fontFamily' in s, false)
 })
 
-test('fontFamilies reads body and code families from a Google Fonts url', () => {
-  const url = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=JetBrains+Mono&display=swap'
-  assert.deepEqual(fontFamilies(url), {
-    body: "'Inter', ui-serif, Georgia, serif",
-    code: "'JetBrains Mono', ui-monospace, monospace",
-  })
+test('fontStack resolves unset roles by the legacy positional rule', () => {
+  const s = { ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=JetBrains+Mono&display=swap' }
+  assert.equal(fontStack(s, 'text'), "'Inter', ui-serif, Georgia, serif")
+  assert.equal(fontStack(s, 'code'), "'JetBrains Mono', ui-monospace, monospace")
+  assert.equal(fontStack(s, 'ui'), 'system-ui, -apple-system, sans-serif')
 })
 
-test('fontFamilies falls back to system fonts', () => {
-  const fallback = { body: 'ui-serif, Georgia, serif', code: 'ui-monospace, monospace' }
-  assert.deepEqual(fontFamilies(''), fallback)
-  assert.deepEqual(fontFamilies('not a url'), fallback)
-  assert.deepEqual(fontFamilies('https://fonts.googleapis.com/css2?family=Lora'), {
-    body: "'Lora', ui-serif, Georgia, serif",
-    code: 'ui-monospace, monospace',
-  })
+test('a named role wins over the url position', () => {
+  const s = { ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Inter&family=Fira+Code', textFont: 'Fira Code', uiFont: 'Inter' }
+  assert.equal(fontStack(s, 'text'), "'Fira Code', ui-serif, Georgia, serif")
+  assert.equal(fontStack(s, 'ui'), "'Inter', system-ui, -apple-system, sans-serif")
 })
 
-test('fontFamilies escapes quotes in family names', () => {
-  assert.equal(fontFamilies("https://fonts.googleapis.com/css2?family=O'Neil").body, "'O\\'Neil', ui-serif, Georgia, serif")
+test('fontStack falls back to the system stack per role', () => {
+  assert.equal(fontStack(DEFAULTS, 'text'), 'ui-serif, Georgia, serif')
+  assert.equal(fontStack(DEFAULTS, 'code'), 'ui-monospace, monospace')
+  assert.equal(fontStack(DEFAULTS, 'ui'), 'system-ui, -apple-system, sans-serif')
+  assert.equal(fontStack({ ...DEFAULTS, fontUrl: 'not a url' }, 'text'), 'ui-serif, Georgia, serif')
+})
+
+test('generic families are keywords, not quoted names', () => {
+  assert.equal(fontStack({ ...DEFAULTS, textFont: 'system-ui' }, 'text'), 'system-ui, ui-serif, Georgia, serif')
+  assert.equal(fontStack({ ...DEFAULTS, textFont: "O'Neil" }, 'text'), "'O\\'Neil', ui-serif, Georgia, serif")
+})
+
+test('fontName reports the family in use so a control can show it', () => {
+  const s = { ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora' }
+  assert.equal(fontName(s, 'text'), 'Lora') // implicit, from the url position
+  assert.equal(fontName(s, 'code'), '')
+  assert.equal(fontName({ ...s, codeFont: 'Iosevka' }, 'code'), 'Iosevka')
+})
+
+test('fontOptions lists the url families, the role generics and the current pick', () => {
+  const s = { ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora', codeFont: 'Iosevka' }
+  assert.deepEqual(families(s.fontUrl), ['Lora'])
+  assert.deepEqual(fontOptions(s, 'code'), ['Lora', 'ui-monospace', 'Iosevka'])
+  assert.deepEqual(fontOptions(DEFAULTS, 'ui'), ['system-ui', 'ui-serif'])
+})
+
+test('every preset names all the look keys', () => {
+  for (const preset of PRESETS) {
+    for (const key of LOOK) assert.ok(key in preset, `${preset.name} is missing ${key}`)
+  }
 })
 
 test('withSwap appends display=swap once', () => {
@@ -91,18 +114,20 @@ test('applyToRoot writes every setting as a css variable with units', () => {
   assert.equal(root.vars['--font-weight'], '400')
   assert.equal(root.vars['--font-family'], 'ui-serif, Georgia, serif')
   assert.equal(root.vars['--code-font-family'], 'ui-monospace, monospace')
+  assert.equal(root.vars['--ui-font'], 'system-ui, -apple-system, sans-serif')
   assert.equal(root.vars['--color-bg'], DEFAULTS.bg)
   assert.equal(root.vars['--color-fg'], DEFAULTS.fg)
   assert.equal(root.vars['--color-accent'], DEFAULTS.accent)
   assert.equal(root.vars['--color-code-bg'], DEFAULTS.codeBg)
-  assert.equal(Object.keys(root.vars).length, 18)
+  assert.equal(Object.keys(root.vars).length, 19)
 })
 
-test('applyToRoot derives font families from the url', () => {
+test('applyToRoot writes a stack for each font role', () => {
   const root = fakeRoot()
-  applyToRoot({ ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora&family=Fira+Code' }, root)
+  applyToRoot({ ...DEFAULTS, fontUrl: 'https://fonts.googleapis.com/css2?family=Lora&family=Fira+Code', uiFont: 'Lora' }, root)
   assert.equal(root.vars['--font-family'], "'Lora', ui-serif, Georgia, serif")
   assert.equal(root.vars['--code-font-family'], "'Fira Code', ui-monospace, monospace")
+  assert.equal(root.vars['--ui-font'], "'Lora', system-ui, -apple-system, sans-serif")
 })
 
 test('applyToRoot points diagram colors at the page palette by default', () => {

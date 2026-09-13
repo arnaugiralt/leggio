@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { DIAGRAM_THEMES, LOOK, PRESETS } from './settings.js'
+import { DIAGRAM_THEMES, LOOK, PRESETS, fontName, fontOptions } from './settings.js'
 import * as speech from './speech.js'
 
 const GROUPS = [
@@ -11,7 +11,16 @@ const GROUPS = [
         label: 'Google Fonts URL',
         type: 'url',
         placeholder: 'https://fonts.googleapis.com/css2?family=…',
-        hint: 'First family is used for text, second for code. Ask for 400 and 600; bold text and headings use 600.',
+        hint: 'Every family in the URL is offered to the three roles below. Ask for 400 and 600; bold text and headings use 600.',
+      },
+      { key: 'textFont', label: 'Text', type: 'font', role: 'text' },
+      { key: 'codeFont', label: 'Code', type: 'font', role: 'code' },
+      {
+        key: 'uiFont',
+        label: 'Interface',
+        type: 'font',
+        role: 'ui',
+        hint: 'The sidebar, bar and this sheet. Leave empty for the system font, which needs no download and stays sharp at small sizes.',
       },
       { key: 'fontSize', label: 'Size', type: 'number', step: 1, min: 10, max: 40 },
       { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
@@ -54,9 +63,18 @@ const GROUPS = [
 ]
 
 function Field({ field, value, options, onInput }) {
-  const { key, label, type, hint, ...attrs } = field
+  const { key, label, type, hint, role, ...attrs } = field
   const control =
-    type === 'select' ? (
+    type === 'font' ? (
+      // Free text with a datalist rather than a select: the url says what is available,
+      // but a family installed on the machine is just as valid and can be typed in.
+      <>
+        <input type="text" list={`fonts-${key}`} placeholder="System" value={value} onInput={e => onInput(key, type, e.currentTarget)} />
+        <datalist id={`fonts-${key}`}>
+          {options.map(name => <option key={name} value={name} />)}
+        </datalist>
+      </>
+    ) : type === 'select' ? (
       <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
         {options.map(([option, text]) => (
           <option key={option} value={option}>{text}</option>
@@ -114,10 +132,12 @@ export function Settings({ settings, onChange, onReset }) {
     return () => speechSynthesis.removeEventListener('voiceschanged', update)
   }, [])
 
-  const optionsFor = key =>
-    key === 'voice'
-      ? [['', 'Browser default'], ...voices.map(v => [v.name, v.localService ? v.name : `${v.name} (online)`])]
-      : THEME_OPTIONS
+  const optionsFor = field =>
+    field.type === 'font'
+      ? fontOptions(settings, field.role)
+      : field.key === 'voice'
+        ? [['', 'Browser default'], ...voices.map(v => [v.name, v.localService ? v.name : `${v.name} (online)`])]
+        : THEME_OPTIONS
 
   function update(key, type, input) {
     if (type === 'number') {
@@ -136,7 +156,13 @@ export function Settings({ settings, onChange, onReset }) {
         <fieldset key={group.title}>
           <legend>{group.title}</legend>
           {group.fields.map(field => (
-            <Field key={field.key} field={field} value={settings[field.key]} options={optionsFor(field.key)} onInput={update} />
+            <Field
+              key={field.key}
+              field={field}
+              value={field.type === 'font' ? fontName(settings, field.role) : settings[field.key]}
+              options={optionsFor(field)}
+              onInput={update}
+            />
           ))}
         </fieldset>
       ))}

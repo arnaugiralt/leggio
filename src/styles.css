@@ -560,6 +560,7 @@ html:has(dialog.lightbox[open]) {
 .settings input[type="number"] { width: 5.5rem; text-align: right; }
 .settings input[type="url"] { width: 100%; }
 .settings select { max-width: 11rem; }
+.field-font input { width: 11rem; }
 .settings input[type="color"] {
   width: 1.75rem;
   height: 1.75rem;
