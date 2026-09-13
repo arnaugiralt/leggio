@@ -50,12 +50,22 @@ export const PRESETS = [
     textFont: 'Literata', codeFont: '', uiFont: '', // code and chrome stay on the system stacks
     lineHeight: 1.6,
   },
+  // One mono across all three roles is the look these two share: prose, code and chrome
+  // on the same grid. Teletype is the printed one, Terminal the screen.
   {
-    name: 'Terminal',
+    name: 'Teletype',
     bg: '#fbfbfa', fg: '#1f1f1f', accent: '#146b4f', codeBg: '#f1f1ee',
     diagramTheme: 'page',
     fontUrl: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap',
-    // One mono for all three roles is the whole look: prose, code and chrome on the same grid.
+    textFont: 'IBM Plex Mono', codeFont: 'IBM Plex Mono', uiFont: 'IBM Plex Mono',
+    lineHeight: 1.55,
+  },
+  {
+    name: 'Terminal',
+    // Cool black against Ember's warm one, so the two dark presets never read as the same.
+    bg: '#101112', fg: '#c8cdc6', accent: '#52c08d', codeBg: '#17191a',
+    diagramTheme: 'page',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap',
     textFont: 'IBM Plex Mono', codeFont: 'IBM Plex Mono', uiFont: 'IBM Plex Mono',
     lineHeight: 1.55,
   },
