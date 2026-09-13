@@ -43,14 +43,6 @@ export const PRESETS = [
     lineHeight: 1.65,
   },
   {
-    name: 'Ink',
-    bg: '#16181d', fg: '#d5d9e0', accent: '#7aa2f7', codeBg: '#1b1e24',
-    diagramTheme: 'tokyo-night',
-    fontUrl: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600',
-    textFont: 'IBM Plex Sans', codeFont: 'IBM Plex Mono', uiFont: 'IBM Plex Sans',
-    lineHeight: 1.65,
-  },
-  {
     name: 'Cobalt',
     bg: '#fffdfa', fg: '#002885', accent: '#0952f1', codeBg: '#f5f5f5',
     diagramTheme: 'page',
@@ -59,12 +51,24 @@ export const PRESETS = [
     lineHeight: 1.6,
   },
   {
-    name: 'Contrast',
-    bg: '#ffffff', fg: '#000000', accent: '#0b3fd1', codeBg: '#ededed',
-    diagramTheme: 'page', // every built-in light theme is white-on-white here; the palette gives code its own surface
-    fontUrl: 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600',
-    textFont: 'Atkinson Hyperlegible', codeFont: 'JetBrains Mono', uiFont: 'Atkinson Hyperlegible',
-    lineHeight: 1.75,
+    name: 'Terminal',
+    bg: '#fbfbfa', fg: '#1f1f1f', accent: '#146b4f', codeBg: '#f1f1ee',
+    diagramTheme: 'page',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap',
+    // One mono for all three roles is the whole look: prose, code and chrome on the same grid.
+    textFont: 'IBM Plex Mono', codeFont: 'IBM Plex Mono', uiFont: 'IBM Plex Mono',
+    lineHeight: 1.55,
+  },
+  {
+    name: 'Ember',
+    // Warm rather than blue, and the text is off-white rather than white: less glare to
+    // read against at night. Diagrams follow the palette because every built-in dark
+    // theme drags its own hue in.
+    bg: '#171512', fg: '#e4ded2', accent: '#d79a4c', codeBg: '#211e19',
+    diagramTheme: 'page',
+    fontUrl: 'https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap',
+    textFont: 'Source Serif 4', codeFont: 'JetBrains Mono', uiFont: 'ui-sans-serif',
+    lineHeight: 1.7,
   },
 ]
 
