@@ -75,6 +75,9 @@ export function Outline({ articleRef, text }) {
     const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0
     scrollToY(el.getBoundingClientRect().top + window.scrollY - pad)
     history.replaceState(null, '', `#${id}`)
+    // The panel stays open on :focus-within, so a mouse click would leave it up after
+    // the pointer moves away. detail is 0 for a keyboard activation, which keeps focus.
+    if (e.detail) e.currentTarget.blur()
   }
 
   return (
