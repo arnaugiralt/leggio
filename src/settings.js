@@ -35,9 +35,9 @@ export const PRESETS = [
   {
     name: 'Quiet',
     bg: '#ffffff', fg: '#363737', accent: '#363737', codeBg: '#f0f0f0',
-    // Monochrome on purpose, so the palette makes better diagrams than a built-in theme,
-    // and code keeps the grey surface that zinc-light would have painted white.
-    diagramTheme: 'page',
+    // zinc-light's background is the page white, so code blocks sit flush rather than in a
+    // box. codeBg still paints inline code, which keeps its chip.
+    diagramTheme: 'zinc-light',
     fontUrl: 'https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght,MONO@0,300..800,1;1,300..800,1&family=Spectral:ital,wght@0,400;0,600;1,400;1,600&display=swap',
     textFont: 'Spectral', codeFont: 'Google Sans Code', uiFont: 'ui-sans-serif',
     lineHeight: 1.65,
