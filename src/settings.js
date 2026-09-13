@@ -80,20 +80,29 @@ const CSS_VARS = {
   codeBg: ['--color-code-bg'],
 }
 
-// Three font roles. A role names a family; an unnamed role falls back to its system
-// stack. The old positional rule — first family in the url is the text font, second is
-// code — still resolves roles left unset, so settings saved before roles existed render
-// the same and no migration is needed.
+// Three font roles. A role names a family; the system entries are CSS generics, so a
+// role's value is always one of the options its select offers. The old positional rule —
+// first family in the url is the text font, second is code — still resolves roles left
+// unset, so settings saved before roles existed render the same and need no migration.
+const SYSTEM = {
+  'ui-sans-serif': 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+  'ui-serif': 'ui-serif, Georgia, serif',
+  'ui-monospace': 'ui-monospace, monospace',
+}
+
+const SYSTEM_LABELS = {
+  'ui-sans-serif': 'System sans serif',
+  'ui-serif': 'System serif',
+  'ui-monospace': 'System mono',
+}
+
 const ROLES = {
-  text: { key: 'textFont', cssVar: '--font-family', system: 'ui-serif, Georgia, serif', position: 0 },
-  code: { key: 'codeFont', cssVar: '--code-font-family', system: 'ui-monospace, monospace', position: 1 },
-  ui: { key: 'uiFont', cssVar: '--ui-font', system: 'system-ui, -apple-system, sans-serif' },
+  text: { key: 'textFont', cssVar: '--font-family', system: 'ui-serif', position: 0 },
+  code: { key: 'codeFont', cssVar: '--code-font-family', system: 'ui-monospace', position: 1 },
+  ui: { key: 'uiFont', cssVar: '--ui-font', system: 'ui-sans-serif' },
 }
 
 export const FONT_ROLES = Object.keys(ROLES)
-
-// CSS generic families are keywords, not names: quoting one would break it.
-const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'cursive', 'fantasy', 'math'])
 
 export function families(url) {
   try {
@@ -103,30 +112,45 @@ export function families(url) {
   }
 }
 
-// The family a role actually renders in, so its control can show what the reader sees
-// rather than the empty string behind it. '' means the system stack.
+// The family a role actually renders in, so its select can show what the reader sees
+// rather than the empty string behind it.
 export function fontName(settings, role) {
-  const { key, position } = ROLES[role]
+  const { key, position, system } = ROLES[role]
   if (settings[key]) return settings[key]
-  return position === undefined ? '' : families(settings.fontUrl)[position] ?? ''
+  return (position === undefined ? '' : families(settings.fontUrl)[position]) || system
 }
 
-// A named family is never used bare: the role's system stack stays behind it, so a url
-// that fails to load degrades to the right kind of font instead of to Times.
+// A downloaded family is never used bare: the role's system stack stays behind it, so a
+// url that fails to load degrades to the right kind of font instead of to Times.
 export function fontStack(settings, role) {
   const name = fontName(settings, role)
-  const { system } = ROLES[role]
-  if (!name) return system
-  const quoted = GENERIC.has(name) ? name : `'${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
-  return `${quoted}, ${system}`
+  if (SYSTEM[name]) return SYSTEM[name]
+  const quoted = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  return `'${quoted}', ${SYSTEM[ROLES[role].system]}`
 }
 
-// Offered in the role's datalist: the families this url declares, plus the generics that
-// suit the role. The field stays free text, so a locally installed family works too.
-const ROLE_GENERICS = { text: ['ui-serif', 'system-ui'], code: ['ui-monospace'], ui: ['system-ui', 'ui-serif'] }
-
+// Grouped [label, [[value, text], …]] for the role's select. Code is offered only the
+// system mono, since nothing in a url says which of its families are monospaced.
 export function fontOptions(settings, role) {
-  return [...new Set([...families(settings.fontUrl), ...ROLE_GENERICS[role], settings[ROLES[role].key]])].filter(Boolean)
+  const current = fontName(settings, role)
+  const loaded = families(settings.fontUrl)
+  // a family picked before the url changed stays selectable, so the pick is never lost
+  const google = [...new Set(SYSTEM[current] ? loaded : [...loaded, current])]
+  const system = role === 'code' ? ['ui-monospace'] : Object.keys(SYSTEM)
+  return [
+    ['Google Fonts', google.map(name => [name, name])],
+    ['System', system.map(name => [name, SYSTEM_LABELS[name]])],
+  ].filter(([, items]) => items.length)
+}
+
+// The ring means "the page looks like this preset", so fonts compare resolved: a role
+// left unset and one naming the same family are the same look.
+const FONT_KEYS = Object.fromEntries(FONT_ROLES.map(role => [ROLES[role].key, role]))
+
+export function matchesPreset(settings, preset) {
+  return LOOK.every(key =>
+    FONT_KEYS[key] ? fontName(settings, FONT_KEYS[key]) === fontName(preset, FONT_KEYS[key]) : settings[key] === preset[key],
+  )
 }
 
 export function withSwap(url) {

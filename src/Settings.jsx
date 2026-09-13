@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { DIAGRAM_THEMES, LOOK, PRESETS, fontName, fontOptions } from './settings.js'
+import { DIAGRAM_THEMES, PRESETS, fontName, fontOptions, matchesPreset } from './settings.js'
 import * as speech from './speech.js'
 
 const GROUPS = [
@@ -20,7 +20,7 @@ const GROUPS = [
         label: 'Interface',
         type: 'font',
         role: 'ui',
-        hint: 'The sidebar, bar and this sheet. Leave empty for the system font, which needs no download and stays sharp at small sizes.',
+        hint: 'The sidebar, bar and this sheet. A system font needs no download and stays sharp at small sizes.',
       },
       { key: 'fontSize', label: 'Size', type: 'number', step: 1, min: 10, max: 40 },
       { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
@@ -66,14 +66,15 @@ function Field({ field, value, options, onInput }) {
   const { key, label, type, hint, role, ...attrs } = field
   const control =
     type === 'font' ? (
-      // Free text with a datalist rather than a select: the url says what is available,
-      // but a family installed on the machine is just as valid and can be typed in.
-      <>
-        <input type="text" list={`fonts-${key}`} placeholder="System" value={value} onInput={e => onInput(key, type, e.currentTarget)} />
-        <datalist id={`fonts-${key}`}>
-          {options.map(name => <option key={name} value={name} />)}
-        </datalist>
-      </>
+      <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
+        {options.map(([group, items]) => (
+          <optgroup key={group} label={group}>
+            {items.map(([option, text]) => (
+              <option key={option} value={option}>{text}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
     ) : type === 'select' ? (
       <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
         {options.map(([option, text]) => (
@@ -107,7 +108,7 @@ function Themes({ settings, onChange }) {
             key={name}
             type="button"
             class="theme"
-            aria-pressed={LOOK.every(key => settings[key] === look[key])}
+            aria-pressed={matchesPreset(settings, look)}
             style={`background:${look.bg};color:${look.fg}`}
             onClick={() => onChange(look)}
           >
