@@ -84,6 +84,7 @@ body {
   flex: 1;
   text-align: center;
   color: var(--ui-muted);
+  line-height: 1.5; /* the bar's line-height: 1 clips descenders under overflow: hidden */
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
