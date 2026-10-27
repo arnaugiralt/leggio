@@ -8,6 +8,7 @@ A read-only markdown viewer. Drop a file, read it. Mermaid diagrams render inlin
 pnpm install
 pnpm dev      # http://localhost:8000, rebuilds on change
 pnpm build    # writes dist/
+pnpm serve    # build, then serve the production bundle on http://localhost:8000
 pnpm test
 ```
 
