@@ -17,6 +17,7 @@ const TIP_KEY = 'leggio.install-tip-dismissed'
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
 const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
 const narrow = () => matchMedia(NARROW).matches
+const PAPER = document.querySelector('meta[name="theme-color"]')?.content
 
 function loadUi() {
   try {
@@ -77,6 +78,17 @@ export function App() {
     applyFontUrl(settings.fontUrl)
   }, [settings, dark])
   useEffect(() => save(settings), [settings])
+
+  // With the title bar hidden, the OS paints the strips behind the window controls in theme-color, so there it
+  // follows the page. The paper color stays for the normal title bar.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const mq = matchMedia('(display-mode: window-controls-overlay)')
+    const update = () => meta && (meta.content = mq.matches ? lookShown.bg : PAPER)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [lookShown.bg])
 
   // Edits start from what is on screen, so changing one color on a dark Default keeps the other dark ones.
   // The look is followed only while it equals Default; picking Default (or Reset) turns following back on.
