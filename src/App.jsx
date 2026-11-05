@@ -4,7 +4,7 @@ import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
 import { Sidebar } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
-import { DEFAULTS, load, save, applyToRoot, applyFontUrl } from './settings.js'
+import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
 import * as fs from './fs.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
 import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
@@ -30,6 +30,7 @@ function loadUi() {
 
 export function App() {
   const [settings, setSettings] = useState(load)
+  const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
   const [showSettings, setShowSettings] = useState(false)
   const [ui, setUi] = useState(loadUi)
   const [dragging, setDragging] = useState(false)
@@ -63,10 +64,30 @@ export function App() {
   })
 
   useEffect(() => {
-    applyToRoot(settings)
+    const mq = matchMedia('(prefers-color-scheme: dark)')
+    const update = () => setDark(mq.matches)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  // Saved settings keep Default's light palette; the dark one is applied on top while followSystem holds.
+  const lookShown = effective(settings, dark)
+  useEffect(() => {
+    applyToRoot(lookShown)
     applyFontUrl(settings.fontUrl)
-    save(settings)
-  }, [settings])
+  }, [settings, dark])
+  useEffect(() => save(settings), [settings])
+
+  // Edits start from what is on screen, so changing one color on a dark Default keeps the other dark ones.
+  // The look is followed only while it equals Default; picking Default (or Reset) turns following back on.
+  const change = patch =>
+    setSettings(prev => {
+      if (!LOOK.some(k => k in patch)) return { ...prev, ...patch }
+      const next = { ...effective(prev, dark), ...patch }
+      next.followSystem = patch.followSystem ?? isDefaultLook(next)
+      if (next.followSystem) for (const k of LOOK) next[k] = DEFAULTS[k]
+      return next
+    })
 
   useEffect(() => {
     // At narrow width the drawer is a passing state; saving it would clobber the wide-window preference.
@@ -346,7 +367,7 @@ export function App() {
             <X size="1.2em" />
           </button>
         </div>
-        <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} open={showSettings} />
+        <Settings settings={lookShown} onChange={change} open={showSettings} dark={dark} />
       </aside>
     </div>
   )

@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'preact/hooks'
-import { DEFAULTS, DIAGRAM_THEMES, PRESETS, themeLabel, fontName, fontOptions, matchesPreset } from './settings.js'
+import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective } from './settings.js'
 import * as speech from './speech.js'
 
 const GROUPS = [
   {
     title: 'Type',
     fields: [
-      { key: 'textFont', label: 'Text', type: 'font', role: 'text' },
-      { key: 'codeFont', label: 'Code', type: 'font', role: 'code' },
+      { key: 'textFont', label: 'Text font', type: 'font', role: 'text' },
+      { key: 'codeFont', label: 'Code font', type: 'font', role: 'code' },
       {
         key: 'uiFont',
-        label: 'Interface',
+        label: 'Interface font',
         type: 'font',
         role: 'ui',
         hint: 'The sidebar, bar and this sheet. A system font needs no download and stays sharp at small sizes.',
       },
-      { key: 'fontSize', label: 'Size', type: 'number', unit: 'px', step: 1, min: 10, max: 40 },
+      { key: 'fontSize', label: 'Text size', type: 'number', unit: 'px', step: 1, min: 10, max: 40 },
       { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
       { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, min: 1, max: 2.5 },
     ],
@@ -30,7 +30,7 @@ const GROUPS = [
   {
     title: 'Code',
     fields: [
-      { key: 'codeFontSize', label: 'Size', type: 'number', unit: 'px', step: 1, min: 8, max: 32 },
+      { key: 'codeFontSize', label: 'Code size', type: 'number', unit: 'px', step: 1, min: 8, max: 32 },
       { key: 'codeBg', label: 'Background', type: 'color' },
     ],
   },
@@ -38,7 +38,7 @@ const GROUPS = [
     title: 'Colors',
     fields: [
       { key: 'bg', label: 'Page', type: 'color' },
-      { key: 'fg', label: 'Text', type: 'color' },
+      { key: 'fg', label: 'Text color', type: 'color' },
       { key: 'accent', label: 'Accent', type: 'color' },
     ],
   },
@@ -63,8 +63,33 @@ const FONT_URL = {
         hint: 'Every family in the URL is offered to the three roles below. Ask for 400 and 600; bold text and headings use 600.',
       }
 
+const FONT_URL_PREFIX = 'https://fonts.googleapis.com/'
+const FONT_URL_ERROR = 'Use a link that starts with https://fonts.googleapis.com/css2'
+
+// Numbers commit on Enter, on blur and on the stepper arrows, so "18" never passes through 1px.
+// The URL applies as it is typed, but only once it is valid. Until then the text is a draft
+// here, and the settings keep the last good value.
 function Field({ field, value, options, onInput }) {
   const { key, label, type, hint, role, unit, ...attrs } = field
+  const [draft, setDraft] = useState(null)
+  const [error, setError] = useState(false)
+  useEffect(() => setDraft(null), [value]) // an outside change (preset, reset, undo) wins over a stale draft
+  const commit = input => {
+    setDraft(null)
+    onInput(key, type, input)
+  }
+  const onNumberInput = e => {
+    // Typing is an InputEvent; the stepper arrows and ArrowUp/Down fire a plain Event.
+    if (e instanceof InputEvent) setDraft(e.currentTarget.value)
+    else commit(e.currentTarget)
+  }
+  const onUrlInput = e => {
+    const input = e.currentTarget
+    const ok = !input.value || input.value.startsWith(FONT_URL_PREFIX)
+    setError(!ok)
+    if (ok) onInput(key, type, input)
+    else setDraft(input.value)
+  }
   const control =
     type === 'font' ? (
       <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
@@ -90,9 +115,18 @@ function Field({ field, value, options, onInput }) {
       </select>
     ) : type === 'number' ? (
       <span class="field-input">
-        <input type={type} {...attrs} value={value} onInput={e => onInput(key, type, e.currentTarget)} />
+        <input
+          type={type}
+          {...attrs}
+          value={draft ?? value}
+          onInput={onNumberInput}
+          onBlur={e => commit(e.currentTarget)}
+          onKeyDown={e => e.key === 'Enter' && commit(e.currentTarget)}
+        />
         <span class="unit">{unit}</span>
       </span>
+    ) : type === 'url' ? (
+      <input type={type} {...attrs} value={draft ?? value} aria-invalid={error} onInput={onUrlInput} />
     ) : (
       <input type={type} {...attrs} value={value} onInput={e => onInput(key, type, e.currentTarget)} />
     )
@@ -101,6 +135,7 @@ function Field({ field, value, options, onInput }) {
       <span class="field-label">{label}</span>
       {control}
       {hint && <span class="field-hint">{hint}</span>}
+      {error && <span class="field-hint field-error" role="alert">{FONT_URL_ERROR}</span>}
     </label>
   )
 }
@@ -110,31 +145,40 @@ const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, themeLabel(name)])
 // A swatch is a miniature of the page it paints: its own background, "Aa" in its
 // text color, a rule in its accent. The active one is derived by comparing values,
 // so tweaking any control afterwards simply deselects — there is no stored theme.
-function Themes({ settings, onChange }) {
+const GOOGLE_PRESETS = PRESETS.filter(p => p.fontUrl).map(p => p.name)
+const GOOGLE_NOTE = `${GOOGLE_PRESETS.slice(0, -1).join(', ')} and ${GOOGLE_PRESETS.at(-1)} load their fonts from Google Fonts.`
+
+function Themes({ settings, onChange, dark }) {
   return (
     <fieldset>
       <legend>Theme</legend>
       <div class="themes">
-        {PRESETS.map(({ name, ...look }) => (
-          <button
-            key={name}
-            type="button"
-            class="theme"
-            aria-pressed={matchesPreset(settings, look)}
-            style={`background:${look.bg};color:${look.fg}`}
-            onClick={() => onChange(look)}
-          >
-            <span class="theme-sample">Aa</span>
-            <span class="theme-accent" style={`background:${look.accent}`} />
-            <span class="theme-name">{name}</span>
-          </button>
-        ))}
+        {PRESETS.map(({ name, ...look }) => {
+          const follows = name === 'Default' && settings.followSystem
+          const shown = follows && dark ? { ...look, ...DARK } : look
+          return (
+            <button
+              key={name}
+              type="button"
+              class="theme"
+              aria-pressed={name === 'Default' ? settings.followSystem : matchesPreset(settings, look)}
+              style={`background:${shown.bg};color:${shown.fg}`}
+              onClick={() => onChange(look)}
+            >
+              <span class="theme-sample">Aa</span>
+              <span class="theme-accent" style={`background:${shown.accent}`} />
+              <span class="theme-name">{name}</span>
+              {follows && <span class="theme-name">Follows your system</span>}
+            </button>
+          )
+        })}
       </div>
+      <p class="field-hint themes-note">{GOOGLE_NOTE}</p>
     </fieldset>
   )
 }
 
-export function Settings({ settings, onChange, open }) {
+export function Settings({ settings, onChange, open, dark }) {
   const [undo, setUndo] = useState(null) // the settings a reset replaced
   // getVoices() is empty until the list loads, and Chrome refills it when the network voices arrive.
   const [voices, setVoices] = useState(speech.voices)
@@ -151,7 +195,7 @@ export function Settings({ settings, onChange, open }) {
   const voiceOptions = [...mine.map(voiceItem), ...(other.length ? [['Other languages', other.map(voiceItem)]] : [])]
 
   // The undo offer lives only while the settings still equal the defaults it produced and the sheet is open.
-  const atDefaults = Object.keys(DEFAULTS).every(k => settings[k] === DEFAULTS[k])
+  const atDefaults = Object.entries(effective(DEFAULTS, dark)).every(([k, v]) => settings[k] === v)
   useEffect(() => {
     if (undo && (!open || !atDefaults)) setUndo(null)
   }, [undo, open, atDefaults])
@@ -172,7 +216,7 @@ export function Settings({ settings, onChange, open }) {
     if (type === 'number') {
       const value = input.valueAsNumber
       if (Number.isNaN(value)) return
-      onChange({ [key]: value })
+      onChange({ [key]: Math.min(+input.max, Math.max(+input.min, value)) })
     } else {
       onChange({ [key]: input.value })
     }
@@ -180,7 +224,7 @@ export function Settings({ settings, onChange, open }) {
 
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
-      <Themes settings={settings} onChange={onChange} />
+      <Themes settings={settings} onChange={onChange} dark={dark} />
       {GROUPS.map(group => (
         <fieldset key={group.title}>
           <legend>{group.title}</legend>

@@ -715,6 +715,9 @@ html:has(dialog.lightbox[open]) {
 .theme-sample { font-size: 1.05rem; font-weight: 600; line-height: 1; }
 .theme-accent { width: 1.5rem; height: 3px; border-radius: 2px; }
 .theme-name { font-size: 0.72rem; opacity: 0.65; }
+.theme-name + .theme-name { font-size: 0.65rem; }
+.themes-note { margin: 0.5rem 0 0; }
+.field-error { color: var(--color-fg); font-weight: 600; }
 
 .settings .reset { width: 100%; margin-top: 0.5rem; border: 1px solid var(--ui-hairline); }
 
@@ -876,4 +879,16 @@ html:has(dialog.lightbox[open]) {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, ::before, ::after { transition: none !important; }
+}
+
+/* Muted and faint text become full-strength text, and hairlines get firmer. */
+@media (prefers-contrast: more) {
+  :root {
+    --ui-muted: var(--color-fg);
+    --ui-faint: var(--color-fg);
+    --ui-strong: var(--color-fg);
+    --ui-hairline: color-mix(in oklab, var(--color-fg) 55%, var(--color-bg));
+    --ui-rule: color-mix(in oklab, var(--color-fg) 55%, var(--color-bg));
+  }
+  .theme-name { opacity: 1; }
 }

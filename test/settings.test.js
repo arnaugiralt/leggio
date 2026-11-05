@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { themeLabel, DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap } from '../src/settings.js'
+import { themeLabel, DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap, effective, isDefaultLook, DARK } from '../src/settings.js'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -206,4 +206,20 @@ test('themeLabel title-cases ids and keeps GitHub', () => {
   assert.equal(themeLabel('tokyo-night-storm'), 'Tokyo Night Storm')
   assert.equal(themeLabel('github-dark'), 'GitHub Dark')
   assert.equal(themeLabel('one-dark'), 'One Dark')
+})
+
+test('Default follows the OS only while followSystem holds', () => {
+  assert.equal(DEFAULTS.followSystem, true)
+  assert.equal(effective(DEFAULTS, true).bg, DARK.bg)
+  assert.equal(effective(DEFAULTS, false), DEFAULTS)
+  assert.equal(effective({ ...DEFAULTS, followSystem: false }, true).bg, DEFAULTS.bg)
+})
+
+test('settings saved before followSystem follow only if the look is still Default', () => {
+  const stored = s => load(fakeStorage({ [STORAGE_KEY]: JSON.stringify(s) }))
+  assert.equal(stored({ fontSize: 20 }).followSystem, true)
+  assert.equal(stored({ bg: '#000000' }).followSystem, false)
+  assert.equal(stored({ bg: '#000000', followSystem: true }).followSystem, true)
+  assert.equal(isDefaultLook({ ...DEFAULTS, fontSize: 20 }), true)
+  assert.equal(isDefaultLook({ ...DEFAULTS, accent: '#000000' }), false)
 })

@@ -25,6 +25,7 @@ export const DEFAULTS = {
   accent: '#2563eb',
   codeBg: '#f5f5f5',
   diagramTheme: 'page',
+  followSystem: true, // true while the look is Default: the OS light/dark setting picks the palette
   voice: '', // speechSynthesis voice name; '' means whatever the browser picks
   speechRate: 1,
 }
@@ -33,6 +34,15 @@ export const DEFAULTS = {
 // (sizes, widths, voice) survives a theme change, and every one of these stays
 // editable afterwards — picking a preset is a one-shot write, not a mode.
 export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 'textFont', 'codeFont', 'uiFont', 'lineHeight']
+
+// What Default becomes on a dark OS. Stored settings keep the light values; App
+// merges edits onto the effective look, so a changed color starts from what was on screen.
+export const DARK = { bg: '#16181d', fg: '#e3e5e8', accent: '#6ea8fe', codeBg: '#1f2228' }
+
+export const isDefaultLook = s => LOOK.every(key => s[key] === DEFAULTS[key])
+
+// The settings as rendered: Default swaps in the dark palette on a dark OS.
+export const effective = (s, dark) => (s.followSystem && dark ? { ...s, ...DARK } : s)
 
 export const PRESETS = [
   { name: 'Default', ...Object.fromEntries(LOOK.map(key => [key, DEFAULTS[key]])) },
@@ -185,7 +195,10 @@ export function load(storage = globalThis.localStorage) {
     const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}')
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) stored = parsed
   } catch {}
-  return Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, stored[key] ?? DEFAULTS[key]]))
+  const out = Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, stored[key] ?? DEFAULTS[key]]))
+  // Saved before followSystem existed: only a look that is still Default follows.
+  if (stored.followSystem === undefined) out.followSystem = isDefaultLook(out)
+  return out
 }
 
 export function save(settings, storage = globalThis.localStorage) {
