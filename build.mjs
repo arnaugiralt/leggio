@@ -28,14 +28,14 @@ if (dev) {
   const js = outputs.find(file => file.endsWith('.js'))
   const css = outputs.find(file => file.endsWith('.css'))
 
-  for (const file of ['manifest.json', 'icon-192.png', 'icon-512.png', 'icon.svg', '_headers']) fs.copyFileSync(file, `site/${file}`)
+  for (const file of ['manifest.json', '_headers', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-16.png', 'favicon-32.png']) fs.copyFileSync(file, `site/${file}`)
   fs.writeFileSync('site/index.html', fs.readFileSync('index.html', 'utf8').replace('dist/app.css', css).replace('dist/app.js', js))
   fs.writeFileSync(
     'site/sw.js',
     fs
       .readFileSync('sw.js', 'utf8')
       .replace(/^const CACHE = .*$/m, `const CACHE = 'leggio-${path.basename(js, '.js').split('-').pop()}'`)
-      .replace(/^const SHELL = .*$/m, `const SHELL = ${JSON.stringify(['./', './index.html', `./${js}`, `./${css}`, './manifest.json', './icon-192.png', './icon-512.png'])}`),
+      .replace(/^const SHELL = .*$/m, `const SHELL = ${JSON.stringify(['./', './index.html', `./${js}`, `./${css}`, './manifest.json', './icon-192.png', './icon-512.png', './favicon-32.png'])}`),
   )
   fs.writeFileSync('site/THIRD_PARTY_NOTICES.txt', notices(result.metafile))
 }

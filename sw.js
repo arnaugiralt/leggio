@@ -2,7 +2,7 @@
 // cache only matters offline. Hashed bundles under assets/ never change, so they are served from the cache.
 // build.mjs rewrites the next two lines for site/: a cache name per build, and the hashed file names.
 const CACHE = 'leggio'
-const SHELL = ['./', './index.html', './dist/app.js', './dist/app.css', './manifest.json', './icon-192.png', './icon-512.png']
+const SHELL = ['./', './index.html', './dist/app.js', './dist/app.css', './manifest.json', './icon-192.png', './icon-512.png', './favicon-32.png']
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()))

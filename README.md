@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/logo.png" alt="Leggio: a wooden lectern holding an open book with a green ribbon" width="160"></p>
+
 # Leggio
 
 A markdown reader built for reading. Calm, customizable, offline, private.
