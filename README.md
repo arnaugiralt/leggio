@@ -26,7 +26,7 @@ The app is a PWA. Open it in Chrome and use the install button in the address ba
 
 ## Deploy
 
-`pnpm build` writes `site/`: the page, hashed bundles under `assets/`, the service worker, the manifest, the icons, `_headers` and `THIRD_PARTY_NOTICES.txt`. Upload that folder to any static host. `_headers` uses the Cloudflare format: long caching for the hashed bundles, no caching for the page and the worker, and a content security policy.
+`pnpm build` writes `site/`: the page, hashed bundles under `assets/`, the service worker, the manifest, the icons, `_headers` and `THIRD_PARTY_NOTICES.txt`. Upload that folder to any static host. `_headers` uses the Cloudflare format: long caching for the hashed bundles (the page and the worker keep Cloudflare's default, which revalidates on every load) and a content security policy.
 
 The project deploys as a Cloudflare Worker with static assets only (`wrangler.jsonc`), through Workers Builds connected to this repository:
 
