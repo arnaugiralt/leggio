@@ -36,6 +36,7 @@ export function App() {
   const stopFolderWatch = useRef(() => {})
   const folderRef = useRef(null)
   const keepScroll = useRef(null)
+  const launched = useRef(null) // the file handle the OS opened this window with
 
   useEffect(() => {
     applyToRoot(settings)
@@ -53,9 +54,13 @@ export function App() {
 
   // Files opened from the OS: only fires in an installed PWA, and only once per launch.
   // The queue hands over real FileSystemFileHandles, so watching and relative images keep working.
+  // It races the silent restore below, whose file open lands later (after the folder listing),
+  // so restore checks this ref and leaves the launched file in place.
   useEffect(() => {
     window.launchQueue?.setConsumer(({ files }) => {
-      if (files?.length) openFile(files[0])
+      if (!files?.length) return
+      launched.current = files[0]
+      openFile(files[0])
     })
   }, [])
 
@@ -216,6 +221,11 @@ export function App() {
 
   async function restore(last = restorable) {
     if (!(await openFolder(last.folder))) return false
+    // openFolder just saved a record without a file; the launched open ran before the folder was set, so it saved none.
+    if (launched.current) {
+      idb.set('last', { folder: last.folder, filePath: null, file: launched.current })
+      return true
+    }
     if (!last.filePath && !last.file) return true
     try {
       const handle = last.filePath ? await fs.getFileByPath(last.folder, last.filePath) : last.file
