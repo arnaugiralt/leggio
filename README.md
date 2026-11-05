@@ -6,10 +6,7 @@ A markdown reader built for reading. Calm, customizable, offline, private.
 
 **[Open Leggio](https://leggio.compostela.dev)** in Chrome or Edge on a computer. There is no account and no installer.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/screenshot-dark.png">
-  <img src=".github/screenshot-light.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
-</picture>
+<img src=".github/screenshot.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
 
 *Leggio* is Italian for a reading stand, from *leggere*, to read.
 
@@ -25,6 +22,23 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 - **History.** Back and forward (⌘[ and ⌘]) walk the documents you opened and keep your scroll position. Pin files and folders to keep them across sessions, and Leggio reopens where you left off.
 - **An app of its own.** Install it from the address bar. It gets its own window, works offline, and opens `.md` files from Finder or Explorer.
 - **Private.** Your files are read on your computer and never uploaded. No accounts, no analytics. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
+
+### Themes
+
+<table>
+  <tr>
+    <td><img src=".github/themes/default-dark.png" alt="The same recipe in the Default, dark theme"><br><sub>Default, dark</sub></td>
+    <td><img src=".github/themes/quiet.png" alt="The same recipe in the Quiet theme"><br><sub>Quiet</sub></td>
+  </tr>
+  <tr>
+    <td><img src=".github/themes/cobalt.png" alt="The same recipe in the Cobalt theme"><br><sub>Cobalt</sub></td>
+    <td><img src=".github/themes/teletype.png" alt="The same recipe in the Teletype theme"><br><sub>Teletype</sub></td>
+  </tr>
+  <tr>
+    <td><img src=".github/themes/terminal.png" alt="The same recipe in the Terminal theme"><br><sub>Terminal</sub></td>
+    <td><img src=".github/themes/ember.png" alt="The same recipe in the Ember theme"><br><sub>Ember</sub></td>
+  </tr>
+</table>
 
 Leggio never edits, renames or deletes your files, and it never will. It only reads.
 
