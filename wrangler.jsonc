@@ -1,0 +1,8 @@
+// Cloudflare Worker with static assets only: no script, so every request is a free asset request.
+// Add a custom domain later with "routes": [{ "pattern": "md.example.com", "custom_domain": true }];
+// choose it before people install the app, because an install is tied to its exact origin.
+{
+  "name": "md-reader",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./site" }
+}
