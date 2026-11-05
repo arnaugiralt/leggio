@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { render } from './render.js'
-import { isRelative, isMarkdownName, resolvePath, getFileByPath } from './fs.js'
+import { isLocal, resolvePath, getFileByPath } from './fs.js'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
-export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump }) {
+export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative }) {
   const html = useMemo(() => render(text), [text])
   const urls = useRef([])
   const [zoomed, setZoomed] = useState(null)
@@ -11,7 +11,7 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump
   useEffect(() => {
     const article = articleRef.current
     if (!article) return
-    for (const a of article.querySelectorAll('a[href^="http:"], a[href^="https:"]')) {
+    for (const a of article.querySelectorAll('a[href^="http:"], a[href^="https:"], a[href^="//"]')) {
       a.target = '_blank'
       a.rel = 'noopener'
     }
@@ -31,11 +31,13 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump
       fig.setAttribute('role', 'button')
       fig.setAttribute('aria-label', 'Open diagram full size')
     }
+    // Without a folder, relative images are broken and links cannot be followed: App offers the folder.
+    onRelative(!dirPath && [...article.querySelectorAll('img[src], a[href]')].some(el => isLocal(el.getAttribute(el.localName === 'a' ? 'href' : 'src'))))
     if (!root || !dirPath) return
     let cancelled = false
     for (const img of article.querySelectorAll('img[src]')) {
       const src = img.dataset.origSrc
-      if (!isRelative(src)) continue
+      if (!isLocal(src)) continue
       const segments = resolvePath(dirPath, src)
       if (!segments) continue
       getFileByPath(root, segments)
@@ -47,10 +49,6 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump
           img.src = url
         })
         .catch(() => {}) // leave the original src; the browser shows a broken image with alt text
-    }
-    for (const a of article.querySelectorAll('a[href]')) {
-      const href = a.getAttribute('href')
-      if (isRelative(href) && isMarkdownName(href.split('#')[0])) a.dataset.internal = ''
     }
     return () => {
       cancelled = true
@@ -81,12 +79,10 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump
       onJump(decodeURIComponent(hashLink.getAttribute('href').slice(1)))
       return
     }
-    const a = e.target.closest('a[data-internal]')
-    if (!a || !dirPath) return
-    e.preventDefault()
-    const [path, hash] = a.getAttribute('href').split('#')
-    const segments = resolvePath(dirPath, path)
-    if (segments) onOpenRelative(segments, hash)
+    const a = e.target.closest('a[href]')
+    if (!a || !isLocal(a.getAttribute('href'))) return
+    e.preventDefault() // a relative href would navigate the window itself away from the reader
+    onFollow(a.getAttribute('href'))
   }
 
   return (

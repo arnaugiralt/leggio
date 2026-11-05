@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
+import { resolvePath } from './fs.js'
 import * as idb from './idb.js'
+
+export const FOLDER_NOTICE = { text: 'This file links to other files next to it. Open its folder to follow links and show images.', action: 'folder' }
 
 const nav = window.navigation
 
@@ -12,7 +15,11 @@ export function useLibrary({ onFolderOpen }) {
   const [current, setCurrent] = useState(null) // { handle, name, dirPath, text }
   const [currentPinned, setCurrentPinned] = useState(false)
   const [restorable, setRestorable] = useState(null) // { folder, filePath }
-  const [error, setError] = useState('')
+  const [notice, setNotice] = useState(null) // { text, action?: 'another' | 'folder' }, shown by App until another document opens
+  const setError = text => setNotice(text ? { text } : null)
+  const currentRef = useRef(null)
+  currentRef.current = current // links and the folder grant run from mount-time closures, where state is stale
+  const pendingLink = useRef(null) // the relative link clicked before the folder was granted
   const stopFileWatch = useRef(() => {})
   const stopFolderWatch = useRef(() => {})
   const folderRef = useRef(null)
@@ -181,7 +188,7 @@ export function useLibrary({ onFolderOpen }) {
             return { ...c, text: next }
           })
         } catch {
-          setError(`${handle.name} was deleted or moved.`)
+          setNotice({ text: `${handle.name} was moved or deleted. You're reading the last version.`, action: 'another' })
           stopFileWatch.current() // nothing left to watch
         }
       })
@@ -212,15 +219,48 @@ export function useLibrary({ onFolderOpen }) {
     }
   }
 
-  async function openRelative(segments, hash) {
-    if (!folder) return
-    try {
-      const handle = await fs.getFileByPath(folder.handle, segments)
-      await openFile(handle, { dirPath: segments.slice(0, -1), root: folder.handle })
-      if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
-    } catch {
-      setError(`${segments.join('/')} not found in this folder.`)
+  // Every relative link lands here, so none of them can navigate the window.
+  async function followLink(href) {
+    const cur = currentRef.current
+    const root = folderRef.current
+    if (!cur?.dirPath || !root) {
+      pendingLink.current = href // followed once the folder is granted
+      return setNotice(FOLDER_NOTICE)
     }
+    const [path, hash] = href.split('#')
+    const segments = resolvePath(cur.dirPath, path)
+    const name = path.split('/').pop() || path
+    try {
+      if (!segments) throw 0
+      const handle = await fs.getFileByPath(root, segments)
+      if (fs.isMarkdownName(name)) {
+        await openFile(handle, { dirPath: segments.slice(0, -1), root })
+        if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
+      } else {
+        const url = URL.createObjectURL(await handle.getFile())
+        window.open(url, '_blank')
+        setTimeout(() => URL.revokeObjectURL(url), 60000) // the new tab has fetched it long before
+      }
+    } catch {
+      setError(`${name} isn't in this folder.`)
+    }
+  }
+
+  // The open file came without a folder. Once one is granted, find the file inside it and
+  // reopen it with a folder context so links and images resolve.
+  async function openFolderFor(dir) {
+    const cur = currentRef.current
+    if (!cur?.handle || !(await openFolder(dir))) return false
+    const segments = await dir.resolve(cur.handle)
+    if (!segments) {
+      setNotice({ text: `${cur.name} isn't inside ${dir.name}. Choose the folder that contains it.`, action: 'folder' })
+      return false
+    }
+    await openFile(cur.handle, { dirPath: segments.slice(0, -1), root: dir })
+    const link = pendingLink.current
+    pendingLink.current = null
+    if (link) await followLink(link)
+    return true
   }
 
   async function openPinned(item, index) {
@@ -298,5 +338,5 @@ export function useLibrary({ onFolderOpen }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { folder, pinned, current, currentPinned, restorable, error, back, forward, openFolder, openFile, openBlob, openRelative, openPinned, togglePin, restore, jumpTo }
+  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo }
 }

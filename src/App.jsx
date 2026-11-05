@@ -6,7 +6,7 @@ import { Sidebar } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
 import { DEFAULTS, load, save, applyToRoot, applyFontUrl } from './settings.js'
 import * as fs from './fs.js'
-import { useLibrary } from './useLibrary.js'
+import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
 import { ChevronLeft, ChevronRight } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
@@ -25,9 +25,11 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [ui, setUi] = useState(loadUi)
   const [dragging, setDragging] = useState(false)
+  const [hasRelative, setHasRelative] = useState(false)
+  const [folderOfferHidden, setFolderOfferHidden] = useState(false)
   const fileInput = useRef()
   const article = useRef()
-  const { folder, pinned, current, currentPinned, restorable, error, back, forward, openFolder, openFile, openBlob, openRelative, openPinned, togglePin, restore, jumpTo } = useLibrary({
+  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo } = useLibrary({
     onFolderOpen: () => setUi(u => ({ ...u, sidebarOpen: true })),
   })
 
@@ -45,6 +47,9 @@ export function App() {
     document.title = current ? current.name : 'md reader'
   }, [current])
 
+  // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
+  useEffect(() => setFolderOfferHidden(false), [current?.handle])
+
   async function pickFile() {
     if (!fs.supported) return fileInput.current.click()
     const handle = await fs.pickFile()
@@ -56,10 +61,15 @@ export function App() {
     if (handle) openFolder(handle)
   }
 
+  async function pickFolderForCurrent() {
+    const handle = await fs.pickDirectory({ startIn: current?.handle })
+    if (handle) openFolderFor(handle)
+  }
+
   const toggleSidebar = () => setUi(u => ({ ...u, sidebarOpen: !u.sidebarOpen }))
 
   useEffect(() => {
-    window.mdreader = { openFolder, openFile }
+    window.mdreader = { openFolder, openFile, openFolderFor }
     const over = e => {
       e.preventDefault()
       setDragging(true)
@@ -103,6 +113,12 @@ export function App() {
     }
   }, [])
 
+  // Relative links and images cannot resolve without the file's folder; a stated problem wins over this offer.
+  const shown = notice ?? (current?.handle && fs.supported && hasRelative && !folderOfferHidden ? FOLDER_NOTICE : null)
+  const actions = {
+    another: ['Open another file', () => (folder ? setUi(u => ({ ...u, sidebarOpen: true })) : pickFile())],
+    folder: ['Open folder', pickFolderForCurrent],
+  }
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
 
   return (
@@ -151,11 +167,19 @@ export function App() {
         <Sidebar folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => openFile(h, { dirPath, root })} onOpenPinned={openPinned} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
-        {error && <p class="error" role="alert">{error}</p>}
+        {shown && (
+          <div class="notice" role="status">
+            <span>{shown.text}</span>
+            <span class="notice-buttons">
+              {shown.action && <button type="button" class="quiet notice-action" onClick={actions[shown.action][1]}>{actions[shown.action][0]}</button>}
+              {shown.action !== 'another' && <button type="button" class="quiet" aria-label="Dismiss" onClick={() => { setNotice(null); setFolderOfferHidden(true) }}>✕</button>}
+            </span>
+          </div>
+        )}
         {current ? (
           <>
             <Outline articleRef={article} text={current.text} />
-            <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onOpenRelative={openRelative} onJump={jumpTo} />
+            <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
           </>
         ) : (
           <div class="empty">

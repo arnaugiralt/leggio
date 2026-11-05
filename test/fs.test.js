@@ -26,6 +26,10 @@ test('isMarkdownName', () => {
   for (const n of ['e.png', 'f.json', 'md', 'g.md.bak']) assert.equal(isMarkdownName(n), false, n)
 })
 
+test('resolvePath starts from the root for a leading slash', () => {
+  assert.deepEqual(resolvePath(['docs'], '/a/b.md'), ['a', 'b.md'])
+})
+
 test('resolvePath normalizes against the current directory', () => {
   assert.deepEqual(resolvePath(['docs'], './a.md'), ['docs', 'a.md'])
   assert.deepEqual(resolvePath(['docs', 'x'], '../b.md'), ['docs', 'b.md'])
