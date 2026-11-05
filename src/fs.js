@@ -127,3 +127,24 @@ export async function getFileByPath(root, segments) {
   for (const seg of segments.slice(0, -1)) dir = await dir.getDirectoryHandle(seg)
   return dir.getFileHandle(segments[segments.length - 1])
 }
+
+export async function getDirByPath(root, segments) {
+  let dir = root
+  for (const seg of segments) dir = await dir.getDirectoryHandle(seg)
+  return dir
+}
+
+// Only NotFoundError means gone; anything else (permission, a busy disk) says nothing about the entry.
+export async function exists(handle) {
+  try {
+    if (handle.kind === 'file') await handle.getFile()
+    else await handle.entries().next()
+    return true
+  } catch (err) {
+    return err.name !== 'NotFoundError'
+  }
+}
+
+// Types a new tab shows instead of saving. SVG and HTML are left out: opened from a blob URL they run
+// scripts in this app's origin, with its folder grants.
+export const opensInTab = type => /^(image|audio|video)\//.test(type) ? type !== 'image/svg+xml' : type === 'application/pdf' || type === 'text/plain'

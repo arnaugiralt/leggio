@@ -106,3 +106,12 @@ test('tables are wrapped so they can break out of the text column', () => {
   assert.match(html, /<div class="table-wrap"><table>/)
   assert.match(html, /<\/table>\n<\/div>/)
 })
+
+test('local images carry data-src and no src; external ones keep src', () => {
+  const html = render('![a](logo.png) ![b](/x/y.png) ![c](https://e.com/c.png) ![d](data:image/png;base64,AAAA)')
+  assert.match(html, /<img[^>]*data-src="logo.png"/)
+  assert.match(html, /<img[^>]*data-src="\/x\/y.png"/)
+  assert.doesNotMatch(html, /<img[^>]*data-src="https|<img[^>]*data-src="data:/)
+  assert.match(html, /<img src="https:\/\/e.com\/c.png"/)
+  assert.doesNotMatch(html, /<img(?![^>]*data-src)[^>]*src="logo/)
+})

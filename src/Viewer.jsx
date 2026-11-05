@@ -18,14 +18,10 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
     }
     urls.current.forEach(URL.revokeObjectURL)
     urls.current = []
-    // Setting img.src also rewrites the src attribute, so the original relative path is
-    // captured once per element and restored here before any re-resolution. Without this,
-    // reopening the same (memoized, unchanged) html without folder context would leave a
-    // stale, revoked blob: URL on the image instead of falling back to the relative path.
-    for (const img of article.querySelectorAll('img[src]')) {
-      if (img.dataset.origSrc === undefined) img.dataset.origSrc = img.getAttribute('src')
-      img.src = img.dataset.origSrc
-    }
+    article.querySelectorAll('.img-note').forEach(n => n.remove()) // re-added below, so a re-run never doubles them
+    // Local images come as data-src (render.js), so no request leaves for them. A previous pass may have
+    // set a blob src on this same unchanged html; clear it so a missing folder shows no stale image.
+    for (const img of article.querySelectorAll('img[data-src]')) img.removeAttribute('src')
     // Above the folder check: diagrams open in the lightbox with or without one.
     for (const fig of article.querySelectorAll('.diagram')) {
       fig.tabIndex = 0
@@ -33,12 +29,17 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
       fig.setAttribute('aria-label', 'Open diagram full size')
     }
     // Without a folder, relative images are broken and links cannot be followed: App offers the folder.
-    onRelative(!dirPath && [...article.querySelectorAll('img[src], a[href]')].some(el => isLocal(el.getAttribute(el.localName === 'a' ? 'href' : 'src'))))
+    onRelative((!dirPath || !root) && [...article.querySelectorAll('img[data-src], a[href]')].some(el => isLocal(el.getAttribute(el.localName === 'a' ? 'href' : 'data-src') ?? '')))
+    // A broken image is indistinguishable from a slow one, so say which. Not for relative images without
+    // a folder: the folder notice already explains those.
+    for (const img of article.querySelectorAll('img[src]')) {
+      if (img.complete && !img.naturalWidth) note(img, "Image couldn't load.")
+      else img.addEventListener('error', () => note(img, "Image couldn't load."), { once: true })
+    }
     if (!root || !dirPath) return
     let cancelled = false
-    for (const img of article.querySelectorAll('img[src]')) {
-      const src = img.dataset.origSrc
-      if (!isLocal(src)) continue
+    for (const img of article.querySelectorAll('img[data-src]')) {
+      const src = img.dataset.src
       const segments = resolvePath(dirPath, src)
       if (!segments) continue
       getFileByPath(root, segments)
@@ -49,7 +50,7 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
           urls.current.push(url)
           img.src = url
         })
-        .catch(() => {}) // leave the original src; the browser shows a broken image with alt text
+        .catch(() => cancelled || note(img, `Image not found: ${src}`)) // the browser still shows a broken image with alt text
     }
     return () => {
       cancelled = true
@@ -92,6 +93,14 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
       {zoomed && <Lightbox {...zoomed} onClose={() => setZoomed(null)} />}
     </>
   )
+}
+
+function note(img, text) {
+  if (img.nextElementSibling?.classList.contains('img-note')) return
+  const span = document.createElement('span')
+  span.className = 'img-note'
+  span.textContent = text
+  img.after(span)
 }
 
 // <dialog> carries the top layer, the backdrop, focus containment and Esc; only the

@@ -578,7 +578,8 @@ html:has(dialog.lightbox[open]) {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.row-note { margin-left: auto; font-size: 0.72rem; color: var(--ui-faint); }
+.row.missing .pin { opacity: 1; } /* the only thing left to do with it */
+.img-note { display: block; margin: 0.25rem 0 1rem; font-family: var(--ui-font); font-size: 0.8rem; color: var(--ui-muted); }
 .row.missing .row-name { text-decoration: line-through; }
 /* One mark per row, in one column, so names line up whether the row is a file or a folder. */
 .kind {

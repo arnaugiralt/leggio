@@ -58,3 +58,9 @@ test('listMarkdown filters, prunes, and sorts', async () => {
   assert.deepEqual(names(docs.children[0]), ['d.markdown'])
   assert.equal(tree.children[1].handle.name, 'a.md')
 })
+
+test('opensInTab', async () => {
+  const { opensInTab } = await import('../src/fs.js')
+  for (const t of ['image/png', 'application/pdf', 'text/plain', 'audio/mpeg', 'video/mp4']) assert.equal(opensInTab(t), true, t)
+  for (const t of ['text/csv', 'text/html', 'image/svg+xml', 'application/zip', '']) assert.equal(opensInTab(t), false, t)
+})

@@ -10,6 +10,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import markdown from 'highlight.js/lib/languages/markdown'
 import { renderMermaidSVG } from 'beautiful-mermaid'
+import { isLocal } from './fs.js'
 
 // Each definition declares its own aliases (js, ts, sh, py, yml, html, md), so
 // registering the canonical name is enough for hljs.getLanguage('js') to resolve.
@@ -118,6 +119,20 @@ md.core.ruler.push('task_lists', state => {
     const box = new state.Token('html_inline', '', 0)
     box.content = `<input type="checkbox" disabled${m[1] === ' ' ? '' : ' checked'}>`
     inline.children.unshift(box)
+  }
+})
+
+// A local image must never reach the network: served from a host, its file name would be sent to that
+// host, and it cannot exist there anyway. Viewer resolves data-src from the open folder.
+md.core.ruler.push('local_images', state => {
+  for (const block of state.tokens) {
+    for (const t of block.children ?? []) {
+      if (t.type !== 'image') continue
+      const src = t.attrGet('src')
+      if (!isLocal(src)) continue
+      t.attrs = t.attrs.filter(a => a[0] !== 'src')
+      t.attrSet('data-src', src)
+    }
   }
 })
 

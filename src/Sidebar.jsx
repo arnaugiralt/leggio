@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import * as fs from './fs.js'
 import { FileText, Folder, FolderOpen } from './icons.jsx'
 
@@ -19,9 +19,9 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
         if (child.kind === 'directory') {
           const open = !collapsed.has(key)
           return (
-            <li key={key}>
+            <li key={key} data-path={key}>
               <div class="row">
-                <button type="button" class="row-main" aria-expanded={open} onClick={() => toggle(key)}>
+                <button type="button" class="row-main" title={child.name} aria-expanded={open} onClick={() => toggle(key)}>
                   {open ? <FolderOpen size={14} class="kind" /> : <Folder size={14} class="kind" />}
                   <span class="row-name">{child.name}</span>
                 </button>
@@ -35,7 +35,7 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
         return (
           <li key={key}>
             <div class={`row${active ? ' active' : ''}`}>
-              <button type="button" class="row-main" aria-current={active ? 'page' : undefined} onClick={() => onOpenFile(child.handle, path, root)}>
+              <button type="button" class="row-main" title={child.name} aria-current={active ? 'page' : undefined} onClick={() => onOpenFile(child.handle, path, root)}>
                 <FileText size={14} class="kind" />
                 <span class="row-name">{child.name}</span>
               </button>
@@ -49,9 +49,29 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
 }
 
 // Pinned items and the open folder's markdown tree. Folders start expanded; collapse state is keyed by path.
-export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onPickFolder, onTogglePin }) {
+export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPinned, onPickFolder, onTogglePin }) {
   const [collapsed, setCollapsed] = useState(() => new Set())
-  const activePath = current?.dirPath ? [...current.dirPath, current.name].join('/') : null
+  // The document keeps the folder it was opened in; its row only shows when that is the folder in the tree.
+  const [sameRoot, setSameRoot] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const same = !!(current?.root && folder && (current.root === folder.handle || (await current.root.isSameEntry(folder.handle))))
+      if (!cancelled) setSameRoot(same)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [current?.root, folder?.handle])
+  const activePath = sameRoot && current.dirPath ? [...current.dirPath, current.name].join('/') : null
+
+  // A link to a folder: expand it and its parents, then bring its row into view once they are rendered.
+  useEffect(() => {
+    if (!reveal) return
+    const keys = reveal.path.map((_, i) => reveal.path.slice(0, i + 1).join('/'))
+    setCollapsed(prev => new Set([...prev].filter(k => !keys.includes(k))))
+    requestAnimationFrame(() => document.querySelector(`#files [data-path="${CSS.escape(keys[keys.length - 1])}"]`)?.scrollIntoView({ block: 'nearest' }))
+  }, [reveal])
 
   const toggle = key =>
     setCollapsed(prev => {
@@ -68,10 +88,9 @@ export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onP
           {pinned.map((item, i) => (
             <li key={i}>
               <div class={`row${item.missing ? ' missing' : ''}`}>
-                <button type="button" class="row-main" onClick={() => onOpenPinned(item, i)}>
+                <button type="button" class="row-main" title={item.name} onClick={() => onOpenPinned(item, i)}>
                   {item.kind === 'directory' ? <Folder size={14} class="kind" /> : <FileText size={14} class="kind" />}
-                  <span class="row-name">{item.name}</span>
-                  {item.missing && <span class="row-note">missing</span>}
+                  <span class="row-name">{item.missing ? `${item.name} is gone` : item.name}</span>
                 </button>
                 <PinButton item={item} label="Unpin" onTogglePin={onTogglePin} />
               </div>
@@ -88,6 +107,7 @@ export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onP
             </button>
           )}
         </h2>
+        {folder && !folder.tree.children.length && <p class="side-hint">No markdown files in {folder.name}.</p>}
         {folder ? <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} /> : !fs.supported && <p class="side-hint">Folders need Chrome or Edge.</p>}
       </section>
     </div>

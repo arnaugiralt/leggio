@@ -9,10 +9,10 @@ const nav = window.navigation
 
 // The folder, the open document, pins and restore: every action that opens something, with
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
-export function useLibrary({ onFolderOpen }) {
+export function useLibrary({ onFolderOpen, onReveal }) {
   const [folder, setFolder] = useState(null) // { handle, name, tree }
   const [pinned, setPinned] = useState([]) // [{ kind, name, handle, missing? }]
-  const [current, setCurrent] = useState(null) // { handle, name, dirPath, text }
+  const [current, setCurrent] = useState(null) // { handle, name, dirPath, root, text }; root is the folder it was opened in, which may not be the sidebar's
   const [currentPinned, setCurrentPinned] = useState(false)
   const [restorable, setRestorable] = useState(null) // { folder, filePath }
   const [notice, setNotice] = useState(null) // { text, action?: 'another' | 'folder' }, shown by App until another document opens
@@ -137,7 +137,7 @@ export function useLibrary({ onFolderOpen }) {
       onFolderOpen() // show the result; otherwise opening a folder looks like nothing happened
       setRestorable(null)
       setError('')
-      idb.set('last', { folder: handle, filePath: null, file: null })
+      if (!currentRef.current) idb.set('last', { folder: handle, filePath: null, file: null }) // reading something: its own record stays
       stopFolderWatch.current()
       let timer = 0
       const relist = () => {
@@ -178,7 +178,7 @@ export function useLibrary({ onFolderOpen }) {
       }
       const text = await fs.readText(handle)
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root })
-      setCurrent({ handle, name: handle.name, dirPath, text })
+      setCurrent({ handle, name: handle.name, dirPath, root, text })
       setRestorable(null)
       setError('')
       window.scrollTo({ top: 0, behavior: 'instant' }) // a new document starts at its top, not animated up from the old position
@@ -218,7 +218,7 @@ export function useLibrary({ onFolderOpen }) {
       const text = await file.text()
       await record({ handle: null, name: file.name, text }) // no handle to reopen, so the entry keeps the text
       stopFileWatch.current()
-      setCurrent({ handle: null, name: file.name, dirPath: null, text })
+      setCurrent({ handle: null, name: file.name, dirPath: null, root: null, text })
       setRestorable(null)
       setError('')
       window.scrollTo({ top: 0, behavior: 'instant' })
@@ -227,28 +227,53 @@ export function useLibrary({ onFolderOpen }) {
     }
   }
 
-  // Every relative link lands here, so none of them can navigate the window.
+  // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
+  // No README auto-open: the person already has a document.
+  async function showFolder(root) {
+    if (!(folderRef.current && (await folderRef.current.isSameEntry(root)))) await openFolder(root)
+  }
+
+  // Every relative link lands here, so none of them can navigate the window. It resolves against the
+  // document's own folder, which is not necessarily the one the sidebar shows.
   async function followLink(href) {
     const cur = currentRef.current
-    const root = folderRef.current
+    const root = cur?.root
     if (!cur?.dirPath || !root) {
       pendingLink.current = href // followed once the folder is granted
       return setNotice(FOLDER_NOTICE)
     }
     const [path, hash] = href.split('#')
     const segments = resolvePath(cur.dirPath, path)
-    const name = path.split('/').pop() || path
+    const name = path.split('/').filter(Boolean).pop() || path
     try {
       if (!segments) throw 0
-      const handle = await fs.getFileByPath(root, segments)
+      let handle
+      try {
+        handle = await fs.getFileByPath(root, segments)
+      } catch (err) {
+        if (err.name !== 'TypeMismatchError') throw err
+        await fs.getDirByPath(root, segments) // a folder: show it in the tree
+        await showFolder(root)
+        return onReveal(segments)
+      }
       if (fs.isMarkdownName(name)) {
+        await showFolder(root)
         await openFile(handle, { dirPath: segments.slice(0, -1), root })
         if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
-      } else {
-        const url = URL.createObjectURL(await handle.getFile())
-        window.open(url, '_blank')
-        setTimeout(() => URL.revokeObjectURL(url), 60000) // the new tab has fetched it long before
+        return
       }
+      const file = await handle.getFile()
+      const url = URL.createObjectURL(file)
+      if (fs.opensInTab(file.type)) window.open(url, '_blank')
+      else {
+        // A blob URL has no file name, so a tab would save it under a GUID.
+        const a = document.createElement('a')
+        a.href = url
+        a.download = file.name
+        a.click()
+        setNotice({ text: `Downloaded ${file.name}.` })
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000) // the tab or the download has fetched it long before
     } catch {
       setError(`${name} isn't in this folder.`)
     }
@@ -272,8 +297,17 @@ export function useLibrary({ onFolderOpen }) {
   }
 
   async function openPinned(item, index) {
+    // A pin whose target is gone says so in its row instead of failing as a read error.
+    if ((await fs.hasPermission(item.handle)) && !(await fs.exists(item.handle))) return setPinned(p => p.map((x, i) => (i === index ? { ...x, missing: true } : x)))
     const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle)
     if (!ok) setPinned(p => p.map((x, i) => (i === index ? { ...x, missing: true } : x)))
+  }
+
+  // Only where access is already granted: a prompt would need a gesture, and the panel opening is not one.
+  async function checkPins() {
+    const gone = new Map()
+    for (const item of pinned) if (await fs.hasPermission(item.handle)) gone.set(item.handle, !(await fs.exists(item.handle)))
+    setPinned(p => (p.some(x => gone.has(x.handle) && gone.get(x.handle) !== !!x.missing) ? p.map(x => (gone.has(x.handle) ? { ...x, missing: gone.get(x.handle) } : x)) : p))
   }
 
   async function togglePin(item) {
@@ -323,11 +357,11 @@ export function useLibrary({ onFolderOpen }) {
     keepScroll.current = entry.scrollY ?? null
     if (!entry.handle) {
       stopFileWatch.current()
-      setCurrent({ handle: null, name: entry.name, dirPath: null, text: entry.text })
+      setCurrent({ handle: null, name: entry.name, dirPath: null, root: null, text: entry.text })
       return
     }
     // The tree follows the document, as Finder's Back changes the location.
-    if (entry.root && !(folderRef.current && (await folderRef.current.isSameEntry(entry.root)))) await openFolder(entry.root)
+    if (entry.root) await showFolder(entry.root)
     if (!(await openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root, fromHistory: true }))) {
       keepScroll.current = null
       setError(`${entry.name} was moved or deleted.`) // the entry stays, so the next Back steps past it
@@ -337,7 +371,7 @@ export function useLibrary({ onFolderOpen }) {
   // A link to a heading in the same document is an entry too, so Back returns from a footnote or a table of contents.
   function jumpTo(id) {
     const el = document.getElementById(id)
-    if (!el) return
+    if (!el) return setNotice({ text: `Section “${id}” isn't in this document.` })
     const entry = nav?.currentEntry.getState()
     if (entry) {
       writeEntry({ ...entry, scrollY: window.scrollY })
@@ -346,5 +380,5 @@ export function useLibrary({ onFolderOpen }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo }
+  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }

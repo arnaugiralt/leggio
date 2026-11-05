@@ -44,11 +44,17 @@ export function App() {
       return false
     }
   })
+  const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
+  const [focusRows, setFocusRows] = useState(0)
   const fileInput = useRef()
   const article = useRef()
-  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo } = useLibrary({
+  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
+    onReveal: path => {
+      setUi(u => ({ ...u, sidebarOpen: true })) // the person followed a link to a folder, so a drawer is what they asked for
+      setReveal(r => ({ path, n: (r?.n ?? 0) + 1 }))
+    },
   })
 
   useEffect(() => {
@@ -70,6 +76,17 @@ export function App() {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
+
+  useEffect(() => {
+    if (ui.sidebarOpen) checkPins()
+  }, [ui.sidebarOpen, pinned.length])
+
+  // After the commit, so the panel is already visible: a hidden element cannot take focus.
+  useEffect(() => {
+    if (!focusRows) return
+    // File rows are the buttons without aria-expanded; the last section is the folder tree, after the pins.
+    ;(document.querySelector('#files .row-main[aria-current]') ?? document.querySelector('#files section:last-of-type .row-main:not([aria-expanded])'))?.focus()
+  }, [focusRows])
 
   useEffect(() => {
     document.title = current ? current.name : 'md reader'
@@ -178,7 +195,7 @@ export function App() {
   const shownOrTip = shown ?? (current && installEvent && !tipHidden ? tip : null)
   const actions = {
     install: ['Install', install],
-    another: ['Open another file', () => (folder ? setUi(u => ({ ...u, sidebarOpen: true })) : pickFile())],
+    another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', pickFolderForCurrent],
   }
   // Read, Pin and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
@@ -247,7 +264,7 @@ export function App() {
       />
       {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') closeDrawer(); openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') closeDrawer(); openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
         {shownOrTip && (
@@ -263,7 +280,7 @@ export function App() {
         {current ? (
           <>
             <Outline articleRef={article} text={current.text} onContents={setHasContents} />
-            <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
+            <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
           </>
         ) : folder ? (
           <div class="empty">
