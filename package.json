@@ -2,11 +2,12 @@
   "name": "md-reader",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node build.mjs --dev",
     "build": "node build.mjs",
-    "serve": "node build.mjs && esbuild --serve=8000 --servedir=.",
+    "serve": "node build.mjs && esbuild --serve=8765 --servedir=site",
     "test": "node --test"
   },
   "dependencies": {

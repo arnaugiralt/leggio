@@ -7,6 +7,7 @@ CLAUDE.local.md
 # dependencies and build output
 node_modules/
 dist/
+site/
 
 # logs
 *.log
