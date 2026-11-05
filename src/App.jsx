@@ -7,15 +7,20 @@ import { Speech } from './Speech.jsx'
 import { DEFAULTS, load, save, applyToRoot, applyFontUrl } from './settings.js'
 import * as fs from './fs.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronLeft, ChevronRight } from './icons.jsx'
+import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const UI_KEY = 'md-reader.ui'
 const TIP_KEY = 'md-reader.install-tip-dismissed'
 
+// Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
+const narrow = () => matchMedia('(max-width: 759.98px)').matches
+
 function loadUi() {
   try {
-    return { sidebarOpen: false, ...JSON.parse(localStorage.getItem(UI_KEY) ?? '{}') }
+    const ui = { sidebarOpen: false, ...JSON.parse(localStorage.getItem(UI_KEY) ?? '{}') }
+    // A drawer remembered from a wide window must not open over the document.
+    return narrow() ? { ...ui, sidebarOpen: false } : ui
   } catch {
     return { sidebarOpen: false }
   }
@@ -27,6 +32,7 @@ export function App() {
   const [ui, setUi] = useState(loadUi)
   const [dragging, setDragging] = useState(false)
   const [hasRelative, setHasRelative] = useState(false)
+  const [hasContents, setHasContents] = useState(false)
   const [folderOfferHidden, setFolderOfferHidden] = useState(false)
   const [installEvent, setInstallEvent] = useState(null)
   const [tipHidden, setTipHidden] = useState(() => {
@@ -39,7 +45,8 @@ export function App() {
   const fileInput = useRef()
   const article = useRef()
   const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo } = useLibrary({
-    onFolderOpen: () => setUi(u => ({ ...u, sidebarOpen: true })),
+    // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
+    onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
   })
 
   useEffect(() => {
@@ -49,7 +56,8 @@ export function App() {
   }, [settings])
 
   useEffect(() => {
-    localStorage.setItem(UI_KEY, JSON.stringify(ui))
+    // At narrow width the drawer is a passing state; saving it would clobber the wide-window preference.
+    if (!narrow()) localStorage.setItem(UI_KEY, JSON.stringify(ui))
   }, [ui])
 
   useEffect(() => {
@@ -105,6 +113,7 @@ export function App() {
   }
 
   const toggleSidebar = () => setUi(u => ({ ...u, sidebarOpen: !u.sidebarOpen }))
+  const closeDrawer = () => narrow() && setUi(u => ({ ...u, sidebarOpen: false }))
 
   useEffect(() => {
     window.mdreader = { openFolder: h => openFolder(h, { pick: true }), openFile, openFolderFor }
@@ -137,6 +146,7 @@ export function App() {
         toggleSidebar()
       } else if (e.key === 'Escape') {
         setShowSettings(false)
+        if (narrow()) setUi(u => ({ ...u, sidebarOpen: false }))
       }
     }
     window.addEventListener('dragover', over)
@@ -160,6 +170,18 @@ export function App() {
     another: ['Open another file', () => (folder ? setUi(u => ({ ...u, sidebarOpen: true })) : pickFile())],
     folder: ['Open folder', pickFolderForCurrent],
   }
+  // Read, Pin and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
+  const menu = read => (
+    <div id="bar-menu" class="bar-menu" popover="auto" onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
+      {read}
+      {current?.handle && (
+        <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
+          {currentPinned ? 'Unpin' : 'Pin'}
+        </button>
+      )}
+      <button type="button" class="quiet" onClick={pickFile}>Open</button>
+    </div>
+  )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
 
   return (
@@ -187,13 +209,16 @@ export function App() {
           </bdi>
         </span>
         <div class="bar-actions">
-          {current && <Speech articleRef={article} text={current.text} settings={settings} />}
-          {current?.handle && (
-            <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
-              {currentPinned ? 'Unpin' : 'Pin'}
+          {hasContents && (
+            <button type="button" class="quiet contents-btn" popovertarget="contents" aria-label="Contents" title="Contents">
+              <List size={16} />
+              <span class="label">Contents</span>
             </button>
           )}
-          <button type="button" class="quiet" onClick={pickFile}>Open</button>
+          <button type="button" class="quiet more-btn" popovertarget="bar-menu" aria-label="More actions" title="More">
+            More
+          </button>
+          {current ? <Speech articleRef={article} text={current.text} settings={settings}>{menu}</Speech> : menu(null)}
           <button type="button" class="quiet" aria-expanded={showSettings} aria-controls="settings" onClick={() => setShowSettings(v => !v)}>
             Settings
           </button>
@@ -209,8 +234,9 @@ export function App() {
           e.currentTarget.value = ''
         }}
       />
+      {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => openFile(h, { dirPath, root })} onOpenPinned={openPinned} onPickFolder={pickFolder} onTogglePin={togglePin} />
+        <Sidebar folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') closeDrawer(); openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
         {shownOrTip && (
@@ -225,12 +251,13 @@ export function App() {
         )}
         {current ? (
           <>
-            <Outline articleRef={article} text={current.text} />
+            <Outline articleRef={article} text={current.text} onContents={setHasContents} />
             <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
           </>
         ) : folder ? (
           <div class="empty">
             <p class="empty-title">{folder.tree.children.length ? `Choose a document from ${folder.name}` : `No markdown files in ${folder.name}`}</p>
+            <button type="button" class="quiet primary narrow-only" onClick={toggleSidebar}>Show files</button>
           </div>
         ) : (
           <div class="empty">
@@ -252,6 +279,9 @@ export function App() {
         )}
       </main>
       <aside id="settings" class="sheet" aria-label="Settings" aria-hidden={!showSettings}>
+        <button type="button" class="quiet sheet-close" aria-label="Close settings" onClick={() => setShowSettings(false)}>
+          <X size={18} />
+        </button>
         <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} onReset={() => setSettings({ ...DEFAULTS })} />
       </aside>
     </div>

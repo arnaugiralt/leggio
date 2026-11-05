@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
 
 const TOP_OFFSET = 96 // px below the viewport top at which a heading counts as current
+const RAIL_MIN = 900 // px of .main the rail needs: the text column plus room either side. Below it the Contents button takes over
 const JUMP_MS = 280 // Chromium's own smooth scroll scales with distance and crawls across a long document
 
 // `behavior: instant` on every step: the root's scroll-behavior: smooth would otherwise
@@ -27,9 +28,24 @@ function scrollToY(target) {
 
 // Reads headings from the rendered article so the document is parsed once.
 // Shows nothing for documents with fewer than two headings.
-export function Outline({ articleRef, text }) {
+export function Outline({ articleRef, text, onContents }) {
   const [headings, setHeadings] = useState([])
+  const [railHidden, setRailHidden] = useState(false)
   const [active, setActive] = useState(null)
+
+  // .main's content box, so an open sidebar or sheet counts against the rail.
+  useLayoutEffect(() => {
+    const main = document.querySelector('.main')
+    const ro = new ResizeObserver(([e]) => setRailHidden(e.contentBoxSize[0].inlineSize < RAIL_MIN))
+    ro.observe(main)
+    return () => ro.disconnect()
+  }, [])
+
+  const hasContents = headings.length >= 2
+  useEffect(() => {
+    onContents(hasContents && railHidden)
+    return () => onContents(false)
+  }, [hasContents, railHidden])
 
   useEffect(() => {
     const nodes = [...(articleRef.current?.querySelectorAll('h1, h2, h3, h4') ?? [])]
@@ -77,9 +93,26 @@ export function Outline({ articleRef, text }) {
     // The panel stays open on :focus-within, so a mouse click would leave it up after
     // the pointer moves away. detail is 0 for a keyboard activation, which keeps focus.
     if (e.detail) e.currentTarget.blur()
+    e.currentTarget.closest('[popover]')?.hidePopover()
   }
 
-  return (
+  const list = (
+    <ol>
+      {headings.map(h => (
+        <li key={h.id} class={`level-${h.level}${h.id === active ? ' active' : ''}`}>
+          <a href={`#${h.id}`} aria-current={h.id === active ? 'true' : undefined} onClick={e => jump(e, h.id)}>
+            {h.text}
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
+
+  return railHidden ? (
+    <nav id="contents" class="contents-pop" popover="auto" aria-label="Contents">
+      {list}
+    </nav>
+  ) : (
     <div class="outline">
       <div class="rail" aria-hidden="true">
         {headings.map(h => (
@@ -87,15 +120,7 @@ export function Outline({ articleRef, text }) {
         ))}
       </div>
       <nav class="panel" aria-label="Contents">
-        <ol>
-          {headings.map(h => (
-            <li key={h.id} class={`level-${h.level}${h.id === active ? ' active' : ''}`}>
-              <a href={`#${h.id}`} aria-current={h.id === active ? 'true' : undefined} onClick={e => jump(e, h.id)}>
-                {h.text}
-              </a>
-            </li>
-          ))}
-        </ol>
+        {list}
       </nav>
     </div>
   )

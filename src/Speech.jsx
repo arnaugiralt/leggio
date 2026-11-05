@@ -54,7 +54,7 @@ function collect(article) {
   return out
 }
 
-export function Speech({ articleRef, text, settings }) {
+export function Speech({ articleRef, text, settings, children }) {
   const [{ playing, paused, index, stalled }, setStatus] = useState({ playing: false, paused: false, index: -1, stalled: false })
   const items = useRef([])
   const follow = useRef(true)
@@ -145,14 +145,20 @@ export function Speech({ articleRef, text, settings }) {
     return () => window.removeEventListener('keydown', key)
   }, [playing])
 
-  if (!speech.supported) return null
-  // The bar button is the on/off switch and never changes width, so nothing beside it moves.
+  // The caller places the on/off switch (it moves into a menu in a narrow bar); the player stays here,
+  // because a closed menu is display: none and would hide it.
+  // Both labels share one grid cell, so the button never changes width and nothing beside it moves.
+  const toggle = speech.supported && (
+    <button type="button" class="quiet reading-toggle" aria-pressed={playing} onClick={playing ? () => speech.stop() : start}>
+      <span class={playing ? 'ghost' : undefined}>Read</span>
+      <span class={playing ? undefined : 'ghost'}>Reading</span>
+    </button>
+  )
+  if (!speech.supported) return children(null)
   // Everything else lives on the player, because reading is a mode and a mode gets its own surface.
   return (
     <>
-      <button type="button" class="quiet reading-toggle" aria-pressed={playing} onClick={playing ? () => speech.stop() : start}>
-        {playing ? 'Reading' : 'Read'}
-      </button>
+      {children(toggle)}
       {playing && (
         <div class="player" role="group" aria-label="Reading controls">
           {stalled && (
