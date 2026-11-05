@@ -4,7 +4,7 @@
 
 A markdown reader built for reading. Calm, customizable, offline, private.
 
-**[Open Leggio](https://leggio.compostela.dev)** in Chrome or Edge on a computer. There is no account and no installer.
+**[Open Leggio](https://leggio.compostela.dev)** in Chrome or Edge on a computer. It works in the browser with no account, and you can install it as an app from there.
 
 <img src=".github/screenshot.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
 
