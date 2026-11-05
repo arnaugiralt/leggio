@@ -90,6 +90,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 - The content security policy in `_headers` allows no inline scripts. Don't add an inline `<script>` to `index.html`. Put the code in a module under `src/`. `index.html` loads the bundle with an external script.
 - `sw.js` and `build.mjs` both have a `SHELL` list because they serve different builds. The dev server uses `sw.js` as it is. The production build rewrites the `CACHE` and `SHELL` lines of `sw.js` with hashed file names. If you add a file the app needs offline, add it in three places: `SHELL` in `sw.js`, the `SHELL` array in `build.mjs`, and the copy list in `build.mjs` (the `for` loop that calls `fs.copyFileSync`).
+- The site runs at leggio.compostela.dev as a Cloudflare Worker with static assets only (`wrangler.jsonc`, a custom domain), deployed by Workers Builds. The build command is `pnpm install --frozen-lockfile && pnpm test && pnpm build`, and the deploy command is `npx wrangler deploy`. Wrangler is not a project dependency. Never change the domain: an installed app is tied to its exact origin.
 
 ## Check your change
 

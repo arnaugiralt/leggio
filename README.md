@@ -4,44 +4,55 @@
 
 A markdown reader built for reading. Calm, customizable, offline, private.
 
-*Leggio* is Italian for a reading stand, from *leggere*, to read. Drop a file or a folder and read it. Mermaid diagrams render inline, and a click opens one full size. Fonts, sizes and colors are yours to set, and the default theme follows your system's light or dark setting. Files are read on your computer and never uploaded.
+**[Open Leggio](https://leggio.compostela.dev)** in Chrome or Edge on a computer. There is no account and no installer.
 
-## Run
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/screenshot-dark.png">
+  <img src=".github/screenshot-light.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
+</picture>
+
+*Leggio* is Italian for a reading stand, from *leggere*, to read.
+
+Most markdown apps are editors with a preview on the side. Leggio is only the page, and it tries to be a very good page: a calm layout, type you choose, diagrams drawn in place, and a voice that reads it to you. Notes, documentation and the README of a project you just cloned get the layout and type of a book, not of a source file.
+
+## Features
+
+- **Files and folders.** Open or drop a file, or open a whole folder and browse its markdown files in the Files panel. Relative links and images work, and the page reloads when the file changes on disk.
+- **Diagrams.** Mermaid diagrams render inline, in the colors of your theme. A click opens one full size.
+- **Read aloud.** Leggio reads the page to you, highlights the sentence it's on, and with local voices the word too. Choose the voice and the speed.
+- **Themes and type.** Six looks to start from (Default, Quiet, Cobalt, Teletype, Terminal and Ember), then set the fonts, size, weight, line height, text width and colors yourself. Any Google Font works. The Default look follows your system's light or dark setting.
+- **Outline.** A contents rail beside the text marks the section you're reading. Click a heading to jump to it.
+- **History.** Back and forward (⌘[ and ⌘]) walk the documents you opened and keep your scroll position. Pin files and folders to keep them across sessions, and Leggio reopens where you left off.
+- **An app of its own.** Install it from the address bar. It gets its own window, works offline, and opens `.md` files from Finder or Explorer.
+- **Private.** Your files are read on your computer and never uploaded. No accounts, no analytics. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
+
+Leggio never edits, renames or deletes your files, and it never will. It only reads.
+
+Shortcuts: ⌘O opens a file, ⇧⌘O a folder, ⌘B shows or hides the Files panel. On Windows, use Ctrl.
+
+## Planned
+
+- Search across a folder.
+
+## Requirements
+
+A Chromium-based browser on a computer, such as Chrome or Edge. Leggio reads files and folders through the File System Access API, which other browsers don't support yet.
+
+## Develop
+
+You need Node.js 24 or newer and pnpm 10.
 
 ```sh
 pnpm install
 pnpm dev      # http://localhost:8000, rebuilds on change
+pnpm test
 pnpm build    # writes site/, the folder to deploy
 pnpm serve    # build, then serve site/ on http://localhost:8765
-pnpm test
 ```
 
-## Folders
+`site/` is a static site. Upload it to any static host, or see [AGENTS.md](AGENTS.md) for how this one deploys. To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Open a folder (Chrome, Edge) to browse its markdown files in the Files panel (⌘B). Relative links and images resolve inside the folder, and the view reloads when a file changes on disk. Back and forward (⌘[ and ⌘]) walk the documents you opened, and keep your scroll position. Pin files or folders to keep them across sessions. On launch, the reader puts you back where you left off.
-
-## Install it
-
-The app is a PWA. Open it in Chrome and use the install button in the address bar. It gets its own window, works offline, and registers as a handler for `.md` files, so opening one from Finder opens it here. Installing needs a secure origin; `localhost` counts as one.
-
-## Deploy
-
-`pnpm build` writes `site/`: the page, hashed bundles under `assets/`, the service worker, the manifest, the icons, `_headers` and `THIRD_PARTY_NOTICES.txt`. Upload that folder to any static host. `_headers` uses the Cloudflare format: long caching for the hashed bundles (the page and the worker keep Cloudflare's default, which revalidates on every load) and a content security policy.
-
-The project deploys as a Cloudflare Worker with static assets only (`wrangler.jsonc`), through Workers Builds connected to this repository:
-
-- Build command: `pnpm install --frozen-lockfile && pnpm test && pnpm build`
-- Deploy command: `npx wrangler deploy`
-
-Wrangler is not a project dependency; it runs only in the deploy step.
-
-## Stack
-
-Preact, markdown-it, highlight.js, beautiful-mermaid, esbuild. Thirteen packages in total, exact versions, install scripts disabled. The icons are paths copied from [Lucide](https://lucide.dev) (ISC), not a dependency.
-
-## Not yet
-
-Editing (never). Search across a folder.
+Built with Preact, markdown-it, highlight.js, beautiful-mermaid and esbuild: thirteen packages in total, at exact versions, with install scripts disabled. The icons are paths copied from [Lucide](https://lucide.dev) (ISC), not a dependency.
 
 ## License
 
