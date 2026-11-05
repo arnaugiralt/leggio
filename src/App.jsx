@@ -7,6 +7,7 @@ import { Speech } from './Speech.jsx'
 import { DEFAULTS, load, save, applyToRoot, applyFontUrl } from './settings.js'
 import * as fs from './fs.js'
 import { useLibrary } from './useLibrary.js'
+import { ChevronLeft, ChevronRight } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const UI_KEY = 'md-reader.ui'
@@ -26,7 +27,7 @@ export function App() {
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef()
   const article = useRef()
-  const { folder, pinned, current, currentPinned, restorable, error, openFolder, openFile, openBlob, openRelative, openPinned, togglePin, restore } = useLibrary({
+  const { folder, pinned, current, currentPinned, restorable, error, back, forward, openFolder, openFile, openBlob, openRelative, openPinned, togglePin, restore, jumpTo } = useLibrary({
     onFolderOpen: () => setUi(u => ({ ...u, sidebarOpen: true })),
   })
 
@@ -80,6 +81,9 @@ export function App() {
       if (mod && e.key.toLowerCase() === 'o') {
         e.preventDefault()
         e.shiftKey ? pickFolder() : pickFile()
+      } else if (mod && (e.key === '[' || e.key === ']')) {
+        e.preventDefault() // in a tab, Chrome's own ⌘[ would also go back, out of the app when the button is disabled
+        if (e.key === '[' ? window.navigation?.canGoBack : window.navigation?.canGoForward) e.key === '[' ? history.back() : history.forward()
       } else if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault()
         toggleSidebar()
@@ -108,6 +112,16 @@ export function App() {
           <button type="button" class="quiet" aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
             Files
           </button>
+          {current && (
+            <>
+              <button type="button" class="quiet nav" aria-label="Back" title={back ? `Back to ${back}` : 'Back'} disabled={back === null} onClick={() => history.back()}>
+                <ChevronLeft />
+              </button>
+              <button type="button" class="quiet nav" aria-label="Forward" title={forward ? `Forward to ${forward}` : 'Forward'} disabled={forward === null} onClick={() => history.forward()}>
+                <ChevronRight />
+              </button>
+            </>
+          )}
         </div>
         <span class="bar-title">{current ? current.name : 'md reader'}</span>
         <div class="bar-actions">
@@ -141,7 +155,7 @@ export function App() {
         {current ? (
           <>
             <Outline articleRef={article} text={current.text} />
-            <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onOpenRelative={openRelative} />
+            <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onOpenRelative={openRelative} onJump={jumpTo} />
           </>
         ) : (
           <div class="empty">

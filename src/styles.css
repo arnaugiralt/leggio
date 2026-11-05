@@ -105,6 +105,8 @@ body {
   .quiet:hover { color: var(--color-fg); background: var(--ui-hover); }
 }
 .quiet:active { transform: scale(0.97); }
+.quiet:disabled { cursor: default; opacity: 0.35; pointer-events: none; }
+.quiet.nav { display: inline-flex; align-items: center; padding: 0.4rem; } /* centres the glyph, as in the player */
 .quiet[aria-expanded="true"] { color: var(--color-fg); background: var(--ui-surface); }
 .primary {
   color: var(--color-fg);

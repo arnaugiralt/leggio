@@ -3,7 +3,7 @@
  *   Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT).
  *   All other copyright (c) for Lucide are held by Lucide Contributors 2022.
  *
- * Seven icons do not justify a dependency, so they live here as paths. Re-copy from the same
+ * A handful of icons do not justify a dependency, so they live here as paths. Re-copy from the same
  * source if more are ever needed, rather than drawing new ones by hand beside these.
  */
 
@@ -72,6 +72,12 @@ export const FileText = props => (
 export const FolderOpen = props => (
   <Icon {...props}>
     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+  </Icon>
+)
+
+export const ChevronLeft = props => (
+  <Icon {...props}>
+    <path d="m15 18-6-6 6-6" />
   </Icon>
 )
 

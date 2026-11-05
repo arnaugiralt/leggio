@@ -3,7 +3,7 @@ import { render } from './render.js'
 import { isRelative, isMarkdownName, resolvePath, getFileByPath } from './fs.js'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
-export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
+export function Viewer({ text, articleRef, root, dirPath, onOpenRelative, onJump }) {
   const html = useMemo(() => render(text), [text])
   const urls = useRef([])
   const [zoomed, setZoomed] = useState(null)
@@ -75,6 +75,12 @@ export function Viewer({ text, articleRef, root, dirPath, onOpenRelative }) {
 
   function onClick(e) {
     if (zoom(e.target)) return
+    const hashLink = e.target.closest('a[href^="#"]')
+    if (hashLink) {
+      e.preventDefault() // the native jump would add a history entry without the document in it
+      onJump(decodeURIComponent(hashLink.getAttribute('href').slice(1)))
+      return
+    }
     const a = e.target.closest('a[data-internal]')
     if (!a || !dirPath) return
     e.preventDefault()
