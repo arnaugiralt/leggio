@@ -81,6 +81,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 ### Layout
 
 - Below 760 px (`NARROW` in `App.jsx`, and the same breakpoint in `styles.css`), the files panel is a drawer, the settings sheet is full width, and Read, Contents, Pin and Open move into the More menu.
+- In the installed app, the bar is the window's title bar (`window-controls-overlay` in `manifest.json` and `styles.css`). Its empty parts drag the window. Anything clickable you add to the bar must be a `button`, `a`, `input`, `select` or popover, or get `app-region: no-drag`, or it won't take clicks.
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
   1. A stated notice, such as an error or a deleted file.
   2. The folder offer.

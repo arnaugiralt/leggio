@@ -107,6 +107,21 @@ body {
   text-overflow: ellipsis;
 }
 .bar-title .dim { color: var(--ui-faint); }
+/* The installed app with its title bar hidden (manifest display_override): the bar takes the title bar's
+   place. The OS draws the window controls over the page outside env(titlebar-area-*), so the padding keeps
+   the buttons clear of them, and the empty parts of the bar drag the window. */
+@media (display-mode: window-controls-overlay) {
+  :root { --bar-h: max(2.75rem, env(titlebar-area-height, 0px)); }
+  .bar {
+    padding-left: max(1.25rem, calc(env(titlebar-area-x, 0px) + 0.5rem));
+    /* 100vw counts a classic scrollbar too, which only adds a little extra room on the right */
+    padding-right: max(0.75rem, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 0.5rem));
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .bar :is(button, a, input, select, [popover]) { -webkit-app-region: no-drag; app-region: no-drag; }
+  .skip { left: calc(env(titlebar-area-x, 0px) + 0.5rem); }
+}
 .bar-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
 /* Read, Pin and Open sit in the bar at wide widths; the narrow media query turns this into a popover. */
 .bar-menu { display: contents; }
