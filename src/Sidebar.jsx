@@ -85,8 +85,8 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
       {pinned.length > 0 && <section>
         <h2>Pinned</h2>
         <ul class="tree">
-          {pinned.map((item, i) => (
-            <li key={i}>
+          {pinned.map(item => (
+            <li key={item.id}>
               <div class={`row${item.missing ? ' missing' : ''}`}>
                 <button type="button" class="row-main" title={item.name} onClick={() => onOpenPinned(item)}>
                   {item.kind === 'directory' ? <Folder size={14} class="kind" /> : <FileText size={14} class="kind" />}

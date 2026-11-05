@@ -11,7 +11,7 @@ const nav = window.navigation
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
 export function useLibrary({ onFolderOpen, onReveal }) {
   const [folder, setFolder] = useState(null) // { handle, name, tree }
-  const [pinned, setPinned] = useState([]) // [{ kind, name, handle, missing? }]
+  const [pinned, setPinned] = useState([]) // [{ id, kind, name, handle, missing? }]
   const [current, setCurrent] = useState(null) // { handle, name, dirPath, root, text }; root is the folder it was opened in, which may not be the sidebar's
   const [currentPinned, setCurrentPinned] = useState(false)
   const [restorable, setRestorable] = useState(null) // { folder, filePath }
@@ -44,7 +44,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // Pins and the restore record, once. A handle that is still granted needs no gesture,
   // so skip the welcome screen entirely and put the reader back in the document.
   useEffect(() => {
-    idb.get('pinned').then(items => items && setPinned(items))
+    // Pins saved before ids existed get one for this session; the next pin change stores it.
+    idb.get('pinned').then(items => items && setPinned(items.map(item => ({ ...item, id: item.id ?? crypto.randomUUID() }))))
     idb.get('last').then(async last => {
       if (!last?.folder) return
       // A pinned file can live outside the folder, so it carries its own grant.
@@ -298,9 +299,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     return true
   }
 
-  // By handle, not position: the list can change while the permission prompt is up.
+  // By id, not position: the list can change while the permission prompt is up.
   async function openPinned(item) {
-    const markMissing = () => setPinned(p => p.map(x => (x.handle === item.handle ? { ...x, missing: true } : x)))
+    const markMissing = () => setPinned(p => p.map(x => (x.id === item.id ? { ...x, missing: true } : x)))
     // A pin whose target is gone says so in its row instead of failing as a read error.
     if ((await fs.hasPermission(item.handle)) && !(await fs.exists(item.handle))) return markMissing()
     const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle)
@@ -317,9 +318,10 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   async function togglePin(item) {
     let index = -1
     for (let i = 0; i < pinned.length; i++) if (await pinned[i].handle.isSameEntry(item.handle)) index = i
-    const next = index >= 0 ? pinned.filter((_, i) => i !== index) : [...pinned, { kind: item.kind, name: item.name, handle: item.handle }]
+    // A row key: names repeat (README.md in two folders) and handles are not stable values across reloads.
+    const next = index >= 0 ? pinned.filter((_, i) => i !== index) : [...pinned, { id: crypto.randomUUID(), kind: item.kind, name: item.name, handle: item.handle }]
     setPinned(next)
-    idb.set('pinned', next.map(({ kind, name, handle }) => ({ kind, name, handle })))
+    idb.set('pinned', next.map(({ id, kind, name, handle }) => ({ id, kind, name, handle })))
   }
 
   async function restore(last = restorable) {
