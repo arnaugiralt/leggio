@@ -9,10 +9,10 @@ export const isMarkdownName = name => MARKDOWN.test(name)
 // Relative means: no fragment, not root-relative, not protocol-relative, no scheme.
 export const isRelative = url => !/^(#|\/|[a-z][a-z0-9+.-]*:)/i.test(url)
 
-// startIn may be a file handle: the picker then opens in that file's folder, so granting it is one click.
 // Followable from the reader: relative, or root-relative (/x), which resolves from the open folder's root.
 export const isLocal = url => isRelative(url) || /^\/(?!\/)/.test(url)
 
+// startIn may be a file handle: the picker then opens in that file's folder, so granting it is one click.
 export async function pickDirectory({ startIn } = {}) {
   try {
     return await window.showDirectoryPicker({ mode: 'read', ...(startIn && { startIn }) })

@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const UI_KEY = 'md-reader.ui'
+const TIP_KEY = 'md-reader.install-tip-dismissed'
 
 function loadUi() {
   try {
@@ -27,6 +28,14 @@ export function App() {
   const [dragging, setDragging] = useState(false)
   const [hasRelative, setHasRelative] = useState(false)
   const [folderOfferHidden, setFolderOfferHidden] = useState(false)
+  const [installEvent, setInstallEvent] = useState(null)
+  const [tipHidden, setTipHidden] = useState(() => {
+    try {
+      return !!localStorage.getItem(TIP_KEY)
+    } catch {
+      return false
+    }
+  })
   const fileInput = useRef()
   const article = useRef()
   const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, togglePin, restore, jumpTo } = useLibrary({
@@ -50,6 +59,35 @@ export function App() {
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
   useEffect(() => setFolderOfferHidden(false), [current?.handle])
 
+  // Chrome only fires this when the app is installable and not yet installed.
+  useEffect(() => {
+    const onPrompt = e => {
+      e.preventDefault() // hold it so the tip can offer the install in context
+      setInstallEvent(e)
+    }
+    const onInstalled = () => setInstallEvent(null)
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  function hideTip() {
+    setTipHidden(true)
+    try {
+      localStorage.setItem(TIP_KEY, '1')
+    } catch {}
+  }
+
+  async function install() {
+    const event = installEvent
+    setInstallEvent(null) // a prompt event is single-use
+    hideTip()
+    await event.prompt()
+  }
+
   async function pickFile() {
     if (!fs.supported) return fileInput.current.click()
     const handle = await fs.pickFile()
@@ -58,7 +96,7 @@ export function App() {
 
   async function pickFolder() {
     const handle = await fs.pickDirectory()
-    if (handle) openFolder(handle)
+    if (handle) openFolder(handle, { pick: true })
   }
 
   async function pickFolderForCurrent() {
@@ -69,7 +107,7 @@ export function App() {
   const toggleSidebar = () => setUi(u => ({ ...u, sidebarOpen: !u.sidebarOpen }))
 
   useEffect(() => {
-    window.mdreader = { openFolder, openFile, openFolderFor }
+    window.mdreader = { openFolder: h => openFolder(h, { pick: true }), openFile, openFolderFor }
     const over = e => {
       e.preventDefault()
       setDragging(true)
@@ -82,7 +120,7 @@ export function App() {
       setDragging(false)
       const file = e.dataTransfer.files[0] // read synchronously; the list is gone after the event
       const handle = await fs.handleFromDrop(e.dataTransfer)
-      if (handle?.kind === 'directory') openFolder(handle)
+      if (handle?.kind === 'directory') openFolder(handle, { pick: true })
       else if (handle?.kind === 'file') openFile(handle)
       else openBlob(file)
     }
@@ -115,7 +153,10 @@ export function App() {
 
   // Relative links and images cannot resolve without the file's folder; a stated problem wins over this offer.
   const shown = notice ?? (current?.handle && fs.supported && hasRelative && !folderOfferHidden ? FOLDER_NOTICE : null)
+  const tip = { text: `Install md reader to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true }
+  const shownOrTip = shown ?? (current && installEvent && !tipHidden ? tip : null)
   const actions = {
+    install: ['Install', install],
     another: ['Open another file', () => (folder ? setUi(u => ({ ...u, sidebarOpen: true })) : pickFile())],
     folder: ['Open folder', pickFolderForCurrent],
   }
@@ -139,7 +180,12 @@ export function App() {
             </>
           )}
         </div>
-        <span class="bar-title">{current ? current.name : 'md reader'}</span>
+        <span class="bar-title" title={current?.dirPath?.length ? [...current.dirPath, current.name].join(' / ') : undefined}>
+          <bdi>
+            {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}
+            {current ? current.name : 'md reader'}
+          </bdi>
+        </span>
         <div class="bar-actions">
           {current && <Speech articleRef={article} text={current.text} settings={settings} />}
           {current?.handle && (
@@ -167,12 +213,13 @@ export function App() {
         <Sidebar folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => openFile(h, { dirPath, root })} onOpenPinned={openPinned} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
-        {shown && (
-          <div class="notice" role="status">
-            <span>{shown.text}</span>
+        {shownOrTip && (
+          <div class={shownOrTip.tip ? 'notice tip' : 'notice'} role="status">
+            <span>{shownOrTip.text}</span>
             <span class="notice-buttons">
-              {shown.action && <button type="button" class="quiet notice-action" onClick={actions[shown.action][1]}>{actions[shown.action][0]}</button>}
-              {shown.action !== 'another' && <button type="button" class="quiet" aria-label="Dismiss" onClick={() => { setNotice(null); setFolderOfferHidden(true) }}>✕</button>}
+              {shownOrTip.action && <button type="button" class="quiet notice-action" onClick={actions[shownOrTip.action][1]}>{actions[shownOrTip.action][0]}</button>}
+              {shownOrTip.tip && <button type="button" class="quiet" onClick={hideTip}>Not now</button>}
+              {shownOrTip.action !== 'another' && !shownOrTip.tip && <button type="button" class="quiet" aria-label="Dismiss" onClick={() => { setNotice(null); setFolderOfferHidden(true) }}>✕</button>}
             </span>
           </div>
         )}
@@ -181,6 +228,10 @@ export function App() {
             <Outline articleRef={article} text={current.text} />
             <Viewer text={current.text} articleRef={article} root={folder?.handle ?? null} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
           </>
+        ) : folder ? (
+          <div class="empty">
+            <p class="empty-title">{folder.tree.children.length ? `Choose a document from ${folder.name}` : `No markdown files in ${folder.name}`}</p>
+          </div>
         ) : (
           <div class="empty">
             <p class="empty-title">{restorable ? 'Welcome back' : 'Drop a markdown file or folder here'}</p>
@@ -193,6 +244,7 @@ export function App() {
               {restorable && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
               {fs.supported && <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>}
             </div>
+            <p class="empty-hint">Files are read on this computer and never uploaded.</p>
             <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
             </p>

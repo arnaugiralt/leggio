@@ -123,7 +123,9 @@ export function useLibrary({ onFolderOpen }) {
     [],
   )
 
-  async function openFolder(handle) {
+  // pick: the person chose this folder (picker, drop, pin), so show them something. Restore, history and
+  // openFolderFor reopen a folder around a document of their own and leave it alone.
+  async function openFolder(handle, { pick = false } = {}) {
     try {
       if (!(await fs.ensurePermission(handle))) {
         setError(`Access to ${handle.name} was not granted.`)
@@ -146,6 +148,12 @@ export function useLibrary({ onFolderOpen }) {
             setFolder(f => (f && f.handle === handle ? { ...f, tree } : f))
           } catch {}
         }, 300)
+      }
+      if (pick) {
+        const files = tree.children.filter(c => c.kind === 'file')
+        const find = re => files.find(c => re.test(c.name))
+        const start = find(/^readme\.(md|markdown|txt)$/i) ?? find(/^index\.(md|markdown|txt)$/i)
+        if (start) openFile(start.handle, { dirPath: [], root: handle })
       }
       const stopWatch = fs.watch(handle, relist)
       window.addEventListener('focus', relist)
@@ -203,7 +211,7 @@ export function useLibrary({ onFolderOpen }) {
   async function openBlob(file) {
     if (!file) return
     if (!fs.isMarkdownName(file.name) && !file.type.startsWith('text/')) {
-      setError(`${file.name} is not a markdown or text file.`)
+      setError(`${file.name} isn't a markdown file. Drop a .md, .markdown or .txt file.`)
       return
     }
     try {
@@ -264,7 +272,7 @@ export function useLibrary({ onFolderOpen }) {
   }
 
   async function openPinned(item, index) {
-    const ok = item.kind === 'directory' ? await openFolder(item.handle) : await openFile(item.handle)
+    const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle)
     if (!ok) setPinned(p => p.map((x, i) => (i === index ? { ...x, missing: true } : x)))
   }
 

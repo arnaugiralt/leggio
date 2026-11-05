@@ -62,9 +62,8 @@ export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onP
 
   return (
     <div class="sidebar">
-      <section>
+      {pinned.length > 0 && <section>
         <h2>Pinned</h2>
-        {pinned.length === 0 && <p class="side-hint">Pin files or folders to keep them here.</p>}
         <ul class="tree">
           {pinned.map((item, i) => (
             <li key={i}>
@@ -79,13 +78,13 @@ export function Sidebar({ folder, pinned, current, onOpenFile, onOpenPinned, onP
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
       <section>
         <h2>
           <span class="row-name">{folder ? folder.name : 'Folder'}</span>
           {fs.supported && (
             <button type="button" class="quiet small" onClick={onPickFolder}>
-              {folder ? 'Change' : 'Open a folder'}
+              {folder ? 'Change folder' : 'Open a folder'}
             </button>
           )}
         </h2>

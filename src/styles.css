@@ -82,6 +82,7 @@ body {
 }
 .bar-title {
   flex: 1;
+  direction: rtl; /* ellipsis on the left: the file name is the part that matters */
   text-align: center;
   color: var(--ui-muted);
   line-height: 1.5; /* the bar's line-height: 1 clips descenders under overflow: hidden */
@@ -89,6 +90,7 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.bar-title .dim { color: var(--ui-faint); }
 .bar-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
 
 .quiet {
@@ -142,6 +144,7 @@ body {
   line-height: 1.4;
   color: var(--color-fg);
 }
+.notice.tip { background: transparent; color: var(--ui-muted); }
 .notice-buttons { display: flex; gap: 0.25rem; flex-shrink: 0; }
 .notice-action { color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--ui-hairline); }
 
@@ -223,12 +226,17 @@ kbd {
 /* Drag-over: an accent inset frame on the whole window */
 
 .app::after {
-  content: '';
+  content: 'Drop to open';
   position: fixed;
   inset: 6px;
   z-index: 10;
   border: 2px solid var(--color-accent);
   border-radius: 10px;
+  display: grid;
+  place-content: center;
+  background: color-mix(in oklab, var(--color-bg) 75%, transparent);
+  font: 400 1.4rem var(--ui-font);
+  color: var(--color-fg);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
