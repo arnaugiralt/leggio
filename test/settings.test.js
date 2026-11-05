@@ -38,6 +38,12 @@ test('load treats non-object stored json as empty', () => {
   assert.deepEqual(load(fakeStorage({ [STORAGE_KEY]: '"text"' })), DEFAULTS)
 })
 
+test('blocked storage falls back to defaults and saving is a no-op', () => {
+  const blocked = { getItem() { throw new DOMException('blocked', 'SecurityError') }, setItem() { throw new DOMException('blocked', 'SecurityError') } }
+  assert.deepEqual(load(blocked), DEFAULTS)
+  assert.doesNotThrow(() => save(DEFAULTS, blocked))
+})
+
 test('save round-trips through load', () => {
   const storage = fakeStorage()
   const s = { ...DEFAULTS, lineHeight: 1.8, fontUrl: 'https://fonts.googleapis.com/css2?family=Inter&display=swap' }

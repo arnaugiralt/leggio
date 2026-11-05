@@ -103,7 +103,10 @@ export function App() {
 
   useEffect(() => {
     // At narrow width the drawer is a passing state; saving it would clobber the wide-window preference.
-    if (!narrow()) localStorage.setItem(UI_KEY, JSON.stringify(ui))
+    if (narrow()) return
+    try {
+      localStorage.setItem(UI_KEY, JSON.stringify(ui))
+    } catch {}
   }, [ui])
 
   // Shrinking a window with the side panel open would leave the drawer over the document; growing it back

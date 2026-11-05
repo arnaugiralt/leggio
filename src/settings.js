@@ -133,7 +133,7 @@ const ROLES = {
   ui: { key: 'uiFont', cssVar: '--ui-font', system: 'ui-sans-serif' },
 }
 
-export const FONT_ROLES = Object.keys(ROLES)
+const FONT_ROLES = Object.keys(ROLES)
 
 export function families(url) {
   try {
@@ -189,10 +189,12 @@ export function withSwap(url) {
   return url + (url.includes('?') ? '&' : '?') + 'display=swap'
 }
 
-export function load(storage = globalThis.localStorage) {
+// With site data blocked, even reading the localStorage property throws, so it is read inside the try.
+// Settings then last for the session only.
+export function load(storage) {
   let stored = {}
   try {
-    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}')
+    const parsed = JSON.parse((storage ?? globalThis.localStorage).getItem(STORAGE_KEY) ?? '{}')
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) stored = parsed
   } catch {}
   const out = Object.fromEntries(Object.keys(DEFAULTS).map(key => [key, stored[key] ?? DEFAULTS[key]]))
@@ -201,8 +203,10 @@ export function load(storage = globalThis.localStorage) {
   return out
 }
 
-export function save(settings, storage = globalThis.localStorage) {
-  storage.setItem(STORAGE_KEY, JSON.stringify(settings))
+export function save(settings, storage) {
+  try {
+    ;(storage ?? globalThis.localStorage).setItem(STORAGE_KEY, JSON.stringify(settings))
+  } catch {}
 }
 
 export function applyToRoot(settings, root = document.documentElement) {
