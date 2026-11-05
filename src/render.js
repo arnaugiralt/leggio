@@ -49,6 +49,16 @@ const md = new MarkdownIt({
   },
 })
 
+// Mermaid types beautiful-mermaid has no renderer for; anything else that throws is a syntax problem.
+const UNSUPPORTED = new Map([
+  ['gantt', 'Gantt charts'], ['pie', 'Pie charts'], ['mindmap', 'Mind maps'], ['gitGraph', 'Git graphs'],
+  ['journey', 'User journeys'], ['timeline', 'Timelines'], ['quadrantChart', 'Quadrant charts'],
+  ['requirementDiagram', 'Requirement diagrams'], ['sankey-beta', 'Sankey diagrams'],
+  ['block-beta', 'Block diagrams'], ['packet-beta', 'Packet diagrams'], ['architecture-beta', 'Architecture diagrams'],
+  ['kanban', 'Kanban boards'], ['radar-beta', 'Radar charts'], ['treemap-beta', 'Treemaps'],
+  ...['C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment'].map(t => [t, 'C4 diagrams']),
+])
+
 const defaultFence = md.renderer.rules.fence
 
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
@@ -58,8 +68,13 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     return `<figure class="diagram">${diagram(token.content)}</figure>\n`
   } catch (err) {
     const code = md.utils.escapeHtml(token.content)
-    const message = md.utils.escapeHtml(err.message)
-    return `<pre><code class="language-mermaid">${code}</code></pre>\n<p class="diagram-error">${message}</p>\n`
+    const type = token.content.trim().split(/\s+/)[0]
+    const note = UNSUPPORTED.has(type)
+      ? `${UNSUPPORTED.get(type)} can't be drawn yet. The source is shown above.`
+      : "This diagram couldn't be drawn. Check its syntax."
+    // The parser message stays reachable as a tooltip; it is too technical to show as text.
+    const title = UNSUPPORTED.has(type) ? '' : ` title="${md.utils.escapeHtml(err.message)}"`
+    return `<pre><code class="language-mermaid">${code}</code></pre>\n<p class="diagram-error"${title}>${note}</p>\n`
   }
 }
 
@@ -78,6 +93,31 @@ md.core.ruler.push('heading_ids', state => {
     seen.set(slug, count + 1)
     if (count) slug = `${slug}-${count}`
     token.attrSet('id', slug)
+  }
+})
+
+// GFM task lists. Only a marker at the very start of an item's first paragraph counts.
+// html is off, so the checkbox is an html_inline token we build ourselves (rendered verbatim).
+md.core.ruler.push('task_lists', state => {
+  const tokens = state.tokens
+  for (let i = 2; i < tokens.length; i++) {
+    const inline = tokens[i]
+    if (inline.type !== 'inline' || tokens[i - 1].type !== 'paragraph_open' || tokens[i - 2].type !== 'list_item_open') continue
+    const first = inline.children[0]
+    const m = first?.type === 'text' && /^\[([ xX])\] /.exec(first.content)
+    if (!m) continue
+    const li = tokens[i - 2]
+    li.attrJoin('class', 'task-item')
+    for (let j = i - 3; j >= 0; j--) {
+      if (tokens[j].level === li.level - 1 && /^(bullet|ordered)_list_open$/.test(tokens[j].type)) {
+        tokens[j].attrJoin('class', 'task-list')
+        break
+      }
+    }
+    first.content = first.content.slice(m[0].length)
+    const box = new state.Token('html_inline', '', 0)
+    box.content = `<input type="checkbox" disabled${m[1] === ' ' ? '' : ' checked'}>`
+    inline.children.unshift(box)
   }
 })
 

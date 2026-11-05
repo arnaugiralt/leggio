@@ -53,7 +53,26 @@ test('renders supported mermaid as inline svg', () => {
 
 test('unsupported mermaid falls back to a code block with an error line', () => {
   assert.match(out, /<code class="language-mermaid">gantt\n  title Not supported\n<\/code>/)
-  assert.match(out, /<p class="diagram-error">Invalid mermaid header/)
+  assert.match(out, /<p class="diagram-error">Gantt charts can't be drawn yet\. The source is shown above\.<\/p>/)
+  assert.doesNotMatch(out, /Invalid mermaid header/)
+})
+
+test('a broken supported diagram gets a syntax note with the parser message in a title', () => {
+  const html = render('```mermaid\nflowchrt LR\n  A --> B\n```')
+  assert.match(html, /<p class="diagram-error" title="[^"]+">This diagram couldn't be drawn\. Check its syntax\.<\/p>/)
+})
+
+test('task list items get a disabled checkbox and list classes', () => {
+  const html = render('- [ ] open\n* [x] done\n+ [X] caps\n\n1. [x] ordered\n\n- [ ] parent\n  - [x] child\n- done [x] later\n- [x]no space\n- [] none')
+  assert.match(html, /<ul class="task-list">\n<li class="task-item"><input type="checkbox" disabled>open<\/li>/)
+  assert.match(html, /<input type="checkbox" disabled checked>done/)
+  assert.match(html, /<input type="checkbox" disabled checked>caps/)
+  assert.match(html, /<ol class="task-list">\n<li class="task-item"><input type="checkbox" disabled checked>ordered/)
+  assert.match(html, /<li class="task-item"><input type="checkbox" disabled>parent\n<ul class="task-list">\n<li class="task-item"><input type="checkbox" disabled checked>child/)
+  assert.match(html, /<li>done \[x\] later<\/li>/)
+  assert.match(html, /<li>\[x\]no space<\/li>/)
+  assert.match(html, /<li>\[\] none<\/li>/)
+  assert.equal((html.match(/<input/g) || []).length, 6)
 })
 
 test('escapes raw html', () => {
