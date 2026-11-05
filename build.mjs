@@ -29,6 +29,8 @@ if (dev) {
   const css = outputs.find(file => file.endsWith('.css'))
 
   for (const file of ['manifest.json', '_headers', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-16.png', 'favicon-32.png']) fs.copyFileSync(file, `site/${file}`)
+  // The install dialog shows it; .github/ holds the copy the README uses.
+  fs.copyFileSync('.github/screenshot.png', 'site/screenshot.png')
   fs.writeFileSync('site/index.html', fs.readFileSync('index.html', 'utf8').replace('dist/app.css', css).replace('dist/app.js', js))
   fs.writeFileSync(
     'site/sw.js',
