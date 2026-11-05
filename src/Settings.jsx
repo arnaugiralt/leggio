@@ -56,12 +56,12 @@ const GROUPS = [
 ]
 
 const FONT_URL = {
-        key: 'fontUrl',
-        label: 'Google Fonts URL',
-        type: 'url',
-        placeholder: 'https://fonts.googleapis.com/css2?family=…',
-        hint: 'Every family in the URL is offered to the three roles below. Ask for 400 and 600; bold text and headings use 600.',
-      }
+  key: 'fontUrl',
+  label: 'Google Fonts URL',
+  type: 'url',
+  placeholder: 'https://fonts.googleapis.com/css2?family=…',
+  hint: 'Every family in the URL is offered to the three roles below. Ask for 400 and 600; bold text and headings use 600.',
+}
 
 const FONT_URL_PREFIX = 'https://fonts.googleapis.com/'
 const FONT_URL_ERROR = 'Use a link that starts with https://fonts.googleapis.com/css2'
@@ -90,18 +90,9 @@ function Field({ field, value, options, onInput }) {
     if (ok) onInput(key, type, input)
     else setDraft(input.value)
   }
+  // options: [value, text] pairs, or [group label, [[value, text], …]] for an optgroup.
   const control =
-    type === 'font' ? (
-      <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
-        {options.map(([group, items]) => (
-          <optgroup key={group} label={group}>
-            {items.map(([option, text]) => (
-              <option key={option} value={option}>{text}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    ) : type === 'select' ? (
+    type === 'font' || type === 'select' ? (
       <select value={value} onChange={e => onInput(key, type, e.currentTarget)}>
         {options.map(([option, text]) =>
           Array.isArray(text) ? (

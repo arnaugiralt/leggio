@@ -169,6 +169,14 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     }
   }
 
+  // A new document starts at its top, not animated up from the old position.
+  function show(doc) {
+    setCurrent(doc)
+    setRestorable(null)
+    setError('')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
   // dirPath and root are set when the file lives inside an open folder; null otherwise.
   async function openFile(handle, { dirPath = null, root = null, fromHistory = false } = {}) {
     try {
@@ -178,10 +186,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       }
       const text = await fs.readText(handle)
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root })
-      setCurrent({ handle, name: handle.name, dirPath, root, text })
-      setRestorable(null)
-      setError('')
-      window.scrollTo({ top: 0, behavior: 'instant' }) // a new document starts at its top, not animated up from the old position
+      show({ handle, name: handle.name, dirPath, root, text })
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
       // so the handle rides along as the fallback.
       const inFolder = root ?? folderRef.current
@@ -218,10 +223,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       const text = await file.text()
       await record({ handle: null, name: file.name, text }) // no handle to reopen, so the entry keeps the text
       stopFileWatch.current()
-      setCurrent({ handle: null, name: file.name, dirPath: null, root: null, text })
-      setRestorable(null)
-      setError('')
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      show({ handle: null, name: file.name, dirPath: null, root: null, text })
     } catch {
       setError(`Could not read ${file.name}.`)
     }
@@ -296,11 +298,13 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     return true
   }
 
-  async function openPinned(item, index) {
+  // By handle, not position: the list can change while the permission prompt is up.
+  async function openPinned(item) {
+    const markMissing = () => setPinned(p => p.map(x => (x.handle === item.handle ? { ...x, missing: true } : x)))
     // A pin whose target is gone says so in its row instead of failing as a read error.
-    if ((await fs.hasPermission(item.handle)) && !(await fs.exists(item.handle))) return setPinned(p => p.map((x, i) => (i === index ? { ...x, missing: true } : x)))
+    if ((await fs.hasPermission(item.handle)) && !(await fs.exists(item.handle))) return markMissing()
     const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle)
-    if (!ok) setPinned(p => p.map((x, i) => (i === index ? { ...x, missing: true } : x)))
+    if (!ok) markMissing()
   }
 
   // Only where access is already granted: a prompt would need a gesture, and the panel opening is not one.

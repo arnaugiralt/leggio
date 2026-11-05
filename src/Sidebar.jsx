@@ -88,7 +88,7 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
           {pinned.map((item, i) => (
             <li key={i}>
               <div class={`row${item.missing ? ' missing' : ''}`}>
-                <button type="button" class="row-main" title={item.name} onClick={() => onOpenPinned(item, i)}>
+                <button type="button" class="row-main" title={item.name} onClick={() => onOpenPinned(item)}>
                   {item.kind === 'directory' ? <Folder size={14} class="kind" /> : <FileText size={14} class="kind" />}
                   <span class="row-name">{item.missing ? `${item.name} is gone` : item.name}</span>
                 </button>

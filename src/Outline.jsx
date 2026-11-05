@@ -12,16 +12,16 @@ function scrollToY(target) {
     window.scrollTo({ top: target, behavior: 'instant' })
     return
   }
-  let cancelled = false
-  const stop = () => { cancelled = true }
-  for (const type of ['wheel', 'touchstart', 'keydown']) addEventListener(type, stop, { once: true, passive: true })
+  // One abort drops all three listeners, whichever input or the last frame ends the jump.
+  const input = new AbortController()
+  for (const type of ['wheel', 'touchstart', 'keydown']) addEventListener(type, () => input.abort(), { passive: true, signal: input.signal })
   const t0 = performance.now()
   const step = now => {
+    if (input.signal.aborted) return
     const p = Math.min((now - t0) / JUMP_MS, 1)
-    if (cancelled) return
     window.scrollTo({ top: start + (target - start) * (1 - (1 - p) ** 3), behavior: 'instant' })
     if (p < 1) requestAnimationFrame(step)
-    else for (const type of ['wheel', 'touchstart', 'keydown']) removeEventListener(type, stop)
+    else input.abort()
   }
   requestAnimationFrame(step)
 }

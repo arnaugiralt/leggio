@@ -206,6 +206,22 @@ export function App() {
   const toggleSidebar = () => setUi(u => ({ ...u, sidebarOpen: !u.sidebarOpen }))
   const closeDrawer = () => narrow() && setUi(u => ({ ...u, sidebarOpen: false }))
 
+  // A file picked in the drawer: the reader chose to read, so the drawer closes and focus goes to the page.
+  function readFromDrawer() {
+    toDocument.current = narrow()
+    closeDrawer()
+  }
+
+  // Below 760px the bar has no room for a Contents button, so it lives in the More menu. The menu hides
+  // itself first: a popover opened from inside it would be hidden along with it.
+  function openContentsFromMenu(e) {
+    e.stopPropagation()
+    e.currentTarget.closest('[popover]').hidePopover()
+    const contents = document.getElementById('contents')
+    contents?.showPopover()
+    ;(contents?.querySelector('a[aria-current]') ?? contents?.querySelector('a'))?.focus()
+  }
+
   useEffect(() => {
     window.leggio = { openFolder: h => openFolder(h, { pick: true }), openFile, openFolderFor }
     const over = e => {
@@ -266,9 +282,7 @@ export function App() {
     <div id="bar-menu" class="bar-menu" popover="auto" onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
       {read}
       {hasContents && (
-        // Below 760px the bar has no room for a Contents button. The menu hides itself first: a popover opened from
-        // inside it would be hidden along with it.
-        <button type="button" class="quiet menu-contents" onClick={e => { e.stopPropagation(); e.currentTarget.closest('[popover]').hidePopover(); const c = document.getElementById('contents'); c?.showPopover(); (c?.querySelector('a[aria-current]') ?? c?.querySelector('a'))?.focus() }}>Contents</button>
+        <button type="button" class="quiet menu-contents" onClick={openContentsFromMenu}>Contents</button>
       )}
       {current?.handle && (
         <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
@@ -333,7 +347,7 @@ export function App() {
       />
       {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { toDocument.current = narrow(); closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') { toDocument.current = narrow(); closeDrawer() } openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { readFromDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
         {shownOrTip && (
