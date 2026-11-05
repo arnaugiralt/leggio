@@ -230,7 +230,10 @@ kbd {
   font-size: 0.78rem;
   white-space: nowrap;
 }
-.reading-toggle { display: inline-grid; justify-items: end; } /* both labels share a cell, so the width is the wider one with no visible gap: the slack falls on the outer edge */
+/* Both labels share a cell, so the width is the wider one and Pin/Open never move. Centred both ways: a grid
+   button does not centre its content vertically the way a plain button does, and end-aligned slack shows as a
+   lopsided gap whenever the hover or pressed background is drawn. */
+.reading-toggle { display: inline-grid; place-items: center; align-content: center; }
 .reading-toggle > span { grid-area: 1 / 1; }
 .reading-toggle .ghost { visibility: hidden; }
 .reading-toggle[aria-pressed='true'] { color: var(--color-accent); } /* it is a switch; show that it is on */
