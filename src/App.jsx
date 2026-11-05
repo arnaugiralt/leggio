@@ -15,7 +15,8 @@ const UI_KEY = 'md-reader.ui'
 const TIP_KEY = 'md-reader.install-tip-dismissed'
 
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
-const narrow = () => matchMedia('(max-width: 759.98px)').matches
+const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
+const narrow = () => matchMedia(NARROW).matches
 
 function loadUi() {
   try {
@@ -60,6 +61,15 @@ export function App() {
     // At narrow width the drawer is a passing state; saving it would clobber the wide-window preference.
     if (!narrow()) localStorage.setItem(UI_KEY, JSON.stringify(ui))
   }, [ui])
+
+  // Shrinking a window with the side panel open would leave the drawer over the document; growing it back
+  // restores the saved wide-window preference.
+  useEffect(() => {
+    const mq = matchMedia(NARROW)
+    const onChange = () => setUi(u => ({ ...u, sidebarOpen: mq.matches ? false : loadUi().sidebarOpen }))
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     document.title = current ? current.name : 'md reader'
