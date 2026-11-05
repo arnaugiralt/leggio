@@ -1,4 +1,4 @@
-const DB = 'md-reader'
+const DB = 'leggio'
 const STORE = 'handles'
 
 function open() {

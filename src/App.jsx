@@ -11,9 +11,8 @@ import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
-// Storage keys keep the old name: renaming them would drop every existing install's settings and pins.
-const UI_KEY = 'md-reader.ui'
-const TIP_KEY = 'md-reader.install-tip-dismissed'
+const UI_KEY = 'leggio.ui'
+const TIP_KEY = 'leggio.install-tip-dismissed'
 
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
 const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
@@ -193,7 +192,7 @@ export function App() {
   const closeDrawer = () => narrow() && setUi(u => ({ ...u, sidebarOpen: false }))
 
   useEffect(() => {
-    window.mdreader = { openFolder: h => openFolder(h, { pick: true }), openFile, openFolderFor }
+    window.leggio = { openFolder: h => openFolder(h, { pick: true }), openFile, openFolderFor }
     const over = e => {
       e.preventDefault()
       setDragging(true)

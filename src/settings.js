@@ -1,6 +1,6 @@
 import { THEMES } from 'beautiful-mermaid'
 
-export const STORAGE_KEY = 'md-reader.settings'
+export const STORAGE_KEY = 'leggio.settings'
 
 // 'page' means diagrams follow the page palette; any other entry is a beautiful-mermaid built-in theme.
 export const DIAGRAM_THEMES = ['page', ...Object.keys(THEMES)]
