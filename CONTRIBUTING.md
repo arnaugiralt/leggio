@@ -16,7 +16,7 @@ If a pull request doesn't do what it says, or its author can't answer questions 
 
 - **Reading only.** Leggio never changes your files. I won't merge features that edit, save, rename or delete files.
 - **Few dependencies.** The project has 13 packages in total, counting indirect dependencies. All are pinned to exact versions, with install scripts disabled. See "Before you start" for the rule on new dependencies.
-- **Local and private.** Leggio never uploads your files. It has no accounts, no analytics and no server code. Changes must keep it that way. Two things do use the network: the fonts of some themes load from Google Fonts, and images from the web that a document links to load from their own servers.
+- **Local and private.** Leggio never uploads your files. It has no accounts, no analytics and no server code. Changes must keep it that way. Three things do use the network: the fonts of some themes load from Google Fonts, images from the web that a document links to load from their own servers, and if you pick an online voice for read-aloud, the browser sends the text being read to that voice service. The voice setting says so.
 - **Browsers.** Today Leggio needs a Chromium-based browser such as Chrome or Edge, because it reads files and folders through the File System Access API. That browser feature lets a web page read the files and folders you choose. Leggio works this way today, but it is not a permanent rule. Ideas for other browsers are welcome. Open an [issue](https://github.com/arnaugiralt/leggio/issues) to agree on the approach before you write code.
 
 ## Before you start

@@ -27,7 +27,7 @@ To stop a dev server that was left running, use `lsof -ti tcp:8000 -sTCP:LISTEN 
 - **No editing, ever.** Leggio never writes, renames or deletes the reader's files. Don't add a feature that does.
 - **No new dependencies without the maintainer's approval.** The project has 13 packages, counting indirect ones, all pinned to exact versions. Vite, the `mermaid` package, shiki and Tauri were each rejected because of how many packages they add. Diagrams use `beautiful-mermaid`, which is small. If a few lines of code can do the job, write the lines.
   - If you think a dependency is needed, stop and tell your user. Your user opens an issue, and the maintainer decides.
-- **Nothing about the reader's files leaves the machine.** No accounts, no analytics, no server code, no requests that carry file names or content. The only outside requests are the Google Fonts stylesheets of some themes and web images that a document links to. Don't add others.
+- **Leggio itself sends nothing about the reader's files.** No accounts, no analytics, no server code, no requests that carry file names or content. Three things do use the network: the Google Fonts stylesheets of some themes, web images that a document links to, and online voices. When the reader picks an online voice for read-aloud, the browser sends the text being read to that voice service, and the voice setting says so. Don't add other outside requests.
 
 ## Architecture
 
