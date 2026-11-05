@@ -2,7 +2,7 @@
 // Add a custom domain later with "routes": [{ "pattern": "md.example.com", "custom_domain": true }];
 // choose it before people install the app, because an install is tied to its exact origin.
 {
-  "name": "md-reader",
+  "name": "leggio",
   "compatibility_date": "2026-11-01",
   "assets": { "directory": "./site" }
 }

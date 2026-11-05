@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
+// Storage keys keep the old name: renaming them would drop every existing install's settings and pins.
 const UI_KEY = 'md-reader.ui'
 const TIP_KEY = 'md-reader.install-tip-dismissed'
 
@@ -137,7 +138,7 @@ export function App() {
   }, [ui.sidebarOpen])
 
   useEffect(() => {
-    document.title = current ? current.name : 'md reader'
+    document.title = current ? current.name : 'Leggio'
   }, [current])
 
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
@@ -239,7 +240,7 @@ export function App() {
 
   // Relative links and images cannot resolve without the file's folder; a stated problem wins over this offer.
   const shown = notice ?? (current?.handle && fs.supported && hasRelative && !folderOfferHidden ? FOLDER_NOTICE : null)
-  const tip = { text: `Install md reader to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true }
+  const tip = { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true }
   const shownOrTip = shown ?? (current && installEvent && !tipHidden ? tip : null)
   const actions = {
     install: ['Install', install],
@@ -287,7 +288,7 @@ export function App() {
         <span class="bar-title" title={current ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
           <bdi>
             {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}
-            {current ? current.name : 'md reader'}
+            {current ? current.name : 'Leggio'}
           </bdi>
         </span>
         <div class="bar-actions">

@@ -1,6 +1,8 @@
-# md reader
+# Leggio
 
-A read-only markdown reader. Drop a file or a folder and read it. Mermaid diagrams render inline, and a click opens one full size. Fonts, sizes and colors are yours to set, and the default theme follows your system's light or dark setting. Files are read on your computer and never uploaded.
+A markdown reader built for reading. Calm, customizable, offline, private.
+
+*Leggio* is Italian for a reading stand, from *leggere*, to read. Drop a file or a folder and read it. Mermaid diagrams render inline, and a click opens one full size. Fonts, sizes and colors are yours to set, and the default theme follows your system's light or dark setting. Files are read on your computer and never uploaded.
 
 ## Run
 

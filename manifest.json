@@ -1,7 +1,7 @@
 {
-  "name": "md reader",
-  "short_name": "md reader",
-  "description": "A read-only markdown reader.",
+  "name": "Leggio",
+  "short_name": "Leggio",
+  "description": "A markdown reader built for reading. Calm, customizable, offline, private.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

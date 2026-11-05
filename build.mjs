@@ -34,7 +34,7 @@ if (dev) {
     'site/sw.js',
     fs
       .readFileSync('sw.js', 'utf8')
-      .replace(/^const CACHE = .*$/m, `const CACHE = 'md-reader-${path.basename(js, '.js').split('-').pop()}'`)
+      .replace(/^const CACHE = .*$/m, `const CACHE = 'leggio-${path.basename(js, '.js').split('-').pop()}'`)
       .replace(/^const SHELL = .*$/m, `const SHELL = ${JSON.stringify(['./', './index.html', `./${js}`, `./${css}`, './manifest.json', './icon-192.png', './icon-512.png'])}`),
   )
   fs.writeFileSync('site/THIRD_PARTY_NOTICES.txt', notices(result.metafile))
@@ -62,5 +62,5 @@ function notices(metafile) {
     return [`${pkg.name} ${pkg.version} (${pkg.license})`, repo && `Source: ${sourceUrl(repo)}`, '', text].filter(line => typeof line === 'string').join('\n')
   })
   const lucide = 'Lucide icons (ISC), paths copied into src/icons.jsx\nSource: https://github.com/lucide-icons/lucide\n\nISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.'
-  return `md reader bundles the following third-party software.\n\n${[...parts, lucide].join('\n\n' + '-'.repeat(72) + '\n\n')}\n`
+  return `Leggio bundles the following third-party software.\n\n${[...parts, lucide].join('\n\n' + '-'.repeat(72) + '\n\n')}\n`
 }

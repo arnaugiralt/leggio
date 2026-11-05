@@ -1,7 +1,7 @@
 // The page shell is network-first, so a deploy (or a dev rebuild) is never shadowed by a stale copy and the
 // cache only matters offline. Hashed bundles under assets/ never change, so they are served from the cache.
 // build.mjs rewrites the next two lines for site/: a cache name per build, and the hashed file names.
-const CACHE = 'md-reader'
+const CACHE = 'leggio'
 const SHELL = ['./', './index.html', './dist/app.js', './dist/app.css', './manifest.json', './icon-192.png', './icon-512.png']
 
 self.addEventListener('install', e => {
