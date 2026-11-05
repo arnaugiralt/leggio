@@ -10,6 +10,7 @@ import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
 import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
+const mod = isMac ? '⌘' : 'Ctrl+'
 const UI_KEY = 'md-reader.ui'
 const TIP_KEY = 'md-reader.install-tip-dismissed'
 
@@ -179,7 +180,7 @@ export function App() {
           {currentPinned ? 'Unpin' : 'Pin'}
         </button>
       )}
-      <button type="button" class="quiet" onClick={pickFile}>Open</button>
+      <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open</button>
     </div>
   )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
@@ -188,15 +189,15 @@ export function App() {
     <div class={classes}>
       <header class="bar">
         <div class="bar-actions">
-          <button type="button" class="quiet" aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
+          <button type="button" class="quiet" title={`Files (${mod}B)`} aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
             Files
           </button>
           {current && (
             <>
-              <button type="button" class="quiet nav" aria-label="Back" title={back ? `Back to ${back}` : 'Back'} disabled={back === null} onClick={() => history.back()}>
+              <button type="button" class="quiet nav" aria-label="Back" title={`${back ? `Back to ${back}` : 'Back'} (${mod}[)`} disabled={back === null} onClick={() => history.back()}>
                 <ChevronLeft />
               </button>
-              <button type="button" class="quiet nav" aria-label="Forward" title={forward ? `Forward to ${forward}` : 'Forward'} disabled={forward === null} onClick={() => history.forward()}>
+              <button type="button" class="quiet nav" aria-label="Forward" title={`${forward ? `Forward to ${forward}` : 'Forward'} (${mod}])`} disabled={forward === null} onClick={() => history.forward()}>
                 <ChevronRight />
               </button>
             </>

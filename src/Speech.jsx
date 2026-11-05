@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as speech from './speech.js'
-import { Pause, Play, SkipBack, SkipForward } from './icons.jsx'
+import { Pause, Play, SkipBack, SkipForward, X } from './icons.jsx'
 
 // Read aloud, one sentence per utterance. Everything DOM-shaped lives here; speech.js owns the queue.
 // Blocks whose text is not prose: read aloud they are noise.
@@ -177,6 +177,9 @@ export function Speech({ articleRef, text, settings, children }) {
           </button>
           <button type="button" class="quiet" aria-label="Next sentence" onClick={() => jump(1)}>
             <SkipForward size={18} />
+          </button>
+          <button type="button" class="quiet" aria-label="Stop reading" title="Stop reading" onClick={() => speech.stop()}>
+            <X size={18} />
           </button>
         </div>
       )}

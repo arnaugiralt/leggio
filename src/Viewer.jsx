@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { render } from './render.js'
 import { isLocal, resolvePath, getFileByPath } from './fs.js'
+import { X } from './icons.jsx'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
 export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative }) {
@@ -105,7 +106,12 @@ function Lightbox({ html, ratio, onClose }) {
       style={ratio ? { '--diagram-ar': ratio } : undefined}
       onClose={onClose}
       onClick={() => ref.current.close()} // the whole surface is the way out; the svg fills it
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    >
+      <button type="button" class="lightbox-close quiet" aria-label="Close" title="Close (Esc)">
+        <X size={18} />
+      </button>
+      {/* own element, so the button above is not wiped when the svg is set */}
+      <div class="lightbox-svg" dangerouslySetInnerHTML={{ __html: html }} />
+    </dialog>
   )
 }

@@ -4,7 +4,7 @@ import { FileText, Folder, FolderOpen } from './icons.jsx'
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
   return (
-    <button type="button" class="pin" onClick={() => onTogglePin(item)}>
+    <button type="button" class="pin" aria-label={`${label} ${item.name}`} onClick={() => onTogglePin(item)}>
       {label}
     </button>
   )

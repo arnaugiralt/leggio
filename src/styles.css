@@ -151,6 +151,11 @@ body {
 }
 .notice.tip { background: transparent; color: var(--ui-muted); }
 .notice-buttons { display: flex; gap: 0.25rem; flex-shrink: 0; }
+/* Below this the text would be squeezed into a thin column beside its buttons. */
+@container (max-width: 34rem) {
+  .notice { flex-wrap: wrap; }
+  .notice > span:first-child { flex: 1 1 100%; }
+}
 .notice-action { color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--ui-hairline); }
 
 /* Empty state */
@@ -382,10 +387,22 @@ kbd {
 }
 /* Widest the diagram can be without its height overflowing, so it scales up to fit
    and the dialog wraps it. --diagram-ar comes from the svg's viewBox. */
-.lightbox svg {
+.lightbox-svg svg {
   display: block;
   width: min(100vw - 5rem, (100vh - 5rem) * var(--diagram-ar, 1));
   height: auto;
+}
+.lightbox-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: inline-flex;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-bg) 80%, transparent);
+  border: 1px solid var(--ui-hairline);
+  color: var(--ui-strong);
+  cursor: pointer;
 }
 .lightbox::backdrop { background: rgb(0 0 0 / 0.55); }
 /* showModal() blocks interaction but not the wheel; scrollbar-gutter holds the layout
