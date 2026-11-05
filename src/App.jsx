@@ -47,6 +47,11 @@ export function App() {
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
   const fileInput = useRef()
+  const filesBtn = useRef()
+  const settingsBtn = useRef()
+  const settingsTitle = useRef()
+  const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
+  const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
   const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
@@ -82,11 +87,33 @@ export function App() {
   }, [ui.sidebarOpen, pinned.length])
 
   // After the commit, so the panel is already visible: a hidden element cannot take focus.
+  // File rows are the buttons without aria-expanded; the last section is the folder tree, after the pins.
+  const focusFiles = () =>
+    (document.querySelector('#files .row-main[aria-current]') ?? document.querySelector('#files section:last-of-type .row-main:not([aria-expanded])') ?? document.querySelector('#files button'))?.focus()
   useEffect(() => {
-    if (!focusRows) return
-    // File rows are the buttons without aria-expanded; the last section is the folder tree, after the pins.
-    ;(document.querySelector('#files .row-main[aria-current]') ?? document.querySelector('#files section:last-of-type .row-main:not([aria-expanded])'))?.focus()
+    if (focusRows) focusFiles()
   }, [focusRows])
+
+  // The sheet and the drawer sit far from the bar in the tab order, so opening one moves focus in and
+  // closing it brings focus back. Closing only steals focus that was inside the panel (or lost to the page).
+  const stranded = el => {
+    const a = document.activeElement
+    return a === document.body || el.contains(a)
+  }
+  useEffect(() => {
+    if (showSettings) settingsTitle.current.focus()
+    else if (seen.current.settings && stranded(document.getElementById('settings'))) settingsBtn.current.focus()
+    seen.current.settings = showSettings
+  }, [showSettings])
+  useEffect(() => {
+    if (narrow()) {
+      if (ui.sidebarOpen) focusFiles()
+      else if (seen.current.drawer && toDocument.current) article.current?.focus()
+      else if (seen.current.drawer && stranded(document.getElementById('files'))) filesBtn.current.focus()
+      toDocument.current = false
+    }
+    seen.current.drawer = ui.sidebarOpen
+  }, [ui.sidebarOpen])
 
   useEffect(() => {
     document.title = current ? current.name : 'md reader'
@@ -202,35 +229,41 @@ export function App() {
   const menu = read => (
     <div id="bar-menu" class="bar-menu" popover="auto" onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
       {read}
+      {hasContents && (
+        // Below 760px the bar has no room for a Contents button. The menu hides itself first: a popover opened from
+        // inside it would be hidden along with it.
+        <button type="button" class="quiet menu-contents" onClick={e => { e.stopPropagation(); e.currentTarget.closest('[popover]').hidePopover(); const c = document.getElementById('contents'); c?.showPopover(); (c?.querySelector('a[aria-current]') ?? c?.querySelector('a'))?.focus() }}>Contents</button>
+      )}
       {current?.handle && (
         <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
           {currentPinned ? 'Unpin' : 'Pin'}
         </button>
       )}
-      <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open</button>
+      <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open file</button>
     </div>
   )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
 
   return (
     <div class={classes}>
+      {current && <a class="skip" href="#document" onClick={e => { e.preventDefault(); article.current?.focus() }}>Skip to document</a>}
       <header class="bar">
         <div class="bar-actions">
-          <button type="button" class="quiet" title={`Files (${mod}B)`} aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
+          <button ref={filesBtn} type="button" class="quiet" title={`Files (${mod}B)`} aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
             Files
           </button>
           {current && (
             <>
               <button type="button" class="quiet nav" aria-label="Back" title={`${back ? `Back to ${back}` : 'Back'} (${mod}[)`} disabled={back === null} onClick={() => history.back()}>
-                <ChevronLeft />
+                <ChevronLeft size="1.2em" />
               </button>
               <button type="button" class="quiet nav" aria-label="Forward" title={`${forward ? `Forward to ${forward}` : 'Forward'} (${mod}])`} disabled={forward === null} onClick={() => history.forward()}>
-                <ChevronRight />
+                <ChevronRight size="1.2em" />
               </button>
             </>
           )}
         </div>
-        <span class="bar-title" title={current?.dirPath?.length ? [...current.dirPath, current.name].join(' / ') : undefined}>
+        <span class="bar-title" title={current ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
           <bdi>
             {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}
             {current ? current.name : 'md reader'}
@@ -239,7 +272,7 @@ export function App() {
         <div class="bar-actions">
           {hasContents && (
             <button type="button" class="quiet contents-btn" popovertarget="contents" aria-label="Contents" title="Contents">
-              <List size={16} />
+              <List size="1.2em" />
               <span class="label">Contents</span>
             </button>
           )}
@@ -247,7 +280,7 @@ export function App() {
             More
           </button>
           {current ? <Speech articleRef={article} text={current.text} settings={settings}>{menu}</Speech> : menu(null)}
-          <button type="button" class="quiet" aria-expanded={showSettings} aria-controls="settings" onClick={() => setShowSettings(v => !v)}>
+          <button ref={settingsBtn} type="button" class="quiet" aria-expanded={showSettings} aria-controls="settings" onClick={() => setShowSettings(v => !v)}>
             Settings
           </button>
         </div>
@@ -264,7 +297,7 @@ export function App() {
       />
       {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') closeDrawer(); openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { toDocument.current = narrow(); closeDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={(item, i) => { if (item.kind !== 'directory') { toDocument.current = narrow(); closeDrawer() } openPinned(item, i) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
         {shownOrTip && (
@@ -307,9 +340,12 @@ export function App() {
         )}
       </main>
       <aside id="settings" class="sheet" aria-label="Settings" aria-hidden={!showSettings}>
-        <button type="button" class="quiet sheet-close" aria-label="Close settings" onClick={() => setShowSettings(false)}>
-          <X size={18} />
-        </button>
+        <div class="sheet-head">
+          <h2 ref={settingsTitle} tabindex="-1">Settings</h2>
+          <button type="button" class="quiet sheet-close" aria-label="Close settings" onClick={() => setShowSettings(false)}>
+            <X size="1.2em" />
+          </button>
+        </div>
         <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} open={showSettings} />
       </aside>
     </div>

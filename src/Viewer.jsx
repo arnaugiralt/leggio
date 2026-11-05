@@ -89,7 +89,7 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
 
   return (
     <>
-      <article ref={articleRef} class="prose" dangerouslySetInnerHTML={{ __html: html }} onClick={onClick} onKeyDown={onKeyDown} />
+      <article ref={articleRef} id="document" tabindex="-1" class="prose" dangerouslySetInnerHTML={{ __html: html }} onClick={onClick} onKeyDown={onKeyDown} />
       {zoomed && <Lightbox {...zoomed} onClose={() => setZoomed(null)} />}
     </>
   )
