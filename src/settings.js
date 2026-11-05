@@ -241,6 +241,9 @@ export function applyFontUrl(url, doc = document) {
     link = doc.createElement('link')
     link.id = 'user-font'
     link.rel = 'stylesheet'
+    // A CORS request, so the service worker gets a readable response it can check and keep for offline;
+    // without it the response is opaque. Google Fonts allows any origin.
+    link.crossOrigin = 'anonymous'
     doc.head.append(link)
   }
   const href = withSwap(url)
