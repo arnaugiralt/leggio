@@ -32,12 +32,14 @@ if (dev) {
   // The install dialog shows it; .github/ holds the copy the README uses.
   fs.copyFileSync('.github/screenshot.png', 'site/screenshot.png')
   fs.writeFileSync('site/index.html', fs.readFileSync('index.html', 'utf8').replace('dist/app.css', css).replace('dist/app.js', js))
+  // The SHELL list in sw.js is the one source; only the bundle names change for site/.
   fs.writeFileSync(
     'site/sw.js',
     fs
       .readFileSync('sw.js', 'utf8')
       .replace(/^const CACHE = .*$/m, `const CACHE = 'leggio-${path.basename(js, '.js').split('-').pop()}'`)
-      .replace(/^const SHELL = .*$/m, `const SHELL = ${JSON.stringify(['./', './index.html', `./${js}`, `./${css}`, './manifest.json', './icon-192.png', './icon-512.png', './favicon-32.png'])}`),
+      .replace("'./dist/app.js'", `'./${js}'`)
+      .replace("'./dist/app.css'", `'./${css}'`),
   )
   fs.writeFileSync('site/THIRD_PARTY_NOTICES.txt', notices(result.metafile))
 }
