@@ -166,3 +166,13 @@ test('word boundaries reach the caller with the sentence they belong to', () => 
   delete globalThis.speechSynthesis
   delete globalThis.SpeechSynthesisUtterance
 })
+
+test('pickerVoices puts the reader language first, drops novelty, keeps a saved one', async () => {
+  const { pickerVoices } = await import('../src/speech.js')
+  const v = (name, lang) => ({ name, lang })
+  const all = [v('Anna', 'de-DE'), v('Zarvox', 'en-US'), v('Sam', 'en-GB'), v('Eva (Premium)', 'en-US'), v('Eddy (German (Germany))', 'de-DE'), v('Bells', 'en-US')]
+  const r = pickerVoices(all, 'en-US')
+  assert.deepEqual(r.mine.map(x => x.name), ['Eva (Premium)', 'Sam'])
+  assert.deepEqual(r.other.map(x => x.name), ['Anna', 'Eddy (German (Germany))'])
+  assert.deepEqual(pickerVoices(all, 'en-US', 'Bells').mine.map(x => x.name), ['Eva (Premium)', 'Sam', 'Bells'])
+})

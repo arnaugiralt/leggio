@@ -5,6 +5,10 @@ export const STORAGE_KEY = 'md-reader.settings'
 // 'page' means diagrams follow the page palette; any other entry is a beautiful-mermaid built-in theme.
 export const DIAGRAM_THEMES = ['page', ...Object.keys(THEMES)]
 
+const THEME_ACRONYMS = { github: 'GitHub' }
+export const themeLabel = id =>
+  id === 'page' ? 'Follow page colors' : id.split('-').map(w => THEME_ACRONYMS[w] ?? w[0].toUpperCase() + w.slice(1)).join(' ')
+
 export const DEFAULTS = {
   fontUrl: '',
   textFont: '', // '' means the system stack for the role; see fontName for the legacy fallback
@@ -82,14 +86,15 @@ export const PRESETS = [
   },
 ]
 
-// setting key -> [css variable, unit]. fontUrl is handled by fontFamilies and applyFontUrl.
+// setting key -> [css variable, unit, divisor]. Text sizes go out in rem so the browser's default
+// font size scales them; the stored value and the number shown stay in px. fontUrl is handled by fontFamilies and applyFontUrl.
 const CSS_VARS = {
-  fontSize: ['--font-size', 'px'],
+  fontSize: ['--font-size', 'rem', 16],
   fontWeight: ['--font-weight'],
   lineHeight: ['--line-height'],
   contentWidth: ['--content-width', 'px'],
   wideWidth: ['--wide-width', 'px'],
-  codeFontSize: ['--code-font-size', 'px'],
+  codeFontSize: ['--code-font-size', 'rem', 16],
   bg: ['--color-bg'],
   fg: ['--color-fg'],
   accent: ['--color-accent'],
@@ -188,8 +193,8 @@ export function save(settings, storage = globalThis.localStorage) {
 }
 
 export function applyToRoot(settings, root = document.documentElement) {
-  for (const [key, [name, unit = '']] of Object.entries(CSS_VARS)) {
-    root.style.setProperty(name, `${settings[key]}${unit}`)
+  for (const [key, [name, unit = '', divisor]] of Object.entries(CSS_VARS)) {
+    root.style.setProperty(name, `${divisor ? settings[key] / divisor : settings[key]}${unit}`)
   }
   for (const role of FONT_ROLES) root.style.setProperty(ROLES[role].cssVar, fontStack(settings, role))
   applyTheme(settings.diagramTheme, root)

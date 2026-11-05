@@ -1,12 +1,12 @@
 :root {
   --font-family: ui-serif, Georgia, serif;
-  --font-size: 18px;
+  --font-size: 1.125rem;
   --font-weight: 400;
   --line-height: 1.6;
   --content-width: 700px;
   --wide-width: 1200px;
   --code-font-family: ui-monospace, monospace;
-  --code-font-size: 14px;
+  --code-font-size: 0.875rem;
   --color-bg: #ffffff;
   --color-fg: #1a1a1a;
   --color-accent: #2563eb;
@@ -575,6 +575,13 @@ html:has(dialog.lightbox[open]) {
   padding: 0.3rem 0;
 }
 .field-url { grid-template-columns: 1fr; }
+.field-input { display: inline-flex; align-items: center; gap: 0.35rem; }
+/* min-width holds the cell when a field has no unit, so every number input shares one right edge */
+.unit { min-width: 1.4rem; font-size: 0.78rem; color: var(--ui-muted); }
+.settings details { margin: 0.25rem 0 0.75rem; }
+.settings summary { cursor: pointer; font-size: 0.85rem; color: var(--ui-muted); padding: 0.25rem 0; }
+.reset-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--ui-muted); }
+.reset-row .quiet { border: 1px solid var(--ui-hairline); }
 .field-hint {
   grid-column: 1 / -1;
   font-size: 0.78rem;

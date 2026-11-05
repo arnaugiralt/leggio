@@ -39,6 +39,23 @@ export function voices() {
   return typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices()
 }
 
+// macOS ships joke voices; they bury the useful ones in a 200-entry list.
+const NOVELTY = new Set(['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News', 'Jester', 'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox'])
+const QUALITY = /enhanced|premium/i
+
+// Voices for the picker: those in the reader's language first (Enhanced/Premium on top), every
+// other language after. A saved voice that would be dropped as novelty is kept so it stays selected.
+export function pickerVoices(all, language, saved = '') {
+  // Chrome names macOS voices "Eddy (German (Germany))"; the novelty check wants the bare name.
+  const novelty = v => NOVELTY.has(v.name.split(' (')[0])
+  const primary = tag => (tag ?? '').split(/[-_]/)[0].toLowerCase()
+  const want = primary(language)
+  const rank = v => (QUALITY.test(v.name) ? 0 : 1)
+  const kept = all.filter(v => !novelty(v) || v.name === saved)
+  const mine = kept.filter(v => primary(v.lang) === want)
+  return { mine: [...mine].sort((a, b) => rank(a) - rank(b)), other: kept.filter(v => !mine.includes(v)) }
+}
+
 // The stored name can be missing (another browser, another machine) or unreachable (a network
 // voice with no connection), so resolution always ends at a local voice.
 export function resolveVoice(name) {

@@ -282,7 +282,7 @@ export function App() {
         <button type="button" class="quiet sheet-close" aria-label="Close settings" onClick={() => setShowSettings(false)}>
           <X size={18} />
         </button>
-        <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} onReset={() => setSettings({ ...DEFAULTS })} />
+        <Settings settings={settings} onChange={patch => setSettings(prev => ({ ...prev, ...patch }))} open={showSettings} />
       </aside>
     </div>
   )

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap } from '../src/settings.js'
+import { themeLabel, DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap } from '../src/settings.js'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -126,10 +126,10 @@ test('withSwap appends display=swap once', () => {
 test('applyToRoot writes every setting as a css variable with units', () => {
   const root = fakeRoot()
   applyToRoot({ ...DEFAULTS, fontSize: 18, contentWidth: 800, codeFontSize: 13, lineHeight: 1.7 }, root)
-  assert.equal(root.vars['--font-size'], '18px')
+  assert.equal(root.vars['--font-size'], '1.125rem')
   assert.equal(root.vars['--content-width'], '800px')
   assert.equal(root.vars['--wide-width'], '1200px')
-  assert.equal(root.vars['--code-font-size'], '13px')
+  assert.equal(root.vars['--code-font-size'], '0.8125rem')
   assert.equal(root.vars['--line-height'], '1.7')
   assert.equal(root.vars['--font-weight'], '400')
   assert.equal(root.vars['--font-family'], 'ui-serif, Georgia, serif')
@@ -199,4 +199,11 @@ test('applyToRoot sets the color scheme from the background lightness', () => {
   const dark = fakeRoot()
   applyToRoot({ ...DEFAULTS, bg: '#111111' }, dark)
   assert.equal(dark.style.colorScheme, 'dark')
+})
+
+test('themeLabel title-cases ids and keeps GitHub', () => {
+  assert.equal(themeLabel('page'), 'Follow page colors')
+  assert.equal(themeLabel('tokyo-night-storm'), 'Tokyo Night Storm')
+  assert.equal(themeLabel('github-dark'), 'GitHub Dark')
+  assert.equal(themeLabel('one-dark'), 'One Dark')
 })
