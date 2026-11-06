@@ -743,15 +743,17 @@ html:has(dialog.lightbox[open]) {
 .outline {
   position: fixed;
   top: 50%;
-  /* Beside the text column, a fixed gap to its left (the rail box is about 2.5rem wide); the old edge is the floor.
+  /* Just left of the widest area a table or diagram can fill (the rule above .prose .table-wrap), so no block
+     ever runs under it. The rail box is 2.5rem wide; the 1rem of hover slack on its right ends at that area's edge.
      cqw is .main's content box, so a sidebar or sheet is already out of it. */
-  left: max(0.75rem, calc((100cqw - min(var(--content-width), 100cqw)) / 2 - 3.5rem));
+  --rail-x: max(0.75rem, (100cqw - max(min(var(--content-width), 100cqw), min(var(--wide-width), 100cqw - 2 * var(--rail-space)))) / 2 - 2.5rem);
+  left: var(--rail-x);
   z-index: 2;
   transform: translateY(-50%);
   font-family: var(--ui-font);
   transition: left 180ms var(--ease-out);
 }
-.sidebar-open .outline { left: calc(var(--side-w) + max(0.75rem, (100cqw - min(var(--content-width), 100cqw)) / 2 - 3.5rem)); }
+.sidebar-open .outline { left: calc(var(--side-w) + var(--rail-x)); }
 
 .rail {
   display: grid;
@@ -765,7 +767,9 @@ html:has(dialog.lightbox[open]) {
   width: 1rem;
   height: 2px;
   border-radius: 1px;
-  background: var(--ui-faint);
+  /* Faint on purpose: a glance only needs the shape and the accent tick. The rail is aria-hidden, and the
+     panel it opens is reachable by keyboard, so the ticks are a pointer hint only. */
+  background: var(--ui-rule);
   transition: background-color 150ms ease;
 }
 .rail .level-2 { width: 0.7rem; }
