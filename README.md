@@ -20,7 +20,7 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 - **Themes and type.** Six looks to start from (Default, Quiet, Cobalt, Teletype, Terminal and Ember), then set the fonts, size, weight, line height, text width and colors yourself. Any Google Font works. The Default look follows your system's light or dark setting.
 - **Outline.** A contents rail beside the text marks the section you're reading. Click a heading to jump to it.
 - **History.** Back and forward (⌘[ and ⌘]) walk the documents you opened and keep your scroll position. Pin files and folders to keep them across sessions, and Leggio reopens where you left off.
-- **Share.** Copy a link that carries the document itself. Nothing is uploaded: the text lives in the link. The person who opens it sees that it was shared, and web images wait for their click.
+- **Share.** Copy a link that carries the document itself. Nothing is uploaded: the text lives in the link. The person who opens it sees that it was shared, can save it as a file, and web images wait for their click.
 - **An app of its own.** Install it from the address bar. It gets its own window, works offline, and opens `.md` files from Finder or Explorer.
 - **Private.** Your files are read on your computer and never uploaded. No accounts, no analytics. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
 

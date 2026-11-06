@@ -111,8 +111,8 @@ body {
 .bar-title.from-link { display: flex; align-items: center; justify-content: center; direction: ltr; overflow: visible; } /* the name clips itself; the button keeps its focus ring */
 .bar-title.from-link > * { flex-shrink: 0; }
 .bar-title.from-link bdi { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
-.quiet.crumb { anchor-name: --shared; padding: 0.3rem 0.3em; margin-inline: -0.3em 0; color: var(--ui-faint); line-height: inherit; } /* the path's color; the padding is only the hover box */
-.bar-title.from-link .dim { margin-right: 0.3em; } /* matches the crumb's padding, so the slash sits between equal spaces */
+.crumb { anchor-name: --shared; } /* otherwise a plain .quiet button, like the rest of the bar */
+.bar-title.from-link .dim { margin-right: 0.65rem; } /* the button's own side padding, so the slash sits between equal spaces */
 .shared-pop {
   position: fixed;
   position-anchor: --shared;

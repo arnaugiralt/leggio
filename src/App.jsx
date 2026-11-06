@@ -320,7 +320,7 @@ export function App() {
     const url = URL.createObjectURL(new Blob([current.text], { type: 'text/markdown' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = current.name
+    a.download = fs.isMarkdownName(current.name) ? current.name : `${current.name}.md` // a link can carry any name
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
@@ -390,9 +390,10 @@ export function App() {
           {currentPinned ? 'Unpin' : 'Pin'}
         </button>
       )}
+      {/* On a shared document, keeping it is the likely next step; sending it on moves to the "Shared" popover. */}
       {current && (
-        <button type="button" class="quiet" onClick={shareLink}>
-          Share
+        <button type="button" class="quiet" onClick={shared ? saveShared : shareLink}>
+          {shared ? 'Save file' : 'Share'}
         </button>
       )}
       <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open file</button>
@@ -448,7 +449,9 @@ export function App() {
                 {!sharedView.imagesOn && <button type="button" class="quiet notice-action" onClick={loadImages}>Load images</button>}
               </div>
             )}
-            <button type="button" class="quiet notice-action" onClick={saveShared}>Save as file</button>
+            <button type="button" class="quiet notice-action" onClick={e => (e.currentTarget.closest('[popover]').hidePopover(), shareLink())}>
+              Copy link
+            </button>
           </div>
         )}
         <div class="bar-actions">
