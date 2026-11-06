@@ -8,7 +8,7 @@ import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDef
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronDown, ChevronLeft, ChevronRight, List, X } from './icons.jsx'
+import { ChevronDown, ChevronLeft, ChevronRight, Ellipsis, List, Menu, X } from './icons.jsx'
 import { LinkForm, OpenMenu, recentWhere } from './OpenMenu.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
@@ -34,6 +34,14 @@ function remember(key) {
     localStorage.setItem(key, '1')
   } catch {}
 }
+
+// Phones and tablets: their own bar (icons, 44 px targets, hidden while scrolling down). Keep in step with
+// the same media query in styles.css. A narrow desktop window keeps the text bar.
+const PHONE = '(max-width: 759.98px) and (pointer: coarse)'
+const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches
+// iOS never offers an install prompt; it has Add to Home Screen in the Share sheet instead.
+const iosBrowser = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches
 
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
 const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
@@ -170,7 +178,7 @@ export function App() {
     if (narrow()) {
       if (ui.sidebarOpen) focusFiles()
       else if (seen.current.drawer && toDocument.current) article.current?.focus()
-      else if (seen.current.drawer && stranded(document.getElementById('files'))) filesBtn.current.focus()
+      else if (seen.current.drawer && stranded(document.getElementById('files'))) filesBtn.current?.focus()
       toDocument.current = false
     }
     seen.current.drawer = ui.sidebarOpen
@@ -187,6 +195,30 @@ export function App() {
 
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
   useEffect(() => setFolderOfferHidden(false), [current?.handle])
+
+  // On a phone the bar slides away while reading down the page and comes back on the way up, as Safari's does.
+  // Never while something opened from it is showing, and never near the top, where it says what is open.
+  useEffect(() => {
+    const phone = matchMedia(PHONE)
+    const root = document.documentElement
+    let last = scrollY
+    const show = () => root.classList.remove('bar-hidden')
+    const onScroll = () => {
+      const y = scrollY
+      const dy = y - last
+      last = y
+      if (!phone.matches || y < 80 || document.querySelector('.app.sidebar-open, .app.settings-open, :popover-open')) return show()
+      if (dy > 6) root.classList.add('bar-hidden')
+      else if (dy < -6) show()
+    }
+    const bar = document.querySelector('.bar')
+    window.addEventListener('scroll', onScroll, { passive: true })
+    bar.addEventListener('focusin', show) // a keyboard reaching the bar must see it
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      bar.removeEventListener('focusin', show)
+    }
+  }, [])
 
   // Chrome only fires this when the app is installable and not yet installed.
   useEffect(() => {
@@ -397,6 +429,7 @@ export function App() {
     !foreign && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
     !foreign && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
     current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
+    current && iosBrowser && !standalone && !tipHidden && { text: 'Add Leggio to your Home Screen: tap Share, then Add to Home Screen.', tip: true },
   ].find(Boolean)
   const actions = {
     install: ['Install', install],
@@ -441,6 +474,10 @@ export function App() {
           Recent…
         </button>
       )}
+      {/* A phone's bar keeps only ☰ ‹ › ⋯; Settings, used rarely, moves in here. */}
+      <button type="button" class="quiet phone-item menu-sep" onClick={() => setShowSettings(true)}>
+        Settings
+      </button>
     </div>
   )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
@@ -450,9 +487,13 @@ export function App() {
       {current && <a class="skip" href="#document" onClick={e => { e.preventDefault(); article.current?.focus() }}>Skip to document</a>}
       <header class="bar">
         <div class="bar-actions">
-          <button ref={filesBtn} type="button" class="quiet" title={`Files (${mod}B)`} aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
-            Files
-          </button>
+          {/* Hidden where it would show nothing: no folder can open (a phone) and there is none and no pin. */}
+          {(fs.canOpenFolders || folder || pinned.length > 0) && (
+            <button ref={filesBtn} type="button" class="quiet files-btn" title={`Files (${mod}B)`} aria-label="Files" aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
+              <Menu size="1.25em" class="phone-icon" />
+              <span class="phone-hide">Files</span>
+            </button>
+          )}
           {current && (
             <>
               <button type="button" class="quiet nav" aria-label="Back" title={`${back ? `Back to ${back}` : 'Back'} (${mod}[)`} disabled={back === null} onClick={() => history.back()}>
@@ -516,10 +557,11 @@ export function App() {
             </button>
           )}
           <button type="button" class="quiet more-btn" popovertarget="bar-menu" aria-label="More actions" title="More">
-            More
+            <Ellipsis size="1.25em" class="phone-icon" />
+            <span class="phone-hide">More</span>
           </button>
           {current ? <Speech articleRef={article} text={current.text} settings={settings}>{menu}</Speech> : menu(null)}
-          <button ref={settingsBtn} type="button" class="quiet" aria-expanded={showSettings} aria-controls="settings" onClick={() => setShowSettings(v => !v)}>
+          <button ref={settingsBtn} type="button" class="quiet settings-btn" aria-expanded={showSettings} aria-controls="settings" onClick={() => setShowSettings(v => !v)}>
             Settings
           </button>
         </div>
@@ -581,7 +623,7 @@ export function App() {
           </div>
         ) : (
           <div class="empty">
-            <p class="empty-title">{recent.length || restorable ? 'Welcome back' : 'Drop a markdown file or folder here'}</p>
+            <p class="empty-title">{recent.length || restorable ? 'Welcome back' : touch ? 'Open a markdown file' : 'Drop a markdown file or folder here'}</p>
             {/* What was read last comes first: Recent, or the folder of an older session that kept no list. */}
             {recent.length > 0 ? (
               <ul class="recent-list" aria-label="Recent">
@@ -609,10 +651,10 @@ export function App() {
               )}
             </div>
             {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} />}
-            <p class="empty-hint">Files are read on this device and never uploaded. Paste a link anywhere to open it.</p>
-            <p class="empty-hint">
+            <p class="empty-hint">Files are read on this device and never uploaded.{touch ? '' : ' Paste a link anywhere to open it.'}</p>
+            {!touch && <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
-            </p>
+            </p>}
           </div>
         )}
       </main>

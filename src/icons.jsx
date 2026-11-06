@@ -93,6 +93,20 @@ export const ChevronRight = props => (
   </Icon>
 )
 
+export const Menu = props => (
+  <Icon {...props}>
+    <path d="M4 12h16M4 6h16M4 18h16" />
+  </Icon>
+)
+
+export const Ellipsis = props => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
+  </Icon>
+)
+
 export const List = props => (
   <Icon {...props}>
     <path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13" />

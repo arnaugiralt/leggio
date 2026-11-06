@@ -1001,6 +1001,21 @@ html:has(dialog.lightbox[open]) {
   .theme-name { opacity: 1; }
 }
 
+/* Phones and tablets in a narrow window (PHONE in App.jsx): ☰ ‹ › ⋯ as icons, Settings in More, every target
+   44 px, and a bar that slides away while reading down the page. A narrow desktop window keeps the text bar. */
+.phone-icon, .phone-item { display: none; }
+@media (max-width: 759.98px) and (pointer: coarse) {
+  :root { --bar-h: 3rem; }
+  .phone-hide, .settings-btn { display: none; }
+  .phone-icon { display: block; }
+  .bar-menu .phone-item { display: block; }
+  .files-btn, .more-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .bar .quiet, .bar-menu .quiet, .menu-item, .recent-row, .row-main, .notice .quiet, .sheet-close { min-height: 44px; min-width: 44px; }
+  .bar, .notice { transition: transform 200ms var(--ease-out); }
+  .bar-hidden .bar { transform: translateY(-100%); }
+  .bar-hidden .notice { transform: translateY(calc(-100% - var(--bar-h))); } /* away with the bar, back with it */
+}
+
 /* Print and Save as PDF: the document alone, on paper. */
 @page { margin: 18mm 16mm; }
 @media print {

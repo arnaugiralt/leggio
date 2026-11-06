@@ -5,7 +5,7 @@ export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' 
 // Whether a folder can be opened at all: the picker, or a folder input. Phones and tablets report the folder input
 // too (iOS does), but its picker offers no folders there, so a touch-only device gets no folder action.
 export const canOpenFolders =
-  typeof window !== 'undefined' && (supported || ('webkitdirectory' in HTMLInputElement.prototype && !matchMedia('(hover: none) and (pointer: coarse)').matches))
+  typeof window !== 'undefined' && (supported || ('webkitdirectory' in HTMLInputElement.prototype && !matchMedia('(pointer: coarse)').matches))
 
 const MARKDOWN = /\.(md|markdown|txt)$/i
 export const isMarkdownName = name => MARKDOWN.test(name)
