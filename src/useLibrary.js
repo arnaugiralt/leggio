@@ -47,6 +47,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   const fetching = useRef(null) // the AbortController of the web document being fetched
   const [recent, setRecent] = useState([]) // see recent.js; newest first, so [0] is what is open
   const recentRef = useRef([]) // the latest list for remember(), which runs after awaits
+  const resumeNext = useRef(null) // the key of a document opened through its link that should resume, not start at the top
   const setError = text => setNotice(text ? { text } : null)
   const currentRef = useRef(null)
   currentRef.current = current // links and the folder grant run from mount-time closures, where state is stale
@@ -135,6 +136,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       timer = setTimeout(() => {
         const entry = nav.currentEntry.getState()
         if (entry) writeEntry({ ...entry, scrollY: window.scrollY })
+        const cur = currentRef.current
+        if (cur) recents.keepScroll(recents.docKey(cur.handle, cur.dirPath, cur.name), window.scrollY)
       }, 150)
     }
     const onChange = e => {
@@ -237,7 +240,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   }
 
   // dirPath and root are set when the file lives inside an open folder; null otherwise.
-  async function openFile(handle, { dirPath = null, root = null, fromHistory = false, here = false } = {}) {
+  // resume: put the reader where they left this document (Recent, a pin, a reload) instead of at its top.
+  async function openFile(handle, { dirPath = null, root = null, fromHistory = false, here = false, resume = false } = {}) {
     if (!handle.web) fetching.current?.abort() // the reader moved on: a web document still on its way is dropped
     try {
       if (!(await fs.ensurePermission(handle))) {
@@ -254,6 +258,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root }, here)
       show({ handle, name: handle.name, dirPath, root, text })
       remember({ handle, name: handle.name, dirPath, root, text })
+      const key = recents.docKey(handle, dirPath, handle.name)
+      if (resume || resumeNext.current === key) keepScroll.current = recents.scrollOf(key)
+      resumeNext.current = null
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
       // so the handle rides along as the fallback.
       const inFolder = root ?? folderRef.current
@@ -378,14 +385,19 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // From a click, so a file that needs its permission asked again can ask.
   // atLoad: the window just opened; the document goes onto its first entry rather than a new one.
   async function openRecent(entry, { atLoad = false } = {}) {
-    if (entry.kind === 'web') return openLink(entry.url)
+    // A web or shared document opens through its link, so the resume waits for it by name.
+    if (entry.kind === 'web') {
+      resumeNext.current = `url:${entry.url}`
+      return openLink(entry.url)
+    }
     if (entry.kind === 'shared') {
+      resumeNext.current = recents.docKey({ shared: true }, null, entry.name)
       const code = await share.encode(entry.name, entry.text)
       if (atLoad) return openShared(code)
       location.hash = `#share=${code}`
       return true
     }
-    if (entry.kind === 'copy') return openFile(fs.fromFile(new File([entry.text], entry.name, { type: 'text/markdown' })))
+    if (entry.kind === 'copy') return openFile(fs.fromFile(new File([entry.text], entry.name, { type: 'text/markdown' })), { resume: true })
     if ((await fs.hasPermission(entry.handle)) && !(await fs.exists(entry.handle))) {
       recentRef.current = recentRef.current.filter(e => e !== entry)
       setRecent(recentRef.current)
@@ -394,7 +406,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       return false
     }
     if (entry.root && !(await openFolder(entry.root))) return false
-    return openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root })
+    return openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root, resume: true })
   }
 
   // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
@@ -481,7 +493,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     const markMissing = () => setPinned(p => p.map(x => (x.id === item.id ? { ...x, missing: true } : x)))
     // A pin whose target is gone says so in its row instead of failing as a read error.
     if ((await fs.hasPermission(item.handle)) && !(await fs.exists(item.handle))) return markMissing()
-    const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle)
+    const ok = item.kind === 'directory' ? await openFolder(item.handle, { pick: true }) : await openFile(item.handle, { resume: true })
     if (!ok) markMissing()
   }
 
@@ -511,7 +523,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     if (!last.filePath && !last.file) return true
     try {
       const handle = last.filePath ? await fs.getFileByPath(last.folder, last.filePath) : last.file
-      await openFile(handle, { dirPath: last.filePath?.slice(0, -1) ?? null, root: last.filePath ? last.folder : null })
+      await openFile(handle, { dirPath: last.filePath?.slice(0, -1) ?? null, root: last.filePath ? last.folder : null, resume: true })
     } catch {
       setError(`${last.filePath?.join('/') ?? last.file.name} was not found.`)
     }

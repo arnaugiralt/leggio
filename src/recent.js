@@ -28,3 +28,39 @@ export async function add(list, entry, sameFile) {
   }
   return [entry, ...rest].slice(0, MAX_RECENT)
 }
+
+// One name per document, stable across opens: what the scroll position is kept under.
+export function docKey(handle, dirPath, name) {
+  const path = [...(dirPath ?? []), name].join('/')
+  if (handle.web) return `url:${handle.web}`
+  if (handle.shared) return `shared:${path}`
+  if (handle.copy) return `copy:${path}`
+  return `file:${path}`
+}
+
+// Where each document was left, so reopening it from Recent, a pin or a reload resumes there. Long documents
+// are read over days. A plain object in localStorage, newest last, cut to the last 200.
+const SCROLL_KEY = 'leggio.scroll'
+const MAX_SCROLLS = 200
+
+function scrolls(storage) {
+  try {
+    const parsed = JSON.parse((storage ?? globalThis.localStorage).getItem(SCROLL_KEY) ?? '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function keepScroll(key, y, storage) {
+  const all = scrolls(storage)
+  delete all[key] // re-added last, so the order stays oldest first
+  if (y > 0) all[key] = Math.round(y)
+  const keys = Object.keys(all)
+  for (const k of keys.slice(0, Math.max(0, keys.length - MAX_SCROLLS))) delete all[k]
+  try {
+    ;(storage ?? globalThis.localStorage).setItem(SCROLL_KEY, JSON.stringify(all))
+  } catch {}
+}
+
+export const scrollOf = (key, storage) => scrolls(storage)[key] ?? null

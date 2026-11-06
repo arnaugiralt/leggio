@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { entryFor, add, MAX_RECENT } from '../src/recent.js'
+import { entryFor, add, MAX_RECENT, docKey, keepScroll, scrollOf } from '../src/recent.js'
 
 const file = name => ({ kind: 'file', name, isSame: other => other.name === name })
 const sameFile = async (a, b) => a.isSame(b)
@@ -44,4 +44,21 @@ test(`add keeps at most ${MAX_RECENT}`, async () => {
   for (let i = 0; i < MAX_RECENT + 3; i++) list = await add(list, { key: `url:${i}` }, sameFile)
   assert.equal(list.length, MAX_RECENT)
   assert.equal(list[0].key, `url:${MAX_RECENT + 2}`)
+})
+
+test('docKey names a document the same way each time it opens', () => {
+  assert.equal(docKey({ web: 'https://x.test/a.md' }, null, 'a.md'), 'url:https://x.test/a.md')
+  assert.equal(docKey({ copy: 'c1' }, ['docs'], 'a.md'), 'copy:docs/a.md')
+  assert.equal(docKey({ copy: 'share-1', shared: true }, null, 'a.md'), 'shared:a.md')
+  assert.equal(docKey({ kind: 'file' }, ['docs'], 'a.md'), 'file:docs/a.md')
+})
+
+test('scroll positions are kept per document, the oldest dropped past the limit', () => {
+  const store = new Map()
+  const storage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) }
+  for (let i = 0; i < 205; i++) keepScroll(`file:${i}.md`, i * 10, storage)
+  assert.equal(scrollOf('file:204.md', storage), 2040)
+  assert.equal(scrollOf('file:0.md', storage), null)
+  keepScroll('file:204.md', 0, storage)
+  assert.equal(scrollOf('file:204.md', storage), null) // the top is where every document starts anyway
 })
