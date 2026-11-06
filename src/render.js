@@ -41,8 +41,10 @@ function diagram(code) {
     .replace(MONO_FONT_RULE, '.mono { font-family: ui-monospace, monospace; }')
 }
 
+// html: true only so HTML reaches the allowlist below, which rebuilds the few tags it allows and turns every
+// other tag back into text. Nothing a document says in HTML is put on the page as it was written.
 const md = new MarkdownIt({
-  html: false,
+  html: true,
   linkify: true,
   highlight(code, lang) {
     if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value
@@ -121,6 +123,7 @@ md.core.ruler.push('task_lists', state => {
     first.content = first.content.slice(m[0].length)
     const box = new state.Token('html_inline', '', 0)
     box.content = `<input type="checkbox" disabled${m[1] === ' ' ? '' : ' checked'}>`
+    box.meta = { ours: true } // built here, not written by the document: the HTML allowlist leaves it
     inline.children.unshift(box)
   }
 })
@@ -137,6 +140,91 @@ md.core.ruler.push('local_images', state => {
       t.attrs = t.attrs.filter(a => a[0] !== 'src')
       t.attrSet('data-src', src)
     }
+  }
+})
+
+// Most READMEs open with HTML (a centered logo, badges in links, a <details>). These tags are rebuilt from their
+// name and the attributes listed for them; any other tag, and any other attribute, is dropped or shown as text.
+// Links and image sources go through markdown-it's own link check (no javascript:, vbscript:, file:, or data:
+// except images), and images follow the same rule as markdown images: local or, in a shared document, every
+// non-data one, as data-src.
+const ALLOWED = {
+  img: ['src', 'alt', 'title', 'width', 'height'],
+  a: ['href', 'title'],
+  p: ['align'],
+  div: ['align'],
+  details: ['open'],
+  summary: [],
+  kbd: [],
+  sub: [],
+  sup: [],
+  br: [],
+  // Also common in READMEs, and like the rest they carry no address and no script.
+  ...Object.fromEntries(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(h => [h, ['align']])),
+  table: [],
+  thead: [],
+  tbody: [],
+  tr: [],
+  th: ['align', 'colspan', 'rowspan'],
+  td: ['align', 'colspan', 'rowspan'],
+  b: [],
+  strong: [],
+  i: [],
+  em: [],
+  code: [],
+}
+const VOID = new Set(['img', 'br'])
+const TAG = /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g
+const ATTR = /([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+
+function attrValue(tag, name, raw, share) {
+  const value = md.utils.unescapeAll(raw ?? '').trim()
+  if (name === 'width' || name === 'height') return /^\d{1,4}%?$/.test(value) ? ['', value] : null
+  if (name === 'colspan' || name === 'rowspan') return /^\d{1,3}$/.test(value) ? ['', value] : null
+  if (name === 'align') return /^(left|center|right)$/i.test(value) ? ['', value.toLowerCase()] : null
+  if (name === 'open') return ['', null]
+  if (name === 'href' || name === 'src') {
+    const url = md.normalizeLink(value)
+    if (!md.validateLink(url)) return null
+    if (name === 'src' && (isLocal(value) || (share && !/^data:/i.test(value)))) return ['data-', value]
+    return ['', url]
+  }
+  return ['', value]
+}
+
+function allowTag(close, name, attrs, share) {
+  const tag = name.toLowerCase()
+  if (!Object.hasOwn(ALLOWED, tag)) return null
+  if (close) return VOID.has(tag) ? '' : `</${tag}>`
+  let out = `<${tag}`
+  for (const [, key, a, b, c] of attrs.matchAll(ATTR)) {
+    const attr = key.toLowerCase()
+    if (!ALLOWED[tag].includes(attr) || (a ?? b ?? c ?? null) === null && attr !== 'open') continue
+    const kept = attrValue(tag, attr, a ?? b ?? c, share)
+    if (!kept) continue
+    const [prefix, value] = kept
+    out += value === null ? ` ${attr}` : ` ${prefix}${attr}="${md.utils.escapeHtml(value)}"`
+  }
+  return `${out}>`
+}
+
+export function allowHtml(html, share = false) {
+  let out = ''
+  let last = 0
+  for (const m of html.matchAll(TAG)) {
+    out += md.utils.escapeHtml(html.slice(last, m.index))
+    last = m.index + m[0].length
+    if (m[0].startsWith('<!--')) continue // a comment is the author's note to themselves
+    const kept = allowTag(m[1] === '/', m[2], m[3], share)
+    out += kept ?? md.utils.escapeHtml(m[0])
+  }
+  return out + md.utils.escapeHtml(html.slice(last))
+}
+
+md.core.ruler.push('html_allowlist', state => {
+  for (const token of state.tokens) {
+    if (token.type === 'html_block') token.content = allowHtml(token.content, state.env.share)
+    for (const child of token.children ?? []) if (child.type === 'html_inline' && !child.meta?.ours) child.content = allowHtml(child.content, state.env.share)
   }
 })
 

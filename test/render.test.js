@@ -75,9 +75,9 @@ test('task list items get a disabled checkbox and list classes', () => {
   assert.equal((html.match(/<input/g) || []).length, 6)
 })
 
-test('escapes raw html', () => {
+test('escapes raw html outside the allowlist', () => {
   assert.doesNotMatch(out, /<script>/)
-  assert.doesNotMatch(out, /<b>raw html<\/b>/)
+  assert.match(out, /<b>raw html<\/b>/) // <b> is on the list
   assert.match(out, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
@@ -156,4 +156,66 @@ test('front matter is hidden', () => {
 test('a rule that only looks like front matter stays', () => {
   assert.match(render('Intro\n\n---\n\nMore\n'), /<hr>/)
   assert.match(render('---\nno closing fence\n'), /no closing fence/)
+})
+
+// A small set of HTML tags, because most READMEs open with one. Everything else stays text, and every
+// attribute outside the list is dropped.
+test('allowed tags render', () => {
+  const out = render('<details open><summary>More</summary>\n\nHidden *text*.\n\n</details>\n\nPress <kbd>Ctrl</kbd>, H<sub>2</sub>O, x<sup>2</sup><br>next')
+  assert.match(out, /<details open>/)
+  assert.match(out, /<summary>More<\/summary>/)
+  assert.match(out, /<kbd>Ctrl<\/kbd>/)
+  assert.match(out, /<sub>2<\/sub>/)
+  assert.match(out, /<sup>2<\/sup>/)
+  assert.match(out, /<br>/)
+})
+
+test('a README logo block renders, centered', () => {
+  const out = render('<p align="center"><a href="https://x.test"><img src="logo.png" alt="Logo" width="120"></a></p>\n')
+  assert.match(out, /<p align="center">/)
+  assert.match(out, /<a href="https:\/\/x.test">/)
+  assert.match(out, /<img data-src="logo.png" alt="Logo" width="120">/) // local: resolved by Viewer, never fetched
+})
+
+test('tags and attributes outside the list never become markup', () => {
+  const attacks = [
+    '<script>alert(1)</script>',
+    '<img src="https://x.test/a.png" onerror="alert(1)">',
+    '<img src=x onerror=alert(1)//>',
+    '<a href="javascript:alert(1)">x</a>',
+    '<a href="JaVaScRiPt:alert(1)">x</a>',
+    '<a href=" javascript:alert(1)">x</a>',
+    '<img src="javascript:alert(1)">',
+    '<svg onload=alert(1)>',
+    '<iframe src="https://x.test"></iframe>',
+    '<p style="position:fixed" onclick="x()">p</p>',
+    '<img alt="a" src="b" " onerror="alert(1)">',
+    '<img src="x" alt="&quot; onerror=&quot;alert(1)">',
+    '<details ontoggle="alert(1)" open>x</details>',
+    '<a href="data:text/html,<script>alert(1)</script>">x</a>',
+    '<style>body{display:none}</style>',
+  ]
+  for (const html of attacks) {
+    // Only real tags count: text shown as text (&lt;script&gt;) is harmless.
+    const tags = render(html + '\n').match(/<[a-z](?:[^>"]|"[^"]*")*>/gi) ?? []
+    for (const full of tags) {
+      const tag = full.replace(/"[^"]*"/g, '""') // inside a quoted value, escaped text is only text
+      assert.doesNotMatch(tag, /^<(script|svg|iframe|style)\b/i, html)
+      assert.doesNotMatch(tag, /\son\w+\s*=/i, html)
+      assert.doesNotMatch(tag, /javascript:|href="data:/i, html)
+      assert.doesNotMatch(tag, /\sstyle\s*=/i, html)
+    }
+  }
+})
+
+test('an HTML image in a shared document waits like a markdown one', () => {
+  const out = render('<img src="https://x.test/a.png" alt="a">\n', { share: true })
+  assert.match(out, /data-src="https:\/\/x.test\/a.png"/)
+  assert.doesNotMatch(out, /\ssrc=/)
+})
+
+test('README tables, headings and emphasis in HTML render', () => {
+  const out = render('<h1 align="center">Name</h1>\n\n<table><tr><td colspan="2"><b>Bold</b> <em>em</em> <code>x</code></td></tr></table>\n')
+  assert.match(out, /<h1 align="center">Name<\/h1>/)
+  assert.match(out, /<table><tr><td colspan="2"><b>Bold<\/b> <em>em<\/em> <code>x<\/code><\/td><\/tr><\/table>/)
 })
