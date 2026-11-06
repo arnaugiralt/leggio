@@ -48,13 +48,14 @@ export function Outline({ articleRef, text, onContents }) {
   }, [hasContents, railHidden])
 
   useEffect(() => {
-    const nodes = [...(articleRef.current?.querySelectorAll('h1, h2, h3, h4') ?? [])]
+    // Only markdown headings have ids; an allowed HTML heading (a README's centered title) has nothing to jump to.
+    const nodes = [...(articleRef.current?.querySelectorAll('h1[id], h2[id], h3[id], h4[id]') ?? [])]
     setHeadings(nodes.map(h => ({ id: h.id, text: h.textContent, level: Number(h.tagName[1]) })))
   }, [text])
 
   useEffect(() => {
-    if (headings.length < 2) return
     const nodes = headings.map(h => document.getElementById(h.id)).filter(Boolean)
+    if (nodes.length < 2) return
     let frame = 0
     const update = () => {
       frame = 0

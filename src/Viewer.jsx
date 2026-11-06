@@ -16,9 +16,13 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
   useEffect(() => {
     const article = articleRef.current
     if (!article) return
-    for (const a of article.querySelectorAll('a[href^="http:"], a[href^="https:"], a[href^="//"]')) {
+    // Every link that isn't a jump in this document or a local file opens in a tab of its own, whatever its
+    // scheme or spelling (HTTPS:, mailto:, ftp:): nothing a document links to may take the Leggio window.
+    for (const a of article.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href')
+      if (href.startsWith('#') || isLocal(href)) continue
       a.target = '_blank'
-      a.rel = 'noopener'
+      a.rel = 'noopener noreferrer'
     }
     urls.current.forEach(URL.revokeObjectURL)
     urls.current = []
@@ -115,7 +119,19 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
     const hashLink = e.target.closest('a[href^="#"]')
     if (hashLink) {
       e.preventDefault() // the native jump would add a history entry without the document in it
-      onJump(decodeURIComponent(hashLink.getAttribute('href').slice(1)))
+      const raw = hashLink.getAttribute('href').slice(1)
+      let id = raw
+      try {
+        id = decodeURIComponent(raw)
+      } catch {} // a malformed escape: look the id up as written
+      onJump(id)
+      // Focus follows the jump, so the next Tab continues from the note (or back at the citation), not from
+      // the link that was pressed. A target that can't take focus gets tabindex -1 for it.
+      const target = document.getElementById(id)
+      if (target && articleRef.current?.contains(target)) {
+        if (target.tabIndex < 0 && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1')
+        target.focus({ preventScroll: true })
+      }
       return
     }
     const a = e.target.closest('a[href]')

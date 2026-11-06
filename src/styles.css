@@ -392,6 +392,8 @@ kbd {
 .footnotes { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--ui-rule); font-size: 0.9em; }
 .footnotes ol { padding-left: 1.5em; }
 .footnote-back { text-decoration: none; }
+.footnotes li:focus { outline: none; background: color-mix(in oklab, var(--color-accent) 10%, var(--color-bg)); border-radius: 4px; } /* where a jump landed */
+.footnotes li:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .prose img { max-width: 100%; }
 .prose blockquote {
   margin: 1em 0;
