@@ -459,6 +459,11 @@ kbd {
 
 /* The sentence being read aloud. ::highlight paints over a Range, so the rendered markdown is
    never wrapped, split or otherwise touched. */
+/* A search match in a document opened from search. */
+::highlight(find) {
+  background-color: color-mix(in oklab, var(--color-accent) 28%, var(--color-bg));
+  color: var(--color-fg);
+}
 ::highlight(spoken) {
   background-color: color-mix(in oklab, var(--color-accent) 12%, var(--color-bg));
   color: var(--color-fg);
@@ -649,6 +654,18 @@ html:has(dialog.lightbox[open]) {
   transition: transform 180ms var(--ease-out);
 }
 
+.side-resize {
+  position: fixed;
+  top: var(--bar-h);
+  bottom: 0;
+  left: calc(var(--side-w) - 3px);
+  z-index: 3;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+/* The edge shows only when it is about to move: a hairline would double the panel's border. */
+.side-resize:hover, .side-resize:focus-visible, .side-resize:active { background: linear-gradient(to right, transparent 2px, var(--color-accent) 2px, var(--color-accent) 4px, transparent 4px); outline: none; }
 .sidebar { padding: 1rem 0.75rem 2rem; }
 .sidebar section + section { margin-top: 1.25rem; }
 .sidebar h2 {
@@ -664,6 +681,27 @@ html:has(dialog.lightbox[open]) {
 .sidebar h2 .quiet { white-space: nowrap; flex-shrink: 0; }
 .quiet.small { padding: 0.25rem 0.5rem; font-size: 0.75rem; min-height: 24px; } /* WCAG 2.2 target size */
 .side-hint { margin: 0 0.5rem; font-size: 0.78rem; color: var(--ui-faint); }
+.side-hint:empty { display: none; }
+/* Search: a field at the top of the folder, and its results in place of the tree while it has text. */
+.search { position: relative; margin: 0 0 0.6rem; }
+.search input {
+  width: 100%;
+  padding: 0.4rem 2rem 0.4rem 0.6rem;
+  border: 1px solid var(--ui-hairline);
+  border-radius: 6px;
+  background: var(--ui-surface);
+  color: inherit;
+}
+.search input::-webkit-search-cancel-button { display: none; } /* ours is the one that keeps focus in the field */
+.search-clear { position: absolute; top: 50%; right: 0.15rem; transform: translateY(-50%); display: inline-flex; padding: 0.35rem; }
+.results h3 { margin: 0.75rem 0.5rem 0.25rem; font-size: 0.75rem; font-weight: 400; color: var(--ui-faint); }
+.results h3:first-child { margin-top: 0.25rem; }
+.row-main.result { align-items: flex-start; }
+.row-main.result .kind { margin-top: 0.2em; }
+.result-text { display: grid; min-width: 0; gap: 0.1rem; }
+.result-meta, .result-snippet { overflow: hidden; text-overflow: ellipsis; font-size: 0.78rem; color: var(--ui-faint); }
+.result-meta { white-space: nowrap; }
+.result-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
 
 .tree { list-style: none; margin: 0; padding: 0; }
 .tree .tree { padding-left: 0.9rem; }
@@ -977,6 +1015,7 @@ html:has(dialog.lightbox[open]) {
 
   .sidebar-open .main, .settings-open .main { padding-inline: 0; }
   .side { z-index: 5; width: min(85vw, 22rem); } /* as wide as a phone allows: file names are what it shows */
+  .side-resize { display: none; } /* a drag here would fight the drawer's swipe and scrim */
   .sidebar-open .side { box-shadow: 0 0 40px rgb(0 0 0 / 0.25); }
   .scrim { display: block; position: fixed; inset: var(--bar-h) 0 0; z-index: 4; background: rgb(0 0 0 / 0.35); }
   .narrow-only { display: inline-block; }

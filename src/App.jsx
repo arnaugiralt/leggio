@@ -43,6 +43,11 @@ const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)
 const iosBrowser = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches
 
+// The Files panel's width on wide windows: dragged or set by keyboard, never so wide the text drops below 32rem.
+const SIDE = { min: 200, max: 480, default: 260, step: 16 }
+const sideMax = settingsOpen => Math.max(SIDE.min, Math.min(SIDE.max, innerWidth - 512 - (settingsOpen && innerWidth >= 1100 ? 320 : 0)))
+const clampSide = (w, settingsOpen) => Math.round(Math.max(SIDE.min, Math.min(sideMax(settingsOpen), w)))
+
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
 const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
 const narrow = () => matchMedia(NARROW).matches
@@ -75,6 +80,8 @@ export function App() {
   // For one shared document, by its share id, so another link starts with web images off again. Read during
   // render, not reset in an effect: an effect runs after Viewer has already loaded the next document's images.
   const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
+  const [query, setQuery] = useState('') // search in the open folder, in the Files panel
+  const [find, setFind] = useState(null) // { q, handle }: a document opened from search, its matches marked
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
   const fileInput = useRef()
@@ -185,6 +192,8 @@ export function App() {
   }, [ui.sidebarOpen])
 
   const openControl = useRef() // OpenMenu's showLink, for the narrow More menu
+  const folderNow = useRef(folder)
+  folderNow.current = folder // the key handler is set up once, at mount
   const openLinkRef = useRef(openLink)
   openLinkRef.current = openLink // the paste listener is set up once, at mount
 
@@ -192,6 +201,30 @@ export function App() {
     const from = current?.handle?.shared ? 'shared' : current?.handle?.web && new URL(current.handle.web).host
     document.title = current ? (from ? `${current.name} (${from})` : current.name) : 'Leggio'
   }, [current])
+
+  // A document opened from search: its matches are marked (the CSS Custom Highlight API, as read-aloud uses)
+  // and the first one is brought into view. Any other document clears them.
+  useEffect(() => {
+    if (!window.CSS?.highlights) return
+    CSS.highlights.delete('find')
+    const article = document.getElementById('document')
+    if (!find || !current || current.handle !== find.handle || !article) return
+    const q = find.q.toLowerCase()
+    const ranges = []
+    const walk = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      const text = node.data.toLowerCase()
+      for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + q.length)) {
+        const range = new Range()
+        range.setStart(node, i)
+        range.setEnd(node, i + q.length)
+        ranges.push(range)
+      }
+    }
+    if (!ranges.length) return
+    CSS.highlights.set('find', new Highlight(...ranges))
+    requestAnimationFrame(() => ranges[0].startContainer.parentElement?.scrollIntoView({ block: 'center' }))
+  }, [current, find])
 
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
   useEffect(() => setFolderOfferHidden(false), [current?.handle])
@@ -333,6 +366,12 @@ export function App() {
       } else if (mod && (e.key === '[' || e.key === ']')) {
         e.preventDefault() // in a tab, Chrome's own ⌘[ would also go back, out of the app when the button is disabled
         if (e.key === '[' ? window.navigation?.canGoBack : window.navigation?.canGoForward) e.key === '[' ? history.back() : history.forward()
+      } else if ((mod && e.shiftKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !mod && !e.altKey && !e.target.closest?.('input, textarea, select, [contenteditable]'))) {
+        // Search the open folder: ⌘⇧F, or / as on many sites. ⌘F stays the browser's find in the document.
+        if (!folderNow.current) return
+        e.preventDefault()
+        setUi(u => ({ ...u, sidebarOpen: true }))
+        requestAnimationFrame(() => document.querySelector('#files .search input')?.focus())
       } else if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault()
         toggleSidebar()
@@ -481,9 +520,38 @@ export function App() {
     </div>
   )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
+  const sideW = clampSide(ui.sideW ?? SIDE.default, showSettings)
+  const setSideW = w => setUi(u => ({ ...u, sideW: w === SIDE.default ? undefined : w }))
+  // Dragging writes the width straight to the page and saves it once, at the end: a render per pointer move
+  // would re-render the document.
+  function resizeStart(e) {
+    const handle = e.currentTarget
+    const app = handle.closest('.app')
+    handle.setPointerCapture(e.pointerId)
+    let w = sideW
+    const move = ev => {
+      w = clampSide(ev.clientX, showSettings)
+      app.style.setProperty('--side-w', `${w}px`)
+    }
+    const end = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', end)
+      handle.removeEventListener('pointercancel', end)
+      setSideW(w)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', end)
+    handle.addEventListener('pointercancel', end)
+  }
+  function resizeKey(e) {
+    const to = { ArrowLeft: sideW - SIDE.step, ArrowRight: sideW + SIDE.step, Home: SIDE.min, End: sideMax(showSettings) }[e.key]
+    if (to === undefined) return
+    e.preventDefault()
+    setSideW(clampSide(to, showSettings))
+  }
 
   return (
-    <div class={classes}>
+    <div class={classes} style={`--side-w:${sideW}px`}>
       {current && <a class="skip" href="#document" onClick={e => { e.preventDefault(); article.current?.focus() }}>Skip to document</a>}
       <header class="bar">
         <div class="bar-actions">
@@ -589,8 +657,24 @@ export function App() {
         }}
       />
       {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
+      {ui.sidebarOpen && (
+        <div
+          class="side-resize"
+          role="separator"
+          tabindex="0"
+          aria-orientation="vertical"
+          aria-label="Files panel width"
+          aria-valuemin={SIDE.min}
+          aria-valuemax={sideMax(showSettings)}
+          aria-valuenow={sideW}
+          title="Drag to resize. Double-click to reset."
+          onPointerDown={resizeStart}
+          onKeyDown={resizeKey}
+          onDblClick={() => setSideW(SIDE.default)}
+        />
+      )}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { readFromDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={setQuery} />
       </nav>
       <main class="main">
         {shown && (
