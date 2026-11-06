@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
 import * as idb from './idb.js'
 import * as share from './share.js'
+import * as recents from './recent.js'
 
 export const FOLDER_NOTICE = { text: 'This file links to other files next to it. Open its folder to follow links and show images.', action: 'folder' }
 
@@ -44,6 +45,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   const [notice, setNotice] = useState(null) // { text, action?: 'another' | 'folder' }, shown by App until another document opens
   const [loading, setLoading] = useState(null) // { name, host, cancel }: a web document on its way, shown after a moment
   const fetching = useRef(null) // the AbortController of the web document being fetched
+  const [recent, setRecent] = useState([]) // see recent.js; newest first, so [0] is what is open
+  const recentRef = useRef([]) // the latest list for remember(), which runs after awaits
   const setError = text => setNotice(text ? { text } : null)
   const currentRef = useRef(null)
   currentRef.current = current // links and the folder grant run from mount-time closures, where state is stale
@@ -89,7 +92,17 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   useEffect(() => {
     // Pins saved before ids existed get one for this session; the next pin change stores it.
     idb.get('pinned').then(items => items && setPinned(items.map(item => ({ ...item, id: item.id ?? crypto.randomUUID() }))))
-    idb.get('last').then(async last => {
+    Promise.all([idb.get('recent'), idb.get('last')]).then(async ([items = [], last]) => {
+      recentRef.current = items
+      setRecent(items)
+      // What was read last was a copy or a shared document: it has no handle to restore, but Recent kept its
+      // text, so it comes back as it does for a file. A phone, which only reads copies, needs this most.
+      const top = items[0]
+      if (!linkAtLoad.current && !launched.current && (top?.kind === 'copy' || top?.kind === 'shared')) {
+        openRecent(top, { atLoad: true })
+        if (last?.folder) setRestorable(last)
+        return
+      }
       if (!last?.folder) return
       // A pinned file can live outside the folder, so it carries its own grant.
       const granted = (await fs.hasPermission(last.folder)) && (!last.file || (await fs.hasPermission(last.file)))
@@ -240,6 +253,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       const text = await file.text()
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root }, here)
       show({ handle, name: handle.name, dirPath, root, text })
+      remember({ handle, name: handle.name, dirPath, root, text })
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
       // so the handle rides along as the fallback.
       const inFolder = root ?? folderRef.current
@@ -341,6 +355,46 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     if (hash === location.hash) link.share ? openShared(link.share) : openUrl(url)
     else location.hash = hash
     return true
+  }
+
+  async function remember(doc) {
+    const entry = recents.entryFor(doc)
+    if (!entry) return
+    const next = await recents.add(recentRef.current, entry, fs.isSame)
+    recentRef.current = next
+    setRecent(next)
+    idb.set('recent', next)
+  }
+
+  // Returns what was forgotten, so the caller can offer Undo.
+  function forgetRecent(list = []) {
+    const before = recentRef.current
+    recentRef.current = list
+    setRecent(list)
+    idb.set('recent', list)
+    return before
+  }
+
+  // From a click, so a file that needs its permission asked again can ask.
+  // atLoad: the window just opened; the document goes onto its first entry rather than a new one.
+  async function openRecent(entry, { atLoad = false } = {}) {
+    if (entry.kind === 'web') return openLink(entry.url)
+    if (entry.kind === 'shared') {
+      const code = await share.encode(entry.name, entry.text)
+      if (atLoad) return openShared(code)
+      location.hash = `#share=${code}`
+      return true
+    }
+    if (entry.kind === 'copy') return openFile(fs.fromFile(new File([entry.text], entry.name, { type: 'text/markdown' })))
+    if ((await fs.hasPermission(entry.handle)) && !(await fs.exists(entry.handle))) {
+      recentRef.current = recentRef.current.filter(e => e !== entry)
+      setRecent(recentRef.current)
+      idb.set('recent', recentRef.current)
+      setNotice({ text: `${entry.name} isn't there any more, so it left Recent.` })
+      return false
+    }
+    if (entry.root && !(await openFolder(entry.root))) return false
+    return openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root })
   }
 
   // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
@@ -513,5 +567,5 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
+  return { recent, openRecent, forgetRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }

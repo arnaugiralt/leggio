@@ -8,10 +8,12 @@ import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDef
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
+import { ChevronDown, ChevronLeft, ChevronRight, List, X } from './icons.jsx'
+import { LinkForm, OpenMenu, recentWhere } from './OpenMenu.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
+const KEYS = { file: isMac ? '⌘O' : 'Ctrl+O', folder: isMac ? '⇧⌘O' : 'Ctrl+Shift+O' }
 const UI_KEY = 'leggio.ui'
 const TIP_KEY = 'leggio.install-tip-dismissed'
 const COPY_KEY = 'leggio.copy-note-dismissed'
@@ -78,7 +80,7 @@ export function App() {
   const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
   const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
-  const { loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
+  const { recent, openRecent, forgetRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
     onReveal: path => {
@@ -174,10 +176,7 @@ export function App() {
     seen.current.drawer = ui.sidebarOpen
   }, [ui.sidebarOpen])
 
-  const linkInput = useRef()
-  useEffect(() => {
-    if (linkField) linkInput.current.focus()
-  }, [linkField])
+  const openControl = useRef() // OpenMenu's showLink, for the narrow More menu
   const openLinkRef = useRef(openLink)
   openLinkRef.current = openLink // the paste listener is set up once, at mount
 
@@ -373,6 +372,15 @@ export function App() {
     }
   }
 
+  // Recent leaves out what is open: it is always the newest entry.
+  const isOpen = e => current && e === recent[0]
+  const others = recent.filter(e => !isOpen(e))
+  const forgotten = useRef(null)
+  function forget() {
+    forgotten.current = forgetRecent()
+    setNotice({ text: 'Recent is cleared.', action: 'undoForget' })
+  }
+
   // The one notice slot shows the first of these that applies.
   const shown = [
     // A web document on its way, over the one being read (with nothing open, the main area says it instead).
@@ -393,6 +401,7 @@ export function App() {
   const actions = {
     install: ['Install', install],
     cancel: ['Cancel', () => loading?.cancel()],
+    undoForget: ['Undo', () => (forgetRecent(forgotten.current ?? []), setNotice(null))],
     images: ['Load images', loadImages],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', () => pickFolder({ forCurrent: true })],
@@ -418,7 +427,20 @@ export function App() {
           {foreign ? 'Save file' : 'Share'}
         </button>
       )}
-      <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open file</button>
+      {/* Wide: one Open button and its menu. Narrow: the same actions, flat in More, with no menu inside a menu. */}
+      <button type="button" class="quiet open-btn" popovertarget="open-menu" aria-label="Open" title="Open a file, folder or link">
+        Open <ChevronDown size="1em" />
+      </button>
+      <button type="button" class="quiet narrow-item menu-sep" onClick={pickFile}>Open a file…</button>
+      {fs.canOpenFolders && <button type="button" class="quiet narrow-item" onClick={pickFolder}>Open a folder…</button>}
+      <button type="button" class="quiet narrow-item" onClick={e => (e.stopPropagation(), e.currentTarget.closest('[popover]').hidePopover(), openControl.current.showLink())}>
+        Open a link…
+      </button>
+      {others.length > 0 && (
+        <button type="button" class="quiet narrow-item" onClick={e => (e.stopPropagation(), e.currentTarget.closest('[popover]').hidePopover(), openControl.current.showRecent())}>
+          Recent…
+        </button>
+      )}
     </div>
   )
   const classes = ['app', ui.sidebarOpen && 'sidebar-open', showSettings && 'settings-open', dragging && 'dragging'].filter(Boolean).join(' ')
@@ -466,6 +488,7 @@ export function App() {
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
+        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
         {foreign && (
           <div id="shared-info" class="shared-pop" popover="auto">
             <p class="shared-pop-title">{web ? `Read from ${host}` : 'Shared with you'}</p>
@@ -558,14 +581,26 @@ export function App() {
           </div>
         ) : (
           <div class="empty">
-            <p class="empty-title">{restorable ? 'Welcome back' : 'Drop a markdown file or folder here'}</p>
-            {restorable ? (
+            <p class="empty-title">{recent.length || restorable ? 'Welcome back' : 'Drop a markdown file or folder here'}</p>
+            {/* What was read last comes first: Recent, or the folder of an older session that kept no list. */}
+            {recent.length > 0 ? (
+              <ul class="recent-list" aria-label="Recent">
+                {recent.slice(0, 3).map(entry => (
+                  <li key={entry.key ?? entry.when}>
+                    <button type="button" class="quiet recent-row" onClick={() => openRecent(entry)}>
+                      <span class="menu-name">{entry.name}</span>
+                      <span class="menu-meta">{recentWhere(entry)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : restorable ? (
               <button type="button" class="quiet primary" onClick={() => restore()}>Continue in {restorable.folder.name}</button>
             ) : (
               <button type="button" class="quiet primary" onClick={pickFile}>Open a file</button>
             )}
             <div class="empty-actions">
-              {restorable && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
+              {(recent.length > 0 || restorable) && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
               {fs.canOpenFolders && <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>}
               {!linkField && (
                 <button type="button" class="quiet" onClick={() => setLinkField(true)}>
@@ -573,29 +608,7 @@ export function App() {
                 </button>
               )}
             </div>
-            {linkField && (
-              <form
-                class="link-form"
-                onSubmit={e => {
-                  e.preventDefault()
-                  if (openLink(e.currentTarget.elements.link.value)) setLinkField(false)
-                }}
-              >
-                <input
-                  ref={linkInput}
-                  name="link"
-                  type="url"
-                  required
-                  placeholder="https://…"
-                  aria-label="Address of a markdown document"
-                  onKeyDown={e => e.key === 'Escape' && setLinkField(false)}
-                  onBlur={e => !e.currentTarget.value && !e.relatedTarget?.closest('.link-form') && setLinkField(false)}
-                />
-                <button type="submit" class="quiet notice-action">
-                  Open
-                </button>
-              </form>
-            )}
+            {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} />}
             <p class="empty-hint">Files are read on this device and never uploaded. Paste a link anywhere to open it.</p>
             <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
