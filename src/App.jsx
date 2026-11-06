@@ -576,7 +576,7 @@ export function App() {
                 </button>
               </form>
             )}
-            <p class="empty-hint">Files are read on this computer and never uploaded. Paste a link anywhere to open it.</p>
+            <p class="empty-hint">Files are read on this device and never uploaded. Paste a link anywhere to open it.</p>
             <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
             </p>

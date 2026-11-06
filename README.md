@@ -4,7 +4,7 @@
 
 A markdown reader built for reading. Calm, customizable, offline, private.
 
-**[Open Leggio](https://leggio.compostela.dev)** on a computer, best in Chrome or Edge. It works in the browser with no account, and you can install it as an app from there.
+**[Open Leggio](https://leggio.compostela.dev)** on a computer or a phone, best in Chrome or Edge on a computer. It works in the browser with no account, and you can install it as an app from there (on an iPhone or iPad: Share, then Add to Home Screen).
 
 <img src=".github/screenshot.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
 
@@ -22,7 +22,7 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 - **History.** Back and forward (⌘[ and ⌘]) walk the documents you opened and keep your scroll position. Pin files and folders to keep them across sessions, and Leggio reopens where you left off.
 - **Share.** Copy a link that carries the document itself. Nothing is uploaded: the text lives in the link. The person who opens it sees that it was shared, can save it as a file, and web images wait for their click. A long document makes a long link, so for one that is already online (a gist, a file on GitHub: use its Raw address), paste that address into Leggio instead: it opens from there, and Share gives a short link to it.
 - **An app of its own.** Install it from the address bar. It gets its own window, works offline, and opens `.md` files from Finder or Explorer.
-- **Private.** Your files are read on your computer and never uploaded. No accounts, no analytics, no server. Leggio only fetches what you ask it to open. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
+- **Private.** Your files are read on your device and never uploaded. No accounts, no analytics, no server. Leggio only fetches what you ask it to open. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
 
 ### Themes
 
@@ -51,7 +51,7 @@ Shortcuts: ⌘O opens a file, ⇧⌘O a folder, ⌘B shows or hides the Files pa
 
 ## Requirements
 
-A browser on a computer. Chrome or Edge works best: Leggio reads files and folders through the File System Access API, which gives live reload, pins and restoring the last document. In other browsers, or when a company setting blocks file access, Leggio reads a copy of the files you open. A copy doesn't update when the file changes, and pins and restore are off.
+A recent browser, on a computer or a phone. Chrome or Edge on a computer works best: Leggio reads files and folders through the File System Access API, which gives live reload, pins and restoring the last document. In other browsers, on phones and tablets, or when a company setting blocks file access, Leggio reads a copy of the files you open. A copy doesn't update when the file changes, and pins and restore are off. Links, share links and documents opened from a web address work everywhere.
 
 ## Develop
 
