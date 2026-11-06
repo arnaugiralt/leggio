@@ -388,6 +388,10 @@ kbd {
    exactly; families that only ship 400 and 700 round up to 700, which is where this started. */
 .prose :is(h1, h2, h3, h4, h5, h6), .prose :is(strong, b) { font-weight: 600; }
 .prose a { color: var(--color-accent); }
+.footnote-ref a { padding: 0 0.1em; text-decoration: none; } /* a number, not a word: no underline, a little room to hit */
+.footnotes { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--ui-rule); font-size: 0.9em; }
+.footnotes ol { padding-left: 1.5em; }
+.footnote-back { text-decoration: none; }
 .prose img { max-width: 100%; }
 .prose blockquote {
   margin: 1em 0;

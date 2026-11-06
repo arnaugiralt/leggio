@@ -228,6 +228,74 @@ md.core.ruler.push('html_allowlist', state => {
   }
 })
 
+// Footnotes: [^label] in the text, "[^label]: note" on a line of its own (lazy continuation lines join it).
+// Notes are numbered in the order they are first cited and listed at the end, each with a way back; a citation
+// with no note stays text, and a note nobody cites is left out. The note text renders inline, through the same
+// rules as the rest (so the HTML allowlist applies).
+const NOTE_DEF = /^\[\^([^\]\s]+)\]:[ \t]?(.*)$/
+const noteId = label => label.replace(/[^\p{L}\p{N}_-]/gu, '-')
+
+md.block.ruler.before(
+  'reference',
+  'footnote_def',
+  (state, startLine, endLine, silent) => {
+    if (state.sCount[startLine] - state.blkIndent >= 4) return false // indented: a code block
+    const line = n => state.src.slice(state.bMarks[n] + state.tShift[n], state.eMarks[n])
+    const m = NOTE_DEF.exec(line(startLine))
+    if (!m) return false
+    if (silent) return true
+    let text = m[2]
+    let next = startLine + 1
+    while (next < endLine && !state.isEmpty(next) && !NOTE_DEF.test(line(next))) text += `\n${line(next++)}`
+    const notes = (state.env.notes ??= { text: {}, order: [], cited: {} })
+    notes.text[m[1]] ??= text
+    state.line = next
+    return true
+  },
+  { alt: ['paragraph', 'reference'] },
+)
+
+md.inline.ruler.after('image', 'footnote_ref', (state, silent) => {
+  const src = state.src
+  if (src.charCodeAt(state.pos) !== 0x5b /* [ */ || src.charCodeAt(state.pos + 1) !== 0x5e /* ^ */) return false
+  const end = src.indexOf(']', state.pos + 2)
+  const label = end > 0 && src.slice(state.pos + 2, end)
+  const notes = state.env.notes
+  if (!label || /\s/.test(label) || notes?.text[label] === undefined) return false
+  if (!silent) {
+    if (!notes.order.includes(label)) notes.order.push(label)
+    notes.cited[label] = (notes.cited[label] ?? 0) + 1
+    const token = state.push('footnote_ref', '', 0)
+    token.meta = { label, n: notes.order.indexOf(label) + 1, nth: notes.cited[label] }
+  }
+  state.pos = end + 1
+  return true
+})
+
+md.renderer.rules.footnote_ref = (tokens, idx) => {
+  const { label, n, nth } = tokens[idx].meta
+  const id = noteId(label)
+  return `<sup class="footnote-ref"><a href="#fn-${id}" id="fnref-${id}${nth > 1 ? `-${nth}` : ''}">${n}</a></sup>`
+}
+
+md.core.ruler.push('footnote_tail', state => {
+  const notes = state.env.notes
+  if (state.inlineMode || !notes?.order.length) return
+  const token = new state.Token('footnote_block', '', 0)
+  token.meta = notes
+  state.tokens.push(token)
+})
+
+md.renderer.rules.footnote_block = (tokens, idx, options, env) => {
+  const notes = tokens[idx].meta
+  const items = notes.order.map(label => {
+    const id = noteId(label)
+    const text = md.renderInline(notes.text[label], { share: env.share })
+    return `<li id="fn-${id}">${text} <a href="#fnref-${id}" class="footnote-back" aria-label="Back to the text">↩</a></li>`
+  })
+  return `<section class="footnotes" aria-label="Notes">\n<ol>\n${items.join('\n')}\n</ol>\n</section>\n`
+}
+
 // Tables get a wrapper so they can be wider than the text column and scroll when wider than the window.
 md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
 md.renderer.rules.table_close = () => '</table>\n</div>\n'

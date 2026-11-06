@@ -219,3 +219,25 @@ test('README tables, headings and emphasis in HTML render', () => {
   assert.match(out, /<h1 align="center">Name<\/h1>/)
   assert.match(out, /<table><tr><td colspan="2"><b>Bold<\/b> <em>em<\/em> <code>x<\/code><\/td><\/tr><\/table>/)
 })
+
+test('footnotes: a reference links to a note at the end, and back', () => {
+  const out = render('Text with a note[^1] and another[^b].\n\n[^1]: The *first* note.\n[^b]: The second,\n  over two lines.\n')
+  assert.match(out, /<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1<\/a><\/sup>/)
+  assert.match(out, /<sup class="footnote-ref"><a href="#fn-b" id="fnref-b">2<\/a><\/sup>/)
+  assert.match(out, /<section class="footnotes"[^>]*>\s*<ol>/)
+  assert.match(out, /<li id="fn-1">The <em>first<\/em> note\. <a href="#fnref-1" class="footnote-back"/)
+  assert.match(out, /<li id="fn-b">The second,\s*over two lines\./)
+  assert.doesNotMatch(out, /\[\^1\]:/)
+})
+
+test('footnotes: a repeated reference keeps its number, unknown ones stay text, unused notes are left out', () => {
+  const out = render('A[^x] B[^x] C[^nope].\n\n[^x]: Note.\n[^unused]: Never cited.\n')
+  assert.equal(out.match(/href="#fn-x"/g).length, 2)
+  assert.match(out, /id="fnref-x-2"/)
+  assert.match(out, /C\[\^nope\]/)
+  assert.doesNotMatch(out, /Never cited/)
+})
+
+test('footnote text goes through the same HTML allowlist', () => {
+  assert.doesNotMatch(render('X[^1]\n\n[^1]: <img src=x onerror=alert(1)>\n'), /onerror=/)
+})
