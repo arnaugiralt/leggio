@@ -85,6 +85,7 @@ export function App() {
   const [copyNoticeHidden, setCopyNoticeHidden] = useState(() => remembered(COPY_KEY))
   const [webImages, setWebImages] = useState({ count: 0, hosts: [] }) // in a shared or web document, reported by Viewer
   const [linkField, setLinkField] = useState(false) // the empty state's address field is showing
+  const [linkBusy, setLinkBusy] = useState(false) // an address field is waiting for its document and says so itself
   // For one shared document, by its share id, so another link starts with web images off again. Read during
   // render, not reset in an effect: an effect runs after Viewer has already loaded the next document's images.
   const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
@@ -496,7 +497,7 @@ export function App() {
   // The one notice slot shows the first of these that applies.
   const shown = [
     // A web document on its way, over the one being read (with nothing open, the main area says it instead).
-    loading && current && { text: `Opening ${loading.name} from ${loading.host}…`, action: 'cancel' },
+    loading && current && !linkBusy && { text: `Opening ${loading.name} from ${loading.host}…`, action: 'cancel' },
     // A stated notice: an error, a deleted file. Dismissing a stated folder offer also hides the derived one.
     notice && { ...notice, dismiss: notice.action !== 'another' && (() => (setNotice(null), setFolderOfferHidden(true))) },
     // Relative links and images cannot resolve without the file's folder.
@@ -526,7 +527,12 @@ export function App() {
   }
   // Read, Pin, Share and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
   const menu = read => (
-    <div id="bar-menu" class="bar-menu" popover="auto" onKeyDown={e => e.currentTarget.matches(':popover-open') && menuKeys(e)} onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
+    <div
+      id="bar-menu"
+      class="bar-menu"
+      popover="auto"
+      onToggle={e => e.newState === 'open' && [...e.currentTarget.querySelectorAll('button')].find(b => b.offsetParent)?.focus()}
+      onKeyDown={e => e.currentTarget.matches(':popover-open') && menuKeys(e)} onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
       {read}
       {hasContents && (
         <button type="button" class="quiet menu-contents" onClick={openContentsFromMenu}>Contents</button>
@@ -642,7 +648,7 @@ export function App() {
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
-        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} onCancelLink={cancelOpen} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
+        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} onCancelLink={cancelOpen} onLinkBusy={setLinkBusy} notify={text => setNotice({ text })} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
         {foreign && (
           <div id="shared-info" class="shared-pop" popover="auto">
             <p class="shared-pop-title">{web ? `Read from ${host}` : 'Shared with you'}</p>
@@ -719,7 +725,7 @@ export function App() {
         />
       )}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={q => (setQuery(q), q.trim() || setFind(null))} restorable={folder ? null : restorable} onRestore={() => restore()} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={q => (setQuery(q), q.trim() || setFind(null))} restorable={folder ? null : restorable} onRestore={() => restore({ folder: restorable.folder })} />
       </nav>
       <main class="main">
         {shown && (
@@ -779,7 +785,7 @@ export function App() {
                 </button>
               )}
             </div>
-            {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} onCancel={cancelOpen} />}
+            {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} onCancel={cancelOpen} onBusy={setLinkBusy} notify={text => setNotice({ text })} />}
             <p class="empty-hint">Files are read on this device and never uploaded.{touch ? '' : ' Paste a link anywhere to open it.'}</p>
             {!touch && <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel

@@ -191,7 +191,7 @@ body {
 .open-pop .link-form { width: min(24rem, calc(100vw - 2.5rem)); padding: 0.25rem; }
 .menu-heading { margin: 0.5rem 0.75rem 0.15rem; padding-top: 0.5rem; border-top: 1px solid var(--ui-hairline); font-size: 0.75rem; color: var(--ui-faint); }
 .menu-heading:first-child { margin-top: 0.25rem; padding-top: 0; border-top: 0; } /* Recent alone, from the More menu */
-.menu-item { white-space: nowrap; } /* a mono interface font wrapped "Open a folder…" */
+.menu-item, .narrow-item { white-space: nowrap; } /* a mono interface font wrapped "Open a folder…" */
 .menu-forget { margin-top: 0.25rem; border-top: 1px solid var(--ui-hairline); border-radius: 0 0 6px 6px; } /* an action, not one more document */
 .menu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg); }
 .menu-meta { flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: var(--ui-faint); }

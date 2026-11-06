@@ -243,6 +243,9 @@ function allowHtml(html, share, open) {
         out += md.utils.escapeHtml(m[0])
         continue
       }
+      // An inline tag left open around a block one (an <a> around a <table>) is reopened by the browser after the
+      // block and runs on into the next paragraph; close it here instead.
+      if (stack === open.block) out += closing(open.inline)
       out += openTag(tag, m[3], share)
       stack.push(tag)
     } else if (stack.includes(tag)) {
@@ -260,7 +263,10 @@ md.core.ruler.push('html_allowlist', state => {
     if (token.type === 'html_block' && !token.meta?.ours) {
       const { html, kept } = allowHtml(token.content, state.env.share, open)
       // Nothing in it was allowed: it was never really HTML to us, so it reads as a paragraph, markdown and all.
-      token.content = kept ? html + closing(open.inline) : `<p>${md.renderInline(token.content.trim(), { share: state.env.share })}</p>\n`
+      // A block of comments only (a README's "<!-- badges -->") is nothing at all. The fallback shares this
+      // document's env, so footnote citations in it still find their notes.
+      const text = token.content.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim()
+      token.content = kept ? html + closing(open.inline) : text ? `<p>${md.renderInline(text, state.env)}</p>\n` : ''
     }
     const children = token.children ?? []
     for (const child of children) {

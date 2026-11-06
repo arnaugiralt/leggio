@@ -26,6 +26,8 @@ function linkFromHash() {
 }
 // The copy id the link's document gets, so an entry that already holds it is recognised.
 const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + withoutSection(share.httpsUrl(link.url)))
+// A web document's link, with the section it was opened at.
+const webLink = handle => `#url=${encodeURIComponent(handle.at ? `${handle.web}#${handle.at}` : handle.web)}`
 // A #section as written in a link; a malformed escape is looked up as it is.
 function decoded(text) {
   try {
@@ -86,7 +88,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // opens their document, so skip an entry that holds this link's document. Not "an entry without state":
   // Chrome copies the previous entry's state onto an entry typed into the address bar.
   useEffect(() => {
-    const open = link => (link.share ? openShared(link.share) : openUrl(link.url))
+    // The browser already made this link's entry, at load or when the hash changed: the document goes onto it.
+    const open = link => (link.share ? openShared(link.share) : openUrl(link.url, { here: true }))
     if (linkAtLoad.current) open(linkAtLoad.current)
     const onHash = async () => {
       const link = linkFromHash()
@@ -362,7 +365,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // A web page's source is no document to read (a GitHub file page, say, instead of its raw file).
     if (/^\s*<(?:!doctype html|html[\s>])/i.test(text)) return fail('This address is a web page, not a markdown file. On GitHub, open the file and use the address of its Raw button.')
     const file = new File([text], share.docName(url, text), { type: 'text/markdown' })
-    const ok = await openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here })
+    // at: the section it was opened at, kept in its link so a reload opens there again.
+    const ok = await openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url, ...(section && { at: section }) }, { here })
     if (ok && section) requestAnimationFrame(() => document.getElementById(decoded(section))?.scrollIntoView({ block: 'start' }))
     return ok
   }
@@ -585,7 +589,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // document never reopens the shared one.
     // A web document opened from inside Leggio gets its own link here, once it has arrived.
     const page = location.pathname + location.search
-    if (push) history.pushState(null, '', entry.handle?.web ? `${page}#url=${encodeURIComponent(entry.handle.web)}` : entry.handle?.shared ? location.href : page)
+    if (push) history.pushState(null, '', entry.handle?.web ? `${page}${webLink(entry.handle)}` : entry.handle?.shared ? location.href : page)
     nav.updateCurrentEntry({ state: entry })
   }
 
@@ -600,13 +604,14 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // reopen the link on reload, and replaceState is out, so another document gets an entry of its own.
     const onLink = !(entry.handle?.shared || entry.handle?.web) && /^#(share|url)=/.test(location.hash)
     // A web document opened from inside Leggio isn't on its link yet: it takes an entry that is.
-    const needsLink = entry.handle?.web && !here && location.hash !== `#url=${encodeURIComponent(entry.handle.web)}`
+    const needsLink = entry.handle?.web && !here && location.hash !== webLink(entry.handle)
     if ((!prev || same || here) && !onLink && !needsLink) return writeEntry(entry)
     if (prev) writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
     writeEntry(entry, true)
   }
 
   async function goTo(entry) {
+    fetching.current?.abort() // a web document still on its way would land after the entry the reader went to
     // ponytail: Chrome keeps only the current entry's state across a reload, so older entries come back
     // empty. Mirroring each folder path into history.state would let them reopen from the open folder.
     // No handle: an entry saved before plain files became copies.

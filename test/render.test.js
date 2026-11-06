@@ -297,3 +297,16 @@ test('front matter needs a key, or is empty', () => {
   const rule = render('---\nIntro text\n---\n# T\n')
   assert.match(rule, /Intro text/)
 })
+
+test('a comment-only HTML block renders nothing, and footnotes work in the paragraph fallback', () => {
+  assert.equal(render('<!-- badges -->\n').trim(), '')
+  assert.match(render('<section>\nA claim[^1].\n</section>\n\n[^1]: Source.\n'), /href="#fn_1"/)
+})
+
+// Found in Chromium: an <a> left open around a table survives the table (the parser reopens it after), so the
+// link reached the next paragraph. Inline tags close before a block tag opens.
+test('an inline tag never wraps a block tag', () => {
+  const out = render('<a href="https://x.test"><table><tr><td>cell</td></tr></table></a>\n\nAfter.\n')
+  assert.match(out, /<a href="https:\/\/x.test"><\/a><table>/)
+  assert.doesNotMatch(out.slice(out.indexOf('<table>')), /<a\b/)
+})

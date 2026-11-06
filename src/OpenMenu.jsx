@@ -4,18 +4,30 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 // behaves the same in both. onOpen(text, { say }) is openLink: false when the text isn't a link, else a promise of
 // whether the document opened. Until it has, the field keeps what was typed; a failure is said under the field,
 // with how to fix it, and focus stays there.
-export function LinkForm({ onOpen, onClose, onCancel }) {
+// onBusy tells the page the field is waiting, so the notice slot doesn't say "Opening…" a second time; notify
+// carries a failure that arrives after the field was closed (the menu dismissed while it waited).
+export function LinkForm({ onOpen, onClose, onCancel, onBusy, notify }) {
   const input = useRef()
+  const mounted = useRef(true)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  useEffect(() => input.current.focus(), [])
+  const [busy, setBusyState] = useState(false)
+  const setBusy = b => (setBusyState(b), onBusy?.(b))
+  useEffect(() => {
+    input.current.focus()
+    return () => {
+      mounted.current = false
+      onBusy?.(false)
+    }
+  }, [])
+  const say = text => (mounted.current ? setError(text) : notify?.(text))
   async function submit(e) {
     e.preventDefault()
     setError('')
-    const result = onOpen(input.current.value, { say: setError })
+    const result = onOpen(input.current.value, { say })
     if (result === false) return setError('Enter an https address, like https://example.com/notes.md.')
     setBusy(true)
     const ok = await result
+    if (!mounted.current) return
     setBusy(false)
     if (ok) onClose()
     else input.current?.focus()
@@ -75,7 +87,7 @@ export function menuKeys(e) {
 // link, and what was read recently. The bar's "Open" button and the narrow More menu both show it.
 // control.current opens it on just the address field or just Recent, for the narrow More menu, which already
 // lists the other actions.
-export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCancelLink, recent, onRecent, onForget, control }) {
+export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCancelLink, onLinkBusy, notify, recent, onRecent, onForget, control }) {
   const [mode, setMode] = useState('all') // 'all' | 'link' | 'recent'
   const pop = useRef()
   const close = () => pop.current?.hidePopover()
@@ -93,7 +105,7 @@ export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCan
         else setMode('all')
       }}
     >
-      {mode === 'link' && <LinkForm onOpen={onLink} onClose={close} onCancel={onCancelLink} />}
+      {mode === 'link' && <LinkForm onOpen={onLink} onClose={close} onCancel={onCancelLink} onBusy={onLinkBusy} notify={notify} />}
       {mode === 'all' && (
         <>
           <button type="button" class="quiet menu-item" onClick={() => (close(), onFile())}>
