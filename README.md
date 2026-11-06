@@ -14,14 +14,17 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 
 ## Features
 
-- **Files and folders.** Open or drop a file, or open a whole folder and browse its markdown files in the Files panel. Relative links and images work, and the page reloads when the file changes on disk.
+- **Files and folders.** Open or drop a file, or open a whole folder and browse its markdown files in the Files panel, by mouse or keyboard. Search the folder by file name and text. Relative links and images work, and the page reloads when the file changes on disk.
+- **Open anything, any time.** The Open menu opens a file, a folder, a link, or something from Recent. Leggio remembers where you left each document and takes you back there.
 - **Diagrams.** Mermaid diagrams render inline, in the colors of your theme. A click opens one full size.
+- **Real-world markdown.** Footnotes, task lists, front matter kept out of the way, and the HTML that READMEs open with (a centered logo, a table of screenshots, a details block). Print or save as PDF for a clean copy.
 - **Read aloud.** Leggio reads the page to you, highlights the sentence it's on, and with local voices the word too. Choose the voice and the speed.
-- **Themes and type.** Six looks to start from (Default, Quiet, Cobalt, Teletype, Terminal and Ember), then set the fonts, size, weight, line height, text width and colors yourself. Any Google Font works. The Default look follows your system's light or dark setting.
+- **Themes and type.** Six looks to start from (Default, Quiet, Cobalt, Teletype, Terminal and Ember), then set the fonts, size, weight, line height, text width and colors yourself, and save the result as a theme of your own. Any Google Font works. The Default look follows your system's light or dark setting. Export your settings to a file and import them on another device.
 - **Outline.** A contents rail beside the text marks the section you're reading. Click a heading to jump to it.
 - **History.** Back and forward (⌘[ and ⌘]) walk the documents you opened and keep your scroll position. Pin files and folders to keep them across sessions, and Leggio reopens where you left off.
 - **Share.** Copy a link that carries the document itself. Nothing is uploaded: the text lives in the link. The person who opens it sees that it was shared, can save it as a file, and web images wait for their click. A long document makes a long link, so for one that is already online (a gist, a file on GitHub: use its Raw address), paste that address into Leggio instead: it opens from there, and Share gives a short link to it.
 - **An app of its own.** Install it from the address bar. It gets its own window, works offline, and opens `.md` files from Finder or Explorer.
+- **On a phone.** The bar steps aside while you read, and the document you were reading comes back when you return. On an iPhone, add Leggio to the Home Screen from the Share menu.
 - **Private.** Your files are read on your device and never uploaded. No accounts, no analytics, no server. Leggio only fetches what you ask it to open. If you pick an online voice for read-aloud, your browser sends the text being read to that voice service, and the voice setting tells you so.
 
 ### Themes
@@ -43,15 +46,11 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 
 Leggio never edits, renames or deletes your files, and it never will. It only reads.
 
-Shortcuts: ⌘O opens a file, ⇧⌘O a folder, ⌘B shows or hides the Files panel. On Windows, use Ctrl.
-
-## Planned
-
-- Search across a folder.
+Shortcuts: ⌘O opens a file, ⇧⌘O a folder, ⌘B shows or hides the Files panel, ⇧⌘F or / searches the folder, and ? lists them all. On Windows, use Ctrl.
 
 ## Requirements
 
-A recent browser, on a computer or a phone. Chrome or Edge on a computer works best: Leggio reads files and folders through the File System Access API, which gives live reload, pins and restoring the last document. In other browsers, on phones and tablets, or when a company setting blocks file access, Leggio reads a copy of the files you open. A copy doesn't update when the file changes, and pins and restore are off. Links, share links and documents opened from a web address work everywhere.
+A recent browser, on a computer or a phone. Chrome or Edge on a computer works best: Leggio reads files and folders through the File System Access API, which gives live reload, pins and restoring the last document. In other browsers, on phones and tablets, or when a company setting blocks file access, Leggio reads a copy of the files you open. A copy doesn't update when the file changes and can't be pinned; Recent keeps it on the device, so it comes back after a reload. Links, share links and documents opened from a web address work everywhere.
 
 ## Develop
 

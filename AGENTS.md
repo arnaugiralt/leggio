@@ -27,7 +27,7 @@ To stop a dev server that was left running, use `lsof -ti tcp:8000 -sTCP:LISTEN 
 - **No editing, ever.** Leggio never writes, renames or deletes the reader's files. Don't add a feature that does.
 - **No new dependencies without the maintainer's approval.** The project has 13 packages, counting indirect ones, all pinned to exact versions. Vite, the `mermaid` package, shiki and Tauri were each rejected because of how many packages they add. Diagrams use `beautiful-mermaid`, which is small. If a few lines of code can do the job, write the lines.
   - If you think a dependency is needed, stop and tell your user. Your user opens an issue, and the maintainer decides.
-- **Leggio sends nothing about the reader's files, and fetches only what the reader asked to open.** No accounts, no analytics, no server code, no storage, no requests that carry file names or content. Four things use the network: a document the reader opens by its web address (and that address's own images), the Google Fonts stylesheets of some themes, web images that a document links to, and online voices. When the reader picks an online voice for read-aloud, the browser sends the text being read to that voice service, and the voice setting says so. Don't add other outside requests.
+- **Leggio sends nothing about the reader's files, and fetches only what the reader asked to open.** No accounts, no analytics, no server code, nothing stored off the device, no requests that carry file names or content. Four things use the network: a document the reader opens by its web address (and that address's own images), the Google Fonts stylesheets of some themes, web images that a document links to, and online voices. When the reader picks an online voice for read-aloud, the browser sends the text being read to that voice service, and the voice setting says so. Don't add other outside requests.
 
 ## Architecture
 
@@ -39,14 +39,17 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/App.jsx` | Layout, settings, drop and keyboard handling, the top bar and the notice slot. |
 | `src/useLibrary.js` | What is open: the folder, pins, the current document, restore after reload, the live-reload watchers, files opened from the operating system, session history and `followLink`. Every action that opens something lives here. |
 | `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
-| `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s, which JSON can't hold. Failures resolve to `undefined`. |
+| `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s (which JSON can't hold), pins, the restore record and Recent. Failures resolve to `undefined`. |
+| `src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, and the scroll position each document was left at. Pure, so it runs under node. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
 | `src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, accepts only https addresses, and caps how much of a stream is read. Pure, so it runs under node. |
-| `src/render.js` | One markdown-it instance (`html: false`), the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
-| `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background. |
+| `src/render.js` | One markdown-it instance, the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers, footnotes, hidden front matter, and the HTML allowlist (see below). **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
+| `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background, saved themes, and the checks for an imported settings file. |
 | `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
-| `src/Sidebar.jsx`, `Outline.jsx`, `Settings.jsx`, `icons.jsx` | Pins and folder tree; heading list with the active section; the settings form; inline SVG icons (Lucide paths). |
+| `src/Sidebar.jsx` | Pins, the folder tree and search in the folder, with the tree keyboard pattern they share. |
+| `src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link, Recent) and its address field; the keyboard shortcuts list. |
+| `src/Outline.jsx`, `Settings.jsx`, `icons.jsx` | Heading list with the active section; the settings form with saved themes and export and import; inline SVG icons (Lucide paths). |
 | `src/styles.css` | All styles. |
 | `manifest.json`, `sw.js`, `_headers` | The installable app shell, the service worker, and the Cloudflare headers with the content security policy. |
 | `build.mjs` | The dev server, and the production build into `site/`. |
@@ -81,21 +84,32 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ### Layout
 
-- Below 760 px (`NARROW` in `App.jsx`, and the same breakpoint in `styles.css`), the files panel is a drawer, the settings sheet is full width, and Read, Contents, Pin, Share (Save file on a shared document) and Open move into the More menu.
+- Below 760 px (`NARROW` in `App.jsx`, and the same breakpoint in `styles.css`), the files panel is a drawer, the settings sheet is full width, and Read, Contents, Pin, Share (Save file on a shared document) and the Open actions move into the More menu, flat, below a divider. Below 1100 px the settings sheet covers the page instead of squeezing the text.
+- Phones and tablets in a narrow window (`PHONE` in `App.jsx`: a coarse pointer, and the same query in `styles.css`) get their own bar: ☰ ‹ › ⋯ as icons with accessible names, Settings in More, 44 px targets, and the bar and notice slide away while scrolling down. A narrow desktop window keeps the text bar.
+- Hide an action that can't work rather than show one that fails: "Open a folder" and ⇧⌘O only where `fs.canOpenFolders`, the Files button only where it can show something.
+- The bar: text buttons on desktop, plus the Back and Forward arrows; on phones, only ☰ ‹ › ⋯ as icons. No pills, chips or badges. Menus are text only.
+- One place for each kind of thing: opening in the Open menu (the empty state shows the same actions as buttons); keeping in pins; going back in Back, Forward and Recent; the look in Settings; messages in the notice slot.
 - In the installed app, the bar is the window's title bar (`window-controls-overlay` in `manifest.json` and `styles.css`). Its empty parts drag the window. Anything clickable you add to the bar must be a `button`, `a`, `input`, `select` or popover, or get `app-region: no-drag`, or it won't take clicks.
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
-  1. A stated notice, such as an error or a deleted file.
-  2. The web images offer, in a shared document with web images.
-  3. The folder offer (never for a shared document).
-  4. The copy notice, while the document is a copy (never for a shared document, which shows "Shared /" before its name in the bar instead).
-  5. The install tip.
+  1. A web document on its way ("Opening … from …", with Cancel), over an open document. With nothing open, the main area says it instead.
+  2. A stated notice, such as an error or a deleted file.
+  3. The web images offer, in a shared or web document with images from other hosts.
+  4. The folder offer (never for a shared or web document).
+  5. The copy notice, while the document is a copy (never for a shared or web document, which shows "Shared /" or its host before its name in the bar instead).
+  6. The install tip, or on iOS Safari the Add to Home Screen tip.
 
 ### Copies
 
 - When the browser has no File System Access API (Firefox, Safari), or blocks it (a managed Chrome can, by policy), files open through a file input, a folder input (`webkitdirectory`) or a drop (`webkitGetAsEntry`). `fs.js` turns them into a copy: plain objects with `File`s inside, marked by a `copy` id.
-- A copy has no live reload, no pins and no restore after a reload. Links, images, the tree and Back and Forward work.
+- A copy has no live reload and no pins. Links, images, the tree and Back and Forward work. After a reload a copy comes back through Recent, which keeps its text on the device (IndexedDB), as does a shared document.
 - A copy must stay plain data, never a class or an object with methods. History state stores it through a structured clone, which drops methods.
 - A picker that throws (not a cancel) marks file access as blocked for the session, and from then on the inputs open directly.
+
+### HTML in documents
+
+- markdown-it runs with `html: true` only so HTML reaches the allowlist in `render.js`, which rebuilds each allowed tag from its name and listed attributes and turns everything else back into text. Never let HTML through as written.
+- `href` and `src` go through markdown-it's `validateLink`. An HTML `<img>` follows the markdown image rule: local, or any non-data one in a shared or web document, becomes `data-src`.
+- Add a tag only if it can carry no script and no address beyond `href` and `src`, and add an attack case to `render.test.js`.
 
 ### Shared links
 
@@ -120,7 +134,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ## Check your change
 
-`pnpm test` covers only the modules with no user interface: `render`, `settings`, `share`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them.
+`pnpm test` covers only the modules with no user interface: `render`, `settings` (presets' contrast, import checks), `share`, `recent`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them.
 
 Check everything else in a real browser, in a wide window and at about 390 px wide. Browser automation can't drive the native file pickers, so the app exposes `window.leggio = { openFolder, openFile, openFolderFor }`. Use a folder in the origin private file system (storage the browser keeps for the page, with no picker). Run this in the page:
 
