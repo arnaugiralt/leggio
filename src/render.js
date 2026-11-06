@@ -174,7 +174,12 @@ const ALLOWED = {
   code: [],
 }
 const VOID = new Set(['img', 'br'])
-const TAG = /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g
+// Tags that stay open across markdown blocks, as <details> does around a markdown body. The rest are inline:
+// whatever a paragraph or an HTML block leaves open is closed where it ends.
+const BLOCK = new Set(['p', 'div', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+// No part of a tag may cross a "<": without that the pattern backtracks quadratically, and a few KB of share
+// link holding '<a x="' over and over froze the tab for minutes.
+const TAG = /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^<>"']|"[^<"]*"|'[^<']*')*)>/g
 const ATTR = /([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
 
 function attrValue(tag, name, raw, share) {
@@ -186,21 +191,20 @@ function attrValue(tag, name, raw, share) {
   if (name === 'href' || name === 'src') {
     const url = md.normalizeLink(value)
     if (!md.validateLink(url)) return null
+    // A held image keeps the address as written: Viewer resolves it against the folder or the document's address.
     if (name === 'src' && (isLocal(value) || (share && !/^data:/i.test(value)))) return ['data-', value]
     return ['', url]
   }
   return ['', value]
 }
 
-function allowTag(close, name, attrs, share) {
-  const tag = name.toLowerCase()
-  if (!Object.hasOwn(ALLOWED, tag)) return null
-  if (close) return VOID.has(tag) ? '' : `</${tag}>`
+function openTag(tag, attrs, share) {
   let out = `<${tag}`
   for (const [, key, a, b, c] of attrs.matchAll(ATTR)) {
     const attr = key.toLowerCase()
-    if (!ALLOWED[tag].includes(attr) || (a ?? b ?? c ?? null) === null && attr !== 'open') continue
-    const kept = attrValue(tag, attr, a ?? b ?? c, share)
+    const raw = a ?? b ?? c ?? null
+    if (!ALLOWED[tag].includes(attr) || (raw === null && attr !== 'open')) continue
+    const kept = attrValue(tag, attr, raw, share)
     if (!kept) continue
     const [prefix, value] = kept
     out += value === null ? ` ${attr}` : ` ${prefix}${attr}="${md.utils.escapeHtml(value)}"`
@@ -208,23 +212,66 @@ function allowTag(close, name, attrs, share) {
   return `${out}>`
 }
 
-export function allowHtml(html, share = false) {
+const closing = stack => stack.splice(0).reverse().map(t => `</${t}>`).join('')
+
+// Rebuilds allowed tags and escapes everything else. open.inline and open.block are the tags still open: a
+// closing tag only closes one of these (anything left open inside it is closed first), and a stray one is dropped.
+function allowHtml(html, share, open) {
   let out = ''
   let last = 0
+  let kept = 0
   for (const m of html.matchAll(TAG)) {
     out += md.utils.escapeHtml(html.slice(last, m.index))
     last = m.index + m[0].length
     if (m[0].startsWith('<!--')) continue // a comment is the author's note to themselves
-    const kept = allowTag(m[1] === '/', m[2], m[3], share)
-    out += kept ?? md.utils.escapeHtml(m[0])
+    const tag = m[2].toLowerCase()
+    if (!Object.hasOwn(ALLOWED, tag)) {
+      out += md.utils.escapeHtml(m[0])
+      continue
+    }
+    kept++
+    if (VOID.has(tag)) {
+      if (m[1] !== '/') out += openTag(tag, m[3], share)
+      continue
+    }
+    const stack = BLOCK.has(tag) ? open.block : open.inline
+    if (m[1] !== '/') {
+      out += openTag(tag, m[3], share)
+      stack.push(tag)
+    } else if (stack.includes(tag)) {
+      if (stack === open.block) out += closing(open.inline)
+      const at = stack.lastIndexOf(tag)
+      out += closing(stack.splice(at))
+    }
   }
-  return out + md.utils.escapeHtml(html.slice(last))
+  return { html: out + md.utils.escapeHtml(html.slice(last)), kept }
 }
 
 md.core.ruler.push('html_allowlist', state => {
+  const open = { block: [], inline: [] }
   for (const token of state.tokens) {
-    if (token.type === 'html_block') token.content = allowHtml(token.content, state.env.share)
-    for (const child of token.children ?? []) if (child.type === 'html_inline' && !child.meta?.ours) child.content = allowHtml(child.content, state.env.share)
+    if (token.type === 'html_block' && !token.meta?.ours) {
+      const { html, kept } = allowHtml(token.content, state.env.share, open)
+      // Nothing in it was allowed: it was never really HTML to us, so it reads as a paragraph, markdown and all.
+      token.content = kept ? html + closing(open.inline) : `<p>${md.renderInline(token.content.trim(), { share: state.env.share })}</p>\n`
+    }
+    const children = token.children ?? []
+    for (const child of children) {
+      if (child.type === 'html_inline' && !child.meta?.ours) child.content = allowHtml(child.content, state.env.share, open).html
+    }
+    // A paragraph closes what it opened, so one unclosed <a> can't turn the rest of the page into a link.
+    if (open.inline.length && token.type === 'inline') {
+      const close = new state.Token('html_inline', '', 0)
+      close.content = closing(open.inline)
+      close.meta = { ours: true }
+      children.push(close)
+    }
+  }
+  if (open.block.length && !state.inlineMode) {
+    const close = new state.Token('html_block', '', 0)
+    close.content = `${closing(open.block)}\n`
+    close.meta = { ours: true }
+    state.tokens.push(close)
   }
 })
 
@@ -232,8 +279,9 @@ md.core.ruler.push('html_allowlist', state => {
 // Notes are numbered in the order they are first cited and listed at the end, each with a way back; a citation
 // with no note stays text, and a note nobody cites is left out. The note text renders inline, through the same
 // rules as the rest (so the HTML allowlist applies).
-const NOTE_DEF = /^\[\^([^\]\s]+)\]:[ \t]?(.*)$/
-const noteId = label => label.replace(/[^\p{L}\p{N}_-]/gu, '-')
+const NOTE_DEF = /^\[\^([^\]\s]{1,100})\]:[ \t]?(.*)$/
+// A line that starts another block ends a note, as it ends a paragraph.
+const BLOCK_START = /^(?:#{1,6}(?:\s|$)|```|~~~|>|[-*+][ \t]|\d{1,9}[.)][ \t]|(?:[-*_][ \t]*){3,}$)/
 
 md.block.ruler.before(
   'reference',
@@ -246,7 +294,7 @@ md.block.ruler.before(
     if (silent) return true
     let text = m[2]
     let next = startLine + 1
-    while (next < endLine && !state.isEmpty(next) && !NOTE_DEF.test(line(next))) text += `\n${line(next++)}`
+    while (next < endLine && !state.isEmpty(next) && !NOTE_DEF.test(line(next)) && !BLOCK_START.test(line(next))) text += `\n${line(next++)}`
     const notes = (state.env.notes ??= { text: {}, order: [], cited: {} })
     notes.text[m[1]] ??= text
     state.line = next
@@ -258,8 +306,8 @@ md.block.ruler.before(
 md.inline.ruler.after('image', 'footnote_ref', (state, silent) => {
   const src = state.src
   if (src.charCodeAt(state.pos) !== 0x5b /* [ */ || src.charCodeAt(state.pos + 1) !== 0x5e /* ^ */) return false
-  const end = src.indexOf(']', state.pos + 2)
-  const label = end > 0 && src.slice(state.pos + 2, end)
+  const end = src.slice(state.pos + 2, Math.min(state.posMax, state.pos + 103)).indexOf(']') + state.pos + 2
+  const label = end > state.pos + 2 && src.slice(state.pos + 2, end)
   const notes = state.env.notes
   if (!label || /\s/.test(label) || notes?.text[label] === undefined) return false
   if (!silent) {
@@ -272,10 +320,10 @@ md.inline.ruler.after('image', 'footnote_ref', (state, silent) => {
   return true
 })
 
+// Ids by number, with an underscore: heading ids are letters, digits and hyphens, so they can never meet.
 md.renderer.rules.footnote_ref = (tokens, idx) => {
-  const { label, n, nth } = tokens[idx].meta
-  const id = noteId(label)
-  return `<sup class="footnote-ref"><a href="#fn-${id}" id="fnref-${id}${nth > 1 ? `-${nth}` : ''}">${n}</a></sup>`
+  const { n, nth } = tokens[idx].meta
+  return `<sup class="footnote-ref"><a href="#fn_${n}" id="fnref_${n}${nth > 1 ? `_${nth}` : ''}">${n}</a></sup>`
 }
 
 md.core.ruler.push('footnote_tail', state => {
@@ -288,10 +336,9 @@ md.core.ruler.push('footnote_tail', state => {
 
 md.renderer.rules.footnote_block = (tokens, idx, options, env) => {
   const notes = tokens[idx].meta
-  const items = notes.order.map(label => {
-    const id = noteId(label)
+  const items = notes.order.map((label, i) => {
     const text = md.renderInline(notes.text[label], { share: env.share })
-    return `<li id="fn-${id}">${text} <a href="#fnref-${id}" class="footnote-back" aria-label="Back to the text">↩</a></li>`
+    return `<li id="fn_${i + 1}" tabindex="-1">${text} <a href="#fnref_${i + 1}" class="footnote-back" aria-label="Back to the text">↩</a></li>`
   })
   return `<section class="footnotes" aria-label="Notes">\n<ol>\n${items.join('\n')}\n</ol>\n</section>\n`
 }
@@ -301,9 +348,11 @@ md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
 md.renderer.rules.table_close = () => '</table>\n</div>\n'
 
 // YAML front matter (Obsidian, Jekyll, Hugo) is data about the file, not part of the text: without this it
-// renders as a rule and a heading, and the heading lands in Contents. Only a closed block at the very start.
-const FRONT_MATTER = /^\uFEFF?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
+// renders as a rule and a heading, and the heading lands in Contents. Only a closed block at the very start, and
+// only one that is empty or starts with a key, so a document that opens with a rule keeps its text.
+const FRONT_MATTER = /^\uFEFF?---\r?\n(?:[\w-]+[ \t]*:[\s\S]*?\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
+export const withoutFrontMatter = text => text.replace(FRONT_MATTER, '')
 
 export function render(text, { share = false } = {}) {
-  return md.render(text.replace(FRONT_MATTER, ''), { share })
+  return md.render(withoutFrontMatter(text), { share })
 }

@@ -90,3 +90,7 @@ test('docName keeps a file name and names the rest from the first heading', () =
   assert.equal(docName('https://gist.githubusercontent.com/a/1/raw', 'Intro\n\n# Deploy *guide*  ##\n'), 'Deploy guide')
   assert.equal(docName('https://gist.githubusercontent.com/a/1/raw', 'no heading'), 'raw')
 })
+
+test('docName skips headings in code and front matter', () => {
+  assert.equal(docName('https://g.test/a/1/raw', '---\ntitle: x\n---\n```bash\n# install deps\n```\n\n# Real title\n'), 'Real title')
+})

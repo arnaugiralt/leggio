@@ -222,22 +222,69 @@ test('README tables, headings and emphasis in HTML render', () => {
 
 test('footnotes: a reference links to a note at the end, and back', () => {
   const out = render('Text with a note[^1] and another[^b].\n\n[^1]: The *first* note.\n[^b]: The second,\n  over two lines.\n')
-  assert.match(out, /<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1<\/a><\/sup>/)
-  assert.match(out, /<sup class="footnote-ref"><a href="#fn-b" id="fnref-b">2<\/a><\/sup>/)
+  assert.match(out, /<sup class="footnote-ref"><a href="#fn_1" id="fnref_1">1<\/a><\/sup>/)
+  assert.match(out, /<sup class="footnote-ref"><a href="#fn_2" id="fnref_2">2<\/a><\/sup>/)
   assert.match(out, /<section class="footnotes"[^>]*>\s*<ol>/)
-  assert.match(out, /<li id="fn-1">The <em>first<\/em> note\. <a href="#fnref-1" class="footnote-back"/)
-  assert.match(out, /<li id="fn-b">The second,\s*over two lines\./)
+  assert.match(out, /<li id="fn_1"[^>]*>The <em>first<\/em> note\. <a href="#fnref_1" class="footnote-back"/)
+  assert.match(out, /<li id="fn_2"[^>]*>The second,\s*over two lines\./)
   assert.doesNotMatch(out, /\[\^1\]:/)
 })
 
 test('footnotes: a repeated reference keeps its number, unknown ones stay text, unused notes are left out', () => {
   const out = render('A[^x] B[^x] C[^nope].\n\n[^x]: Note.\n[^unused]: Never cited.\n')
-  assert.equal(out.match(/href="#fn-x"/g).length, 2)
-  assert.match(out, /id="fnref-x-2"/)
+  assert.equal(out.match(/href="#fn_1"/g).length, 2)
+  assert.match(out, /id="fnref_1_2"/)
   assert.match(out, /C\[\^nope\]/)
   assert.doesNotMatch(out, /Never cited/)
 })
 
 test('footnote text goes through the same HTML allowlist', () => {
   assert.doesNotMatch(render('X[^1]\n\n[^1]: <img src=x onerror=alert(1)>\n'), /onerror=/)
+})
+
+// Found in review: the tag pattern backtracked quadratically, so a few KB of share link froze the tab.
+test('a pathological run of unclosed tags renders fast', () => {
+  const started = performance.now()
+  render('<div\n' + '<a x="'.repeat(40000))
+  assert.ok(performance.now() - started < 500, `took ${Math.round(performance.now() - started)} ms`)
+})
+
+test('unclosed allowed tags are closed where they started', () => {
+  const out = render('Text <a href="https://x.test">link and <b>bold\n\nNext paragraph.\n')
+  assert.match(out, /<a href="https:\/\/x.test">link and <b>bold<\/b><\/a><\/p>/)
+  assert.match(out, /<p>Next paragraph\.<\/p>/)
+})
+
+test('a <details> spanning markdown keeps its body, and one left open is closed at the end', () => {
+  const out = render('<details>\n<summary>More</summary>\n\nBody **text**.\n\n</details>\n\nAfter.\n')
+  assert.ok(out.indexOf('Body <strong>text</strong>') < out.indexOf('</details>'))
+  assert.ok(out.indexOf('</details>') < out.indexOf('After.'))
+  assert.match(render('<details>\n<summary>S</summary>\n\nNever closed.\n'), /<\/details>\s*$/)
+})
+
+test('a stray closing tag is dropped, not passed on', () => {
+  assert.doesNotMatch(render('Text </div></details></a> more\n'), /<\/(div|details|a)>/)
+})
+
+test('an HTML block with nothing allowed keeps its markdown', () => {
+  const out = render('<section>\n**bold** and *em*\n</section>\n')
+  assert.match(out, /<strong>bold<\/strong>/)
+  assert.match(out, /&lt;section&gt;/)
+})
+
+test('footnote ids never collide with each other or with headings', () => {
+  const out = render('# fn 1\n\nA[^a-b] B[^a.b].\n\n[^a-b]: One.\n[^a.b]: Two.\n')
+  const ids = [...out.matchAll(/id="([^"]+)"/g)].map(m => m[1])
+  assert.equal(new Set(ids).size, ids.length, ids.join(' '))
+})
+
+test('a footnote ends where a new block starts', () => {
+  const out = render('A[^1].\n\n[^1]: The note.\n# Heading\n')
+  assert.match(out, /<h1[^>]*>Heading<\/h1>/)
+})
+
+test('front matter needs a key, or is empty', () => {
+  assert.doesNotMatch(render('---\n---\n# T\n'), /<hr>/)
+  const rule = render('---\nIntro text\n---\n# T\n')
+  assert.match(rule, /Intro text/)
 })

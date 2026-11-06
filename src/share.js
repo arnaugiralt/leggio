@@ -129,6 +129,8 @@ export function webName(text) {
 export function docName(url, text) {
   const name = webName(url)
   if (/\.[a-z0-9]{1,10}$/i.test(name)) return name
-  const heading = /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1].replace(/[*_`~]/g, '').trim()
+  // A "# comment" in a code block or front matter is not the title.
+  const prose = text.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, '').replace(/^(```|~~~)[\s\S]*?^\1[ \t]*$/gm, '')
+  const heading = /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(prose)?.[1].replace(/[*_`~]/g, '').trim()
   return heading || name
 }
