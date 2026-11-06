@@ -304,7 +304,7 @@ function Backup({ settings, themes, onImport }) {
   )
 }
 
-export function Settings({ settings, onChange, open, dark, themes, onThemes, onImport }) {
+export function Settings({ settings, onChange, open, dark, themes, onThemes, onImport, onShortcuts }) {
   const [undo, setUndo] = useState(null) // the settings a reset replaced
   // getVoices() is empty until the list loads, and Chrome refills it when the network voices arrive.
   const [voices, setVoices] = useState(speech.voices)
@@ -372,6 +372,11 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
         </fieldset>
       ))}
       <Backup settings={settings} themes={themes} onImport={onImport} />
+      {onShortcuts && (
+        <button type="button" class="quiet shortcuts-link" onClick={onShortcuts}>
+          Keyboard shortcuts <kbd>?</kbd>
+        </button>
+      )}
       <button type="button" class="quiet reset" onClick={reset}>Reset to defaults</button>
       {undo && atDefaults && (
         <p class="reset-row" role="status">

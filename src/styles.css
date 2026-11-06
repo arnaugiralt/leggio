@@ -1067,6 +1067,27 @@ html:has(dialog.lightbox[open]) {
   .bar-hidden .notice { transform: translateY(calc(-100% - var(--bar-h))); } /* away with the bar, back with it */
 }
 
+/* Keyboard shortcuts: a small modal list. */
+.shortcuts {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid var(--ui-hairline);
+  border-radius: 12px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 16px 48px -16px color-mix(in oklab, var(--color-fg) 45%, transparent);
+  font-family: var(--ui-font);
+  font-size: 0.85rem;
+}
+.shortcuts::backdrop { background: rgb(0 0 0 / 0.3); }
+.shortcuts-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.shortcuts-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.shortcuts dl { margin: 0; }
+.shortcuts dl div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; border-top: 1px solid var(--ui-hairline); }
+.shortcuts dd { margin: 0; color: var(--ui-muted); text-align: right; }
+.shortcuts kbd { white-space: pre; }
+.settings .shortcuts-link { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; margin-top: 0.5rem; }
+
 /* Print and Save as PDF: the document alone, on paper. */
 @page { margin: 18mm 16mm; }
 @media print {

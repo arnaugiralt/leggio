@@ -10,6 +10,7 @@ import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
 import { ChevronDown, ChevronLeft, ChevronRight, Ellipsis, List, Menu, X } from './icons.jsx'
 import { LinkForm, OpenMenu, recentWhere } from './OpenMenu.jsx'
+import { Shortcuts } from './Shortcuts.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
@@ -82,6 +83,7 @@ export function App() {
   // render, not reset in an effect: an effect runs after Viewer has already loaded the next document's images.
   const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
   const [query, setQuery] = useState('') // search in the open folder, in the Files panel
+  const [shortcuts, setShortcuts] = useState(false) // the keyboard shortcuts list is open
   const [find, setFind] = useState(null) // { q, handle }: a document opened from search, its matches marked
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
@@ -374,6 +376,9 @@ export function App() {
         e.preventDefault()
         setUi(u => ({ ...u, sidebarOpen: true }))
         requestAnimationFrame(() => document.querySelector('#files .search input')?.focus())
+      } else if (e.key === '?' && !mod && !touch && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
+        e.preventDefault()
+        setShortcuts(true)
       } else if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault()
         toggleSidebar()
@@ -760,8 +765,10 @@ export function App() {
           onThemes={setThemes}
           // Imported themes join the saved ones; a name already there keeps the one on this device.
           onImport={read => (change(read.settings), setThemes(t => [...t, ...read.themes.filter(n => !t.some(o => o.name === n.name))]))}
+          onShortcuts={touch ? null : () => setShortcuts(true)}
         />
       </aside>
+      {shortcuts && <Shortcuts mod={isMac ? '⌘' : 'Ctrl+'} canFolders={fs.canOpenFolders} onClose={() => setShortcuts(false)} />}
     </div>
   )
 }
