@@ -16,6 +16,7 @@ const UI_KEY = 'leggio.ui'
 const TIP_KEY = 'leggio.install-tip-dismissed'
 const COPY_KEY = 'leggio.copy-note-dismissed'
 
+const CHAT_LINK = 4000 // characters; see shareLink
 const COPY_NOTICE = { text: "Leggio is reading a copy of this file, so it won't update when the file changes.", action: 'reopen' }
 
 // Dismissals are conveniences: with site storage blocked they last for the session.
@@ -328,29 +329,26 @@ export function App() {
   // The clipboard gets a promise, not the link: compressing is async, and a write after an await may no longer
   // count as part of the click.
   async function shareLink() {
-    let tooLong = 0
+    let size = 0
     const link = share.encode(current.name, current.text).then(code => {
-      if (code.length > share.LINK_LIMIT) throw ((tooLong = code.length), new Error('too long'))
-      return new Blob([`${location.origin}${location.pathname}#share=${code}`], { type: 'text/plain' })
+      const url = `${location.origin}${location.pathname}#share=${code}`
+      size = url.length
+      return new Blob([url], { type: 'text/plain' })
     })
-    link.catch(() => {}) // handled below, through the clipboard write
     const local = [...(article.current?.querySelectorAll('img[data-src]') ?? [])].filter(img => fs.isLocal(img.dataset.src)).length
     try {
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'text/plain': link })])
-      } catch (err) {
-        if (tooLong) throw err
+      } catch {
         // Browsers without promise values in ClipboardItem: write the finished link, still within the click.
         await navigator.clipboard.writeText(await (await link).text())
       }
       const images = local === 1 ? " 1 local image isn't included." : local > 1 ? ` ${local} local images aren't included.` : ''
-      setNotice({ text: `Link copied. Anyone with the link can read this document.${images}` })
+      // Telegram's message limit is 4,096 characters, and Slack turns long messages into snippets around there too.
+      const long = size > CHAT_LINK ? ` At ${Math.round(size / 1000)} KB, chat apps such as Slack or Telegram will probably send the link as a file. For a document this long, sending the file itself works better.` : ''
+      setNotice({ text: `Link copied. Anyone with the link can read this document.${images}${long}` })
     } catch {
-      setNotice({
-        text: tooLong
-          ? `This document is too long to share as a link. A link holds about ${Math.round(share.LINK_LIMIT / 1000)} KB, and this one would be ${Math.round(tooLong / 1000)} KB.`
-          : "Couldn't copy the link.",
-      })
+      setNotice({ text: "Couldn't copy the link." })
     }
   }
 

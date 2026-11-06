@@ -1,9 +1,9 @@
 // A share link carries the document itself in the URL fragment, which browsers never send to a server.
 // Format: '1.' + base64url(deflate-raw(utf8(name + '\n' + text))). The '1.' lets a later format say so.
 
-// ponytail: a guess. Chat and email apps cut long links at sizes nobody documents; tune after testing Slack,
-// WhatsApp and Gmail.
-export const LINK_LIMIT = 32000
+// No length limit when sharing: Chrome takes URLs up to about 2 MB, and the apps a link is pasted into cut at
+// sizes they don't document. A cut link decodes as 'damaged', so the reader sees a notice, never partial text.
+
 // A link is a few KB, but deflate can expand it a thousandfold: stop reading well before memory suffers.
 const MAX_BYTES = 5 * 1024 * 1024
 
