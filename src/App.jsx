@@ -60,7 +60,8 @@ export function App() {
   const [installEvent, setInstallEvent] = useState(null)
   const [tipHidden, setTipHidden] = useState(() => remembered(TIP_KEY))
   const [copyNoticeHidden, setCopyNoticeHidden] = useState(() => remembered(COPY_KEY))
-  const [webImages, setWebImages] = useState({ count: 0, hosts: [] }) // in a shared document, reported by Viewer
+  const [webImages, setWebImages] = useState({ count: 0, hosts: [] }) // in a shared or web document, reported by Viewer
+  const [linkField, setLinkField] = useState(false) // the empty state's address field is showing
   // For one shared document, by its share id, so another link starts with web images off again. Read during
   // render, not reset in an effect: an effect runs after Viewer has already loaded the next document's images.
   const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
@@ -77,7 +78,7 @@ export function App() {
   const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
   const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
-  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
+  const { openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
     onReveal: path => {
@@ -173,8 +174,16 @@ export function App() {
     seen.current.drawer = ui.sidebarOpen
   }, [ui.sidebarOpen])
 
+  const linkInput = useRef()
   useEffect(() => {
-    document.title = current ? (current.handle?.shared ? `${current.name} (shared)` : current.name) : 'Leggio'
+    if (linkField) linkInput.current.focus()
+  }, [linkField])
+  const openLinkRef = useRef(openLink)
+  openLinkRef.current = openLink // the paste listener is set up once, at mount
+
+  useEffect(() => {
+    const from = current?.handle?.shared ? 'shared' : current?.handle?.web && new URL(current.handle.web).host
+    document.title = current ? (from ? `${current.name} (${from})` : current.name) : 'Leggio'
   }, [current])
 
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
@@ -303,8 +312,15 @@ export function App() {
     window.addEventListener('dragover', over)
     window.addEventListener('dragleave', leave)
     window.addEventListener('drop', drop)
+    // A link pasted anywhere but a text field opens; any other paste is left alone.
+    const paste = e => {
+      if (e.target.closest?.('input, textarea, select, [contenteditable]')) return
+      if (openLinkRef.current(e.clipboardData.getData('text'))) e.preventDefault()
+    }
     window.addEventListener('keydown', key)
+    window.addEventListener('paste', paste)
     return () => {
+      window.removeEventListener('paste', paste)
       window.removeEventListener('dragover', over)
       window.removeEventListener('dragleave', leave)
       window.removeEventListener('drop', drop)
@@ -313,7 +329,10 @@ export function App() {
   }, [])
 
   const shared = !!current?.handle?.shared
-  const sharedView = shared && sharedChoice.id === current.handle.copy ? sharedChoice : { imagesOn: false, noticeHidden: false }
+  const web = current?.handle?.web ?? null // the address a web document was read from
+  const host = web && new URL(web).host
+  const foreign = shared || !!web // came from someone or somewhere else: not one of the reader's files
+  const sharedView = foreign && sharedChoice.id === current.handle.copy ? sharedChoice : { imagesOn: false, noticeHidden: false }
   const setSharedView = change => setSharedChoice({ ...sharedView, ...change, id: current.handle.copy })
   const loadImages = () => setSharedView({ imagesOn: true })
   // A download, the same way followLink hands over a file: a new file the browser saves, never the reader's own.
@@ -330,12 +349,13 @@ export function App() {
   // count as part of the click.
   async function shareLink() {
     let size = 0
-    const link = share.encode(current.name, current.text).then(code => {
-      const url = `${location.origin}${location.pathname}#share=${code}`
-      size = url.length
-      return new Blob([url], { type: 'text/plain' })
-    })
-    const local = [...(article.current?.querySelectorAll('img[data-src]') ?? [])].filter(img => fs.isLocal(img.dataset.src)).length
+    const blob = url => ((size = url.length), new Blob([url], { type: 'text/plain' }))
+    // A web document is already public at its address, so its link points there and stays short.
+    const link = web
+      ? Promise.resolve(blob(`${location.origin}${location.pathname}#url=${encodeURIComponent(web)}`))
+      : share.encode(current.name, current.text).then(code => blob(`${location.origin}${location.pathname}#share=${code}`))
+    // A web document's relative images resolve against its address, so none of them is left behind.
+    const local = web ? 0 : [...(article.current?.querySelectorAll('img[data-src]') ?? [])].filter(img => fs.isLocal(img.dataset.src)).length
     try {
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'text/plain': link })])
@@ -357,14 +377,14 @@ export function App() {
     // A stated notice: an error, a deleted file. Dismissing a stated folder offer also hides the derived one.
     notice && { ...notice, dismiss: notice.action !== 'another' && (() => (setNotice(null), setFolderOfferHidden(true))) },
     // Relative links and images cannot resolve without the file's folder.
-    shared && webImages.count > 0 && !sharedView.imagesOn && !sharedView.noticeHidden && {
+    foreign && webImages.count > 0 && !sharedView.imagesOn && !sharedView.noticeHidden && {
       text: `${webImages.count === 1 ? '1 image in this document loads' : `${webImages.count} images in this document load`} from the web. Loading ${webImages.count === 1 ? 'it lets that site' : 'them lets those sites'} see that you opened it.`,
       action: 'images',
       dismiss: () => setSharedView({ noticeHidden: true }),
     },
-    // A shared document has no folder and no file to reopen; "Shared" in the bar explains it instead.
-    !shared && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
-    !shared && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
+    // A shared or web document has no folder and no file to reopen; the bar says where it comes from instead.
+    !foreign && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
+    !foreign && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
     current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
   ].find(Boolean)
   const actions = {
@@ -388,10 +408,10 @@ export function App() {
           {currentPinned ? 'Unpin' : 'Pin'}
         </button>
       )}
-      {/* On a shared document, keeping it is the likely next step; sending it on moves to the "Shared" popover. */}
+      {/* On a shared or web document, keeping it is the likely next step; sending it on moves to the popover. */}
       {current && (
-        <button type="button" class="quiet" onClick={shared ? saveShared : shareLink}>
-          {shared ? 'Save file' : 'Share'}
+        <button type="button" class="quiet" onClick={foreign ? saveShared : shareLink}>
+          {foreign ? 'Save file' : 'Share'}
         </button>
       )}
       <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open file</button>
@@ -418,12 +438,13 @@ export function App() {
             </>
           )}
         </div>
-        <span class={shared ? 'bar-title from-link' : 'bar-title'} title={current && !shared ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
-          {/* Where the document comes from, in the place a folder path takes: "Shared / name" like "docs / name". */}
-          {shared && (
+        <span class={foreign ? 'bar-title from-link' : 'bar-title'} title={current && !foreign ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
+          {/* Where the document comes from, in the place a folder path takes: "Shared / name" or "host / name",
+              like "docs / name". */}
+          {foreign && (
             <>
-              <button type="button" class="quiet crumb" popovertarget="shared-info" title="Shared with you">
-                Shared
+              <button type="button" class="quiet crumb" popovertarget="shared-info" title={web ? `Read from ${host}` : 'Shared with you'}>
+                {web ? host : 'Shared'}
               </button>
               <span class="dim" aria-hidden="true">/</span>
             </>
@@ -433,10 +454,10 @@ export function App() {
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
-        {shared && (
+        {foreign && (
           <div id="shared-info" class="shared-pop" popover="auto">
-            <p class="shared-pop-title">Shared with you</p>
-            <p>This document came inside a link. It isn't a file on this device, so it won't update and can't be pinned.</p>
+            <p class="shared-pop-title">{web ? `Read from ${host}` : 'Shared with you'}</p>
+            <p>{web ? '' : 'This document came inside a link. '}It isn't a file on this device, so it won't update and can't be pinned.</p>
             {webImages.count > 0 && (
               <div class="shared-pop-row">
                 <p>
@@ -508,7 +529,7 @@ export function App() {
         {current ? (
           <>
             <Outline articleRef={article} text={current.text} onContents={setHasContents} />
-            <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} shared={shared} imagesOn={sharedView.imagesOn} onWebImages={setWebImages} />
+            <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} shared={shared} base={web} imagesOn={sharedView.imagesOn} onWebImages={setWebImages} />
           </>
         ) : folder ? (
           <div class="empty">
@@ -526,8 +547,36 @@ export function App() {
             <div class="empty-actions">
               {restorable && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
               <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>
+              {!linkField && (
+                <button type="button" class="quiet" onClick={() => setLinkField(true)}>
+                  Open a link…
+                </button>
+              )}
             </div>
-            <p class="empty-hint">Files are read on this computer and never uploaded.</p>
+            {linkField && (
+              <form
+                class="link-form"
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (openLink(e.currentTarget.elements.link.value)) setLinkField(false)
+                }}
+              >
+                <input
+                  ref={linkInput}
+                  name="link"
+                  type="url"
+                  required
+                  placeholder="https://…"
+                  aria-label="Address of a markdown document"
+                  onKeyDown={e => e.key === 'Escape' && setLinkField(false)}
+                  onBlur={e => !e.currentTarget.value && !e.relatedTarget?.closest('.link-form') && setLinkField(false)}
+                />
+                <button type="submit" class="quiet notice-action">
+                  Open
+                </button>
+              </form>
+            )}
+            <p class="empty-hint">Files are read on this computer and never uploaded. Paste a link anywhere to open it.</p>
             <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
             </p>

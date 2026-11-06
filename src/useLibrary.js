@@ -12,7 +12,19 @@ const SHARE_ERRORS = {
   version: 'This link needs a newer version of Leggio. Reload the page to update.',
   'too-large': 'This link holds a document too large to open.',
 }
-const shareCode = () => (location.hash.startsWith('#share=') ? location.hash.slice(7) : null)
+const HTTPS_ONLY = 'Leggio opens https addresses only.'
+// The link in this entry's fragment: a document inside it (#share=) or its web address (#url=).
+function linkFromHash() {
+  const hash = location.hash
+  if (hash.startsWith('#share=')) return { share: hash.slice(7) }
+  try {
+    return hash.startsWith('#url=') ? { url: decodeURIComponent(hash.slice(5)) } : null
+  } catch {
+    return null
+  }
+}
+// The copy id the link's document gets, so an entry that already holds it is recognised.
+const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + share.rawUrl(link.url))
 
 // The folder, the open document, pins and restore: every action that opens something, with
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
@@ -32,7 +44,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   const folderRef = useRef(null)
   const keepScroll = useRef(null)
   const launched = useRef(null) // the file handle the OS opened this window with
-  const sharedAtLoad = useRef(shareCode() !== null)
+  const linkAtLoad = useRef(linkFromHash())
   // Name of the document Back or Forward goes to: null when there is none, '' when it is unknown.
   const [back, setBack] = useState(null)
   const [forward, setForward] = useState(null)
@@ -49,14 +61,15 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     })
   }, [])
 
-  // A share link, at load or pasted into this tab later. Back and Forward also change the hash, but goTo
-  // already opens their document, so skip an entry that holds this link's document. Not "an entry without
-  // state": Chrome copies the previous entry's state onto an entry typed into the address bar.
+  // A link, at load or pasted into this tab later. Back and Forward also change the hash, but goTo already
+  // opens their document, so skip an entry that holds this link's document. Not "an entry without state":
+  // Chrome copies the previous entry's state onto an entry typed into the address bar.
   useEffect(() => {
-    if (sharedAtLoad.current) openShared(shareCode())
+    const open = link => (link.share ? openShared(link.share) : openUrl(link.url))
+    if (linkAtLoad.current) open(linkAtLoad.current)
     const onHash = async () => {
-      const code = shareCode()
-      if (code !== null && nav?.currentEntry.getState()?.handle?.copy !== (await share.shareId(code))) openShared(code)
+      const link = linkFromHash()
+      if (link && nav?.currentEntry.getState()?.handle?.copy !== (await linkId(link))) open(link)
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
@@ -72,7 +85,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       // A pinned file can live outside the folder, so it carries its own grant.
       const granted = (await fs.hasPermission(last.folder)) && (!last.file || (await fs.hasPermission(last.file)))
       // A share link is what the window was opened for. The record stays for the next visit.
-      if (granted && !sharedAtLoad.current && (await restore(last))) return
+      if (granted && !linkAtLoad.current && (await restore(last))) return
       setRestorable(last)
     })
   }, [])
@@ -257,6 +270,51 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     return openFile({ ...fs.fromFile(file), copy: await share.shareId(code), shared: true }, { here: true })
   }
 
+  // A web document is a copy of one file, marked with its address, which is also its copy id. Opening it again
+  // (a reload, Back) fetches it again: it may have changed, and nothing of it is kept.
+  async function openUrl(address) {
+    const url = share.rawUrl(address)
+    if (!url) return setNotice({ text: HTTPS_ONLY }), false
+    const host = new URL(url).host
+    const asked = location.hash // the link this fetch belongs to; the reader may move on while it runs
+    let body
+    try {
+      const res = await fetch(url, { credentials: 'omit', cache: 'no-cache' })
+      if (!res.ok) return setNotice({ text: `${host} answered ${res.status} for this address.` }), false
+      body = await share.readCapped(res.body)
+    } catch (err) {
+      // A site that doesn't allow other pages to read it fails exactly like one that is offline.
+      const why = err.reason === 'too-large' ? 'This document is too large to open.' : `Couldn't read ${host}. The site may be offline, or it doesn't let other pages read its files.`
+      setNotice({ text: why })
+      return false
+    }
+    // Another document opened meanwhile: this one would land on its entry.
+    if (location.hash !== asked) return false
+    let text
+    try {
+      text = new TextDecoder('utf-8', { fatal: true }).decode(body)
+    } catch {
+      setNotice({ text: "This address isn't a text document." }) // an image or a download, say
+      return false
+    }
+    const file = new File([text], share.webName(url), { type: 'text/markdown' })
+    return openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here: true })
+  }
+
+  // A pasted or typed link, through the fragment: the entry the browser makes for it is the one the document
+  // goes onto, and hashchange opens it. False when the text isn't a link, so the caller lets the paste through.
+  function openLink(text) {
+    const link = share.readLink(text)
+    if (!link) return false
+    const url = link.url && share.rawUrl(link.url)
+    if (link.url && !url) return setNotice({ text: HTTPS_ONLY }), true
+    const hash = link.share ? `#share=${link.share}` : `#url=${encodeURIComponent(url)}`
+    // The same link again (a retry after the site was offline) changes no hash, so no hashchange: open it here.
+    if (hash === location.hash) link.share ? openShared(link.share) : openUrl(url)
+    else location.hash = hash
+    return true
+  }
+
   // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
   // No README auto-open: the person already has a document.
   async function showFolder(root) {
@@ -268,6 +326,15 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   async function followLink(href) {
     const cur = currentRef.current
     if (cur?.handle?.shared) return setNotice({ text: "Linked files aren't included in a shared document." })
+    // A web document's links are web addresses: markdown opens here as another web document, anything else in a
+    // tab of its own, so the window never leaves Leggio.
+    if (cur?.handle?.web) {
+      const url = new URL(href, cur.handle.web)
+      url.hash = ''
+      if (fs.isMarkdownName(share.webName(url.href))) location.hash = `#url=${encodeURIComponent(url.href)}`
+      else window.open(url.href, '_blank', 'noopener')
+      return
+    }
     const root = cur?.root
     if (!cur?.dirPath || !root) {
       pendingLink.current = href // followed once the folder is granted
@@ -373,7 +440,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     if (!nav) return
     // The share link stays on its own entries (a heading jump inside it) and nowhere else, so reloading another
     // document never reopens the shared one.
-    if (push) history.pushState(null, '', entry.handle?.shared ? location.href : location.pathname + location.search)
+    if (push) history.pushState(null, '', entry.handle?.shared || entry.handle?.web ? location.href : location.pathname + location.search)
     nav.updateCurrentEntry({ state: entry })
   }
 
@@ -386,7 +453,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     const same = await fs.isSame(prev?.handle, entry.handle)
     // An entry on a share link holds only that link's document. One left without it (the link was damaged) would
     // reopen the link on reload, and replaceState is out, so another document gets an entry of its own.
-    const onLink = !entry.handle?.shared && location.hash.startsWith('#share=')
+    const onLink = !(entry.handle?.shared || entry.handle?.web) && /^#(share|url)=/.test(location.hash)
     if ((!prev || same || here) && !onLink) return writeEntry(entry)
     if (prev) writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
     writeEntry(entry, true)
@@ -418,5 +485,5 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
+  return { openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }

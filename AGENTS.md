@@ -27,7 +27,7 @@ To stop a dev server that was left running, use `lsof -ti tcp:8000 -sTCP:LISTEN 
 - **No editing, ever.** Leggio never writes, renames or deletes the reader's files. Don't add a feature that does.
 - **No new dependencies without the maintainer's approval.** The project has 13 packages, counting indirect ones, all pinned to exact versions. Vite, the `mermaid` package, shiki and Tauri were each rejected because of how many packages they add. Diagrams use `beautiful-mermaid`, which is small. If a few lines of code can do the job, write the lines.
   - If you think a dependency is needed, stop and tell your user. Your user opens an issue, and the maintainer decides.
-- **Leggio itself sends nothing about the reader's files.** No accounts, no analytics, no server code, no requests that carry file names or content. Three things do use the network: the Google Fonts stylesheets of some themes, web images that a document links to, and online voices. When the reader picks an online voice for read-aloud, the browser sends the text being read to that voice service, and the voice setting says so. Don't add other outside requests.
+- **Leggio sends nothing about the reader's files, and fetches only what the reader asked to open.** No accounts, no analytics, no server code, no storage, no requests that carry file names or content. Four things use the network: a document the reader opens by its web address (and that address's own images), the Google Fonts stylesheets of some themes, web images that a document links to, and online voices. When the reader picks an online voice for read-aloud, the browser sends the text being read to that voice service, and the voice setting says so. Don't add other outside requests.
 
 ## Architecture
 
@@ -41,10 +41,10 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
 | `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s, which JSON can't hold. Failures resolve to `undefined`. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
-| `src/share.js` | The share link: encodes a document into the `#share=` fragment and decodes it back. Pure, so it runs under node. |
+| `src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, turns GitHub and gist pages into raw file addresses, and caps how much of a stream is read. Pure, so it runs under node. |
 | `src/render.js` | One markdown-it instance (`html: false`), the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
 | `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background. |
-| `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared document it shows placeholders for images and loads web images only after the reader asks. |
+| `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
 | `src/Sidebar.jsx`, `Outline.jsx`, `Settings.jsx`, `icons.jsx` | Pins and folder tree; heading list with the active section; the settings form; inline SVG icons (Lucide paths). |
 | `src/styles.css` | All styles. |
@@ -106,13 +106,16 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - A shared document is written onto the entry the browser made for its link (`openFile(…, { here: true })`), never pushed after it.
 - Another document never takes over an entry whose URL holds a share link, even one whose link was damaged. `record` pushes a new entry, so a reload doesn't reopen the link.
 - A shared document's web images also include diagram styles: `render` drops every `url(…)` in a diagram except `#id` references in share mode.
+- A web document (`#url=`) follows the same entry rules as a shared one: the address stays in the fragment, its copy id is `url:` plus the raw address, and it is written onto the link's own entry. `openLink` opens anything pasted or typed by setting the fragment, and `hashchange` does the rest.
+- A web document's relative links resolve against its address: markdown opens as another web document, anything else in a new tab. Its images from the same host load at once; images from other hosts wait, as in a shared document.
+- Only `https:` addresses open. `connect-src` in `_headers` allows `https:` for that fetch.
 - A shared document comes from someone else. Its web images render as `data-src` (`render(text, { share: true })`) and load only when the reader asks, because loading them tells the image host who opened the document.
 
 ### Build and deploy
 
 - The content security policy in `_headers` allows no inline scripts. Don't add an inline `<script>` to `index.html`. Put the code in a module under `src/`. `index.html` loads the bundle with an external script.
 - `SHELL` in `sw.js` lists the files the app needs offline. The dev server uses `sw.js` as it is. The production build rewrites its `CACHE` line and swaps the `dist/` paths in `SHELL` for the hashed bundle names. If you add a file the app needs offline, add it in two places: `SHELL` in `sw.js`, and the copy list in `build.mjs` (the `for` loop that calls `fs.copyFileSync`).
-- The service worker keeps Google Fonts files in their own cache, `leggio-fonts`, which survives new builds, so a theme used once online looks the same offline. The worker's own requests follow the content security policy it was served with, not the page's, so `connect-src` in `_headers` lists both Google Fonts origins.
+- The service worker keeps Google Fonts files in their own cache, `leggio-fonts`, which survives new builds, so a theme used once online looks the same offline. The worker's own requests follow the content security policy it was served with, not the page's, so `connect-src` in `_headers` must cover both Google Fonts origins. Its `https:` (for web documents) does.
 - The site runs at leggio.compostela.dev as a Cloudflare Worker with static assets only (`wrangler.jsonc`, a custom domain), deployed by Workers Builds. The build command is `pnpm install --frozen-lockfile && pnpm test && pnpm build`, and the deploy command is `npx wrangler deploy`. Wrangler is not a project dependency. Never change the domain: an installed app is tied to its exact origin.
 
 ## Check your change

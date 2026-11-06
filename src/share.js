@@ -29,30 +29,38 @@ export async function encode(name, text) {
   return '1.' + toBase64url(await bytes(new Blob([data]).stream().pipeThrough(new CompressionStream('deflate-raw'))))
 }
 
-export async function decode(code) {
-  const dot = code.indexOf('.')
-  if (dot < 0 || !/^\d+$/.test(code.slice(0, dot))) throw fail('damaged')
-  if (code.slice(0, dot) !== '1') throw fail('version')
+// The whole stream, unless it passes MAX_BYTES: then 'too-large', without reading the rest. A web document's
+// body goes through here too.
+export async function readCapped(stream) {
+  const reader = stream.getReader()
   const chunks = []
   let total = 0
-  try {
-    const reader = new Blob([fromBase64url(code.slice(dot + 1))]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader()
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.length
-      if (total > MAX_BYTES) {
-        reader.cancel().catch(() => {})
-        throw fail('too-large')
-      }
-      chunks.push(value)
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.length
+    if (total > MAX_BYTES) {
+      reader.cancel().catch(() => {})
+      throw fail('too-large')
     }
-  } catch (err) {
-    throw err.reason ? err : fail('damaged')
+    chunks.push(value)
   }
   const all = new Uint8Array(total)
   let at = 0
   for (const c of chunks) all.set(c, (at += c.length) - c.length)
+  return all
+}
+
+export async function decode(code) {
+  const dot = code.indexOf('.')
+  if (dot < 0 || !/^\d+$/.test(code.slice(0, dot))) throw fail('damaged')
+  if (code.slice(0, dot) !== '1') throw fail('version')
+  let all
+  try {
+    all = await readCapped(new Blob([fromBase64url(code.slice(dot + 1))]).stream().pipeThrough(new DecompressionStream('deflate-raw')))
+  } catch (err) {
+    throw err.reason ? err : fail('damaged')
+  }
   let doc
   try {
     doc = new TextDecoder('utf-8', { fatal: true }).decode(all) // a cut through a multibyte character is damage, not text
@@ -69,4 +77,54 @@ export async function decode(code) {
 export async function shareId(code) {
   const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code)))
   return 'share-' + Array.from(hash.subarray(0, 8), b => b.toString(16).padStart(2, '0')).join('')
+}
+
+const parse = text => {
+  try {
+    return new URL(text)
+  } catch {
+    return null
+  }
+}
+
+// The address to fetch for a web document: GitHub and gist pages show the file inside a page, so they become
+// the raw file. Only https: an http fetch from an https page is blocked anyway, and would show who reads what.
+export function rawUrl(text) {
+  const url = parse(text)
+  if (url?.protocol !== 'https:') return null
+  const path = url.pathname.split('/').filter(Boolean)
+  if (url.host === 'github.com' && path[2] === 'blob' && path.length > 4) {
+    return `https://raw.githubusercontent.com/${[path[0], path[1], ...path.slice(3)].join('/')}`
+  }
+  if (url.host === 'gist.github.com' && path.length === 2) return `https://gist.githubusercontent.com/${path[0]}/${path[1]}/raw`
+  return url.href
+}
+
+// What a pasted text opens: a Leggio link from any origin (the dev server, a preview, the site), or a web
+// address. Anything else is ordinary pasting, including text that only starts with an address. An http address
+// counts, so the reader learns why it won't open.
+export function readLink(text) {
+  text = text.trim()
+  const url = !/\s/.test(text) && parse(text)
+  if (!url || !/^https?:$/.test(url.protocol)) return null
+  if (url.hash.startsWith('#share=')) return { share: url.hash.slice(7) }
+  if (url.hash.startsWith('#url=')) {
+    let inner
+    try {
+      inner = parse(decodeURIComponent(url.hash.slice(5)))
+    } catch {
+      return null // a Leggio link damaged on the way
+    }
+    if (inner) return { url: inner.href }
+  }
+  return { url: url.href }
+}
+
+export function webName(text) {
+  const last = parse(text)?.pathname.split('/').filter(Boolean).pop()
+  try {
+    return last ? decodeURIComponent(last) : 'Document'
+  } catch {
+    return last
+  }
 }

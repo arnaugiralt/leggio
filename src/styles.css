@@ -230,6 +230,7 @@ body {
   place-content: center;
   justify-items: center;
   gap: 1rem;
+  padding: 0 1rem; /* the hint lines wrap; without it they run to the window's edges in a narrow window */
   text-align: center;
   font-family: var(--ui-font);
   font-weight: 400;
@@ -241,7 +242,9 @@ body {
   color: var(--ui-muted);
 }
 .empty-hint { margin: 0; font-size: 0.8rem; color: var(--ui-faint); }
-.empty-actions { display: flex; gap: 0.5rem; }
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+.link-form { display: flex; gap: 0.5rem; width: min(26rem, 100%); }
+.link-form input { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; border: 1px solid var(--ui-hairline); border-radius: 6px; background: var(--ui-surface); color: inherit; font: inherit; } /* as the settings fields */
 kbd {
   padding: 0.1em 0.4em;
   border: 1px solid var(--ui-hairline);

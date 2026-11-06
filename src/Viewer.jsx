@@ -4,10 +4,12 @@ import { isLocal, resolvePath, getFileByPath, getFile } from './fs.js'
 import { X } from './icons.jsx'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
-// shared: the document came in a link from someone else. Its web images wait for imagesOn, and onWebImages
-// reports how many there are and from which hosts.
-export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative, shared = false, imagesOn = false, onWebImages }) {
-  const html = useMemo(() => render(text, { share: shared }), [text, shared])
+// shared: the document came in a link from someone else. base: it was read from that web address. Either way
+// its web images wait for imagesOn (except a web document's own host, which already knows it was opened), and
+// onWebImages reports how many wait and from which hosts.
+export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative, shared = false, base = null, imagesOn = false, onWebImages }) {
+  const foreign = shared || !!base
+  const html = useMemo(() => render(text, { share: foreign }), [text, foreign])
   const urls = useRef([])
   const [zoomed, setZoomed] = useState(null)
 
@@ -33,24 +35,26 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
       fig.setAttribute('role', 'button')
       fig.setAttribute('aria-label', 'Open diagram full size')
     }
-    if (shared) {
-      onRelative(false) // a shared document has no folder to offer
+    if (foreign) {
+      onRelative(false) // a shared or web document has no folder to offer
+      const own = base && new URL(base).host
       const hosts = []
       for (const img of article.querySelectorAll('img[data-src]')) {
-        const src = img.dataset.src
-        if (isLocal(src)) {
+        let src = img.dataset.src
+        if (isLocal(src) && !base) {
           img.hidden = true
           note(img, `${src.split('/').filter(Boolean).pop() ?? src} wasn't included in the link.`, 'img-placeholder')
           continue
         }
         let host
         try {
-          host = new URL(src, location.href).host
+          src = new URL(src, base ?? location.href).href
+          host = new URL(src).host
         } catch {
           continue
         }
-        hosts.push(host)
-        if (imagesOn) {
+        if (host !== own) hosts.push(host)
+        if (host === own || imagesOn) {
           img.src = src
           img.addEventListener('error', () => note(img, "Image couldn't load."), { once: true })
         } else {
@@ -88,7 +92,7 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
     return () => {
       cancelled = true
     }
-  }, [html, root, dirPath, imagesOn])
+  }, [html, root, dirPath, imagesOn, base])
 
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), [])
 
