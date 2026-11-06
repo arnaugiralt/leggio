@@ -213,6 +213,9 @@ function openTag(tag, attrs, share) {
 }
 
 const closing = stack => stack.splice(0).reverse().map(t => `</${t}>`).join('')
+// No document nests a hundred tags deep; past that a tag shows as text. Without a limit, every closing tag searched
+// an ever longer stack, and a 2 KB share link froze the tab again.
+const MAX_DEPTH = 100
 
 // Rebuilds allowed tags and escapes everything else. open.inline and open.block are the tags still open: a
 // closing tag only closes one of these (anything left open inside it is closed first), and a stray one is dropped.
@@ -236,6 +239,10 @@ function allowHtml(html, share, open) {
     }
     const stack = BLOCK.has(tag) ? open.block : open.inline
     if (m[1] !== '/') {
+      if (stack.length >= MAX_DEPTH) {
+        out += md.utils.escapeHtml(m[0])
+        continue
+      }
       out += openTag(tag, m[3], share)
       stack.push(tag)
     } else if (stack.includes(tag)) {

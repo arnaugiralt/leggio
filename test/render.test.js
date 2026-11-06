@@ -249,6 +249,15 @@ test('a pathological run of unclosed tags renders fast', () => {
   assert.ok(performance.now() - started < 500, `took ${Math.round(performance.now() - started)} ms`)
 })
 
+// Found in review round 2: closing tags searched an open-tag stack with no limit.
+test('deep runs of opening and stray closing tags render fast', () => {
+  for (const input of ['<div>\n' + '<td>\n'.repeat(40000) + '</h1>\n'.repeat(40000), 'x ' + '<b>'.repeat(40000) + '</i>'.repeat(40000)]) {
+    const started = performance.now()
+    render(input)
+    assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`)
+  }
+})
+
 test('unclosed allowed tags are closed where they started', () => {
   const out = render('Text <a href="https://x.test">link and <b>bold\n\nNext paragraph.\n')
   assert.match(out, /<a href="https:\/\/x.test">link and <b>bold<\/b><\/a><\/p>/)

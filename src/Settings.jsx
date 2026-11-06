@@ -304,6 +304,7 @@ function Backup({ settings, themes, onImport }) {
   }
   async function importFile(file) {
     try {
+      if (file.size > 1_000_000) throw new Error('This file is too large to be Leggio settings.') // before reading it
       const read = readSettingsFile(await file.text())
       const { added, undo } = onImport(read)
       setUndo(() => undo)
