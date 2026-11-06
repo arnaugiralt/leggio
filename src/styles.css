@@ -107,6 +107,45 @@ body {
   text-overflow: ellipsis;
 }
 .bar-title .dim { color: var(--ui-faint); }
+/* A shared document: the chip stays whole and the name gives way, so the ellipsis moves onto the name. */
+.bar-title.has-chip { display: flex; align-items: center; justify-content: center; gap: 0.5rem; direction: ltr; overflow: visible; } /* the name clips itself; the chip keeps its focus ring */
+.bar-title.has-chip bdi { min-width: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.quiet.chip { /* .quiet comes later and would reset the frame */
+  anchor-name: --shared;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid color-mix(in oklab, var(--color-accent) 45%, var(--color-bg));
+  background: color-mix(in oklab, var(--color-accent) 10%, var(--color-bg));
+  color: var(--color-fg); /* the accent alone can miss 4.5:1 on some palettes; it tints the frame instead */
+}
+.shared-pop {
+  position: fixed;
+  position-anchor: --shared;
+  inset: auto;
+  top: calc(anchor(bottom) + 0.25rem);
+  left: anchor(left);
+  position-try-fallbacks: flip-inline;
+  margin: 0;
+  width: min(22rem, calc(100vw - 1.5rem));
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ui-hairline);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 8px 24px -12px color-mix(in oklab, var(--color-fg) 40%, transparent);
+  font-family: var(--ui-font);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.shared-pop p { margin: 0 0 0.6rem; }
+.shared-pop-title { font-weight: 600; }
+.shared-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
+.shared-pop-row p { margin: 0; color: var(--ui-muted); }
+.shared-pop-row button { flex-shrink: 0; white-space: nowrap; }
 /* The installed app with its title bar hidden (manifest display_override): the bar takes the title bar's
    place. The OS draws the window controls over the page outside env(titlebar-area-*), so the padding keeps
    the buttons clear of them, and the empty parts of the bar drag the window. */
@@ -123,7 +162,7 @@ body {
   .skip { left: calc(env(titlebar-area-x, 0px) + 0.5rem); }
 }
 .bar-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
-/* Read, Pin and Open sit in the bar at wide widths; the narrow media query turns this into a popover. */
+/* Read, Pin, Share and Open sit in the bar at wide widths; the narrow media query turns this into a popover. */
 .bar-menu { display: contents; }
 .more-btn { anchor-name: --more; display: none; }
 .contents-btn { anchor-name: --contents; display: inline-flex; align-items: center; gap: 0.4rem; }
@@ -630,6 +669,7 @@ html:has(dialog.lightbox[open]) {
 }
 .row.missing .pin { opacity: 1; } /* the only thing left to do with it */
 .img-note { display: block; margin: 0.25rem 0 1rem; font-family: var(--ui-font); font-size: 0.8rem; color: var(--ui-muted); }
+.img-placeholder { margin: 0.5rem 0 1rem; padding: 0.75rem 1rem; border: 1px dashed var(--ui-rule); border-radius: 6px; font-size: 0.85rem; }
 .row.missing .row-name { text-decoration: line-through; }
 /* One mark per row, in one column, so names line up whether the row is a file or a folder. */
 .kind {
@@ -884,6 +924,7 @@ html:has(dialog.lightbox[open]) {
     font-size: 0.85rem;
   }
   .bar-menu .quiet { padding: 0.6rem 0.75rem; text-align: left; }
+  .shared-pop { left: 0.75rem; width: auto; right: 0.75rem; } /* no room to hang it off the chip */
   .bar-menu .reading-toggle { justify-items: start; }
 
   .sidebar-open .main, .settings-open .main { padding-inline: 0; }

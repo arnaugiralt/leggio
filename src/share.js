@@ -1,0 +1,72 @@
+// A share link carries the document itself in the URL fragment, which browsers never send to a server.
+// Format: '1.' + base64url(deflate-raw(utf8(name + '\n' + text))). The '1.' lets a later format say so.
+
+// ponytail: a guess. Chat and email apps cut long links at sizes nobody documents; tune after testing Slack,
+// WhatsApp and Gmail.
+export const LINK_LIMIT = 32000
+// A link is a few KB, but deflate can expand it a thousandfold: stop reading well before memory suffers.
+const MAX_BYTES = 5 * 1024 * 1024
+
+const fail = reason => Object.assign(new Error(reason), { reason })
+
+async function bytes(stream) {
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+function toBase64url(data) {
+  let s = ''
+  for (let i = 0; i < data.length; i += 0x8000) s += String.fromCharCode(...data.subarray(i, i + 0x8000))
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function fromBase64url(code) {
+  const s = atob(code.replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from(s, c => c.charCodeAt(0))
+}
+
+export async function encode(name, text) {
+  const data = new TextEncoder().encode(`${name.replace(/[\r\n]+/g, ' ')}\n${text}`)
+  return '1.' + toBase64url(await bytes(new Blob([data]).stream().pipeThrough(new CompressionStream('deflate-raw'))))
+}
+
+export async function decode(code) {
+  const dot = code.indexOf('.')
+  if (dot < 0 || !/^\d+$/.test(code.slice(0, dot))) throw fail('damaged')
+  if (code.slice(0, dot) !== '1') throw fail('version')
+  const chunks = []
+  let total = 0
+  try {
+    const reader = new Blob([fromBase64url(code.slice(dot + 1))]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.length
+      if (total > MAX_BYTES) {
+        reader.cancel().catch(() => {})
+        throw fail('too-large')
+      }
+      chunks.push(value)
+    }
+  } catch (err) {
+    throw err.reason ? err : fail('damaged')
+  }
+  const all = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) all.set(c, (at += c.length) - c.length)
+  let doc
+  try {
+    doc = new TextDecoder('utf-8', { fatal: true }).decode(all) // a cut through a multibyte character is damage, not text
+  } catch {
+    throw fail('damaged')
+  }
+  const nl = doc.indexOf('\n')
+  if (nl < 0) throw fail('damaged')
+  return { name: doc.slice(0, nl), text: doc.slice(nl + 1) }
+}
+
+// The copy id of a shared document. Derived from the link, so the same link reopened (a reload, Back) is the
+// same document and replaces its history entry instead of adding one.
+export async function shareId(code) {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code)))
+  return 'share-' + Array.from(hash.subarray(0, 8), b => b.toString(16).padStart(2, '0')).join('')
+}

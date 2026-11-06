@@ -66,7 +66,10 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
   if (token.info.trim() !== 'mermaid') return defaultFence(tokens, idx, options, env, self)
   try {
-    return `<figure class="diagram">${diagram(token.content)}</figure>\n`
+    const svg = diagram(token.content)
+    // A style such as fill:url(https://…) would be fetched as soon as the SVG is on the page. In a shared
+    // document that request tells the host who opened it, so only same-document references (#id) stay.
+    return `<figure class="diagram">${env?.share ? svg.replace(/url\((?!\s*['"]?#)[^)]*\)/gi, 'none') : svg}</figure>\n`
   } catch (err) {
     const code = md.utils.escapeHtml(token.content)
     const type = token.content.trim().split(/\s+/)[0]
@@ -123,13 +126,14 @@ md.core.ruler.push('task_lists', state => {
 })
 
 // A local image must never reach the network: served from a host, its file name would be sent to that
-// host, and it cannot exist there anyway. Viewer resolves data-src from the open folder.
+// host, and it cannot exist there anyway. Viewer resolves data-src from the open folder. In a shared
+// document a web image waits too: loading it would tell its host who opened the document, and when.
 md.core.ruler.push('local_images', state => {
   for (const block of state.tokens) {
     for (const t of block.children ?? []) {
       if (t.type !== 'image') continue
       const src = t.attrGet('src')
-      if (!isLocal(src)) continue
+      if (!isLocal(src) && !(state.env.share && !src.startsWith('data:'))) continue
       t.attrs = t.attrs.filter(a => a[0] !== 'src')
       t.attrSet('data-src', src)
     }
@@ -140,6 +144,6 @@ md.core.ruler.push('local_images', state => {
 md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
 md.renderer.rules.table_close = () => '</table>\n</div>\n'
 
-export function render(text) {
-  return md.render(text)
+export function render(text, { share = false } = {}) {
+  return md.render(text, { share })
 }

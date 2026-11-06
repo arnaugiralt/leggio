@@ -6,8 +6,9 @@ import { Sidebar } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
 import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
 import * as fs from './fs.js'
+import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
+import { ChevronLeft, ChevronRight, Link, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
@@ -58,6 +59,10 @@ export function App() {
   const [installEvent, setInstallEvent] = useState(null)
   const [tipHidden, setTipHidden] = useState(() => remembered(TIP_KEY))
   const [copyNoticeHidden, setCopyNoticeHidden] = useState(() => remembered(COPY_KEY))
+  const [webImages, setWebImages] = useState({ count: 0, hosts: [] }) // in a shared document, reported by Viewer
+  // For one shared document, by its share id, so another link starts with web images off again. Read during
+  // render, not reset in an effect: an effect runs after Viewer has already loaded the next document's images.
+  const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
   const fileInput = useRef()
@@ -168,7 +173,7 @@ export function App() {
   }, [ui.sidebarOpen])
 
   useEffect(() => {
-    document.title = current ? current.name : 'Leggio'
+    document.title = current ? (current.handle?.shared ? `${current.name} (shared)` : current.name) : 'Leggio'
   }, [current])
 
   // Keyed on the handle, not current: a live reload of the same file must not bring the offer back.
@@ -306,24 +311,74 @@ export function App() {
     }
   }, [])
 
+  const shared = !!current?.handle?.shared
+  const sharedView = shared && sharedChoice.id === current.handle.copy ? sharedChoice : { imagesOn: false, noticeHidden: false }
+  const setSharedView = change => setSharedChoice({ ...sharedView, ...change, id: current.handle.copy })
+  const loadImages = () => setSharedView({ imagesOn: true })
+  // A download, the same way followLink hands over a file: a new file the browser saves, never the reader's own.
+  function saveShared() {
+    const url = URL.createObjectURL(new Blob([current.text], { type: 'text/markdown' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = current.name
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  // The clipboard gets a promise, not the link: compressing is async, and a write after an await may no longer
+  // count as part of the click.
+  async function shareLink() {
+    let tooLong = 0
+    const link = share.encode(current.name, current.text).then(code => {
+      if (code.length > share.LINK_LIMIT) throw ((tooLong = code.length), new Error('too long'))
+      return new Blob([`${location.origin}${location.pathname}#share=${code}`], { type: 'text/plain' })
+    })
+    link.catch(() => {}) // handled below, through the clipboard write
+    const local = [...(article.current?.querySelectorAll('img[data-src]') ?? [])].filter(img => fs.isLocal(img.dataset.src)).length
+    try {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': link })])
+      } catch (err) {
+        if (tooLong) throw err
+        // Browsers without promise values in ClipboardItem: write the finished link, still within the click.
+        await navigator.clipboard.writeText(await (await link).text())
+      }
+      const images = local === 1 ? " 1 local image isn't included." : local > 1 ? ` ${local} local images aren't included.` : ''
+      setNotice({ text: `Link copied. Anyone with the link can read this document.${images}` })
+    } catch {
+      setNotice({
+        text: tooLong
+          ? `This document is too long to share as a link. A link holds about ${Math.round(share.LINK_LIMIT / 1000)} KB, and this one would be ${Math.round(tooLong / 1000)} KB.`
+          : "Couldn't copy the link.",
+      })
+    }
+  }
+
   // The one notice slot shows the first of these that applies.
   const shown = [
     // A stated notice: an error, a deleted file. Dismissing a stated folder offer also hides the derived one.
     notice && { ...notice, dismiss: notice.action !== 'another' && (() => (setNotice(null), setFolderOfferHidden(true))) },
     // Relative links and images cannot resolve without the file's folder.
-    current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
-    current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
+    shared && webImages.count > 0 && !sharedView.imagesOn && !sharedView.noticeHidden && {
+      text: `${webImages.count === 1 ? '1 image in this document loads' : `${webImages.count} images in this document load`} from the web. Loading ${webImages.count === 1 ? 'it lets that site' : 'them lets those sites'} see that you opened it.`,
+      action: 'images',
+      dismiss: () => setSharedView({ noticeHidden: true }),
+    },
+    // A shared document has no folder and no file to reopen; the Shared chip explains it instead.
+    !shared && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
+    !shared && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
     current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
   ].find(Boolean)
   const actions = {
     install: ['Install', install],
+    images: ['Load images', loadImages],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', () => pickFolder({ forCurrent: true })],
     reopen: ['Open again', () => (current.root?.copy ? pickFolder() : pickFile())],
     copyFile: ['Open a copy', () => fileInput.current.click()],
     copyFolder: ['Open a copy', () => folderInput.current.click()],
   }
-  // Read, Pin and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
+  // Read, Pin, Share and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
   const menu = read => (
     <div id="bar-menu" class="bar-menu" popover="auto" onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
       {read}
@@ -333,6 +388,11 @@ export function App() {
       {current?.handle && !current.handle.copy && (
         <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
           {currentPinned ? 'Unpin' : 'Pin'}
+        </button>
+      )}
+      {current && (
+        <button type="button" class="quiet" onClick={shareLink}>
+          Share
         </button>
       )}
       <button type="button" class="quiet" title={`Open (${mod}O)`} onClick={pickFile}>Open file</button>
@@ -359,12 +419,35 @@ export function App() {
             </>
           )}
         </div>
-        <span class="bar-title" title={current ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
+        <span class={shared ? 'bar-title has-chip' : 'bar-title'} title={current ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
+          {shared && (
+            <button type="button" class="quiet chip" popovertarget="shared-info" title="Shared with you">
+              <Link size="1em" />
+              Shared
+            </button>
+          )}
           <bdi>
             {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
+        {shared && (
+          <div id="shared-info" class="shared-pop" popover="auto">
+            <p class="shared-pop-title">Shared with you</p>
+            <p>This document came inside a link. It isn't a file on this device, so it won't update and can't be pinned.</p>
+            {webImages.count > 0 && (
+              <div class="shared-pop-row">
+                <p>
+                  {sharedView.imagesOn
+                    ? `Images loaded from ${webImages.hosts.length === 1 ? '1 site' : `${webImages.hosts.length} sites`}.`
+                    : `Web images are off: ${webImages.count === 1 ? '1 image' : `${webImages.count} images`} from ${webImages.hosts.length === 1 ? '1 site' : `${webImages.hosts.length} sites`}.`}
+                </p>
+                {!sharedView.imagesOn && <button type="button" class="quiet notice-action" onClick={loadImages}>Load images</button>}
+              </div>
+            )}
+            <button type="button" class="quiet notice-action" onClick={saveShared}>Save as file</button>
+          </div>
+        )}
         <div class="bar-actions">
           {hasContents && (
             <button type="button" class="quiet contents-btn" popovertarget="contents" aria-label="Contents" title="Contents">
@@ -421,7 +504,7 @@ export function App() {
         {current ? (
           <>
             <Outline articleRef={article} text={current.text} onContents={setHasContents} />
-            <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} />
+            <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} shared={shared} imagesOn={sharedView.imagesOn} onWebImages={setWebImages} />
           </>
         ) : folder ? (
           <div class="empty">

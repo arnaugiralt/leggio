@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
 import * as idb from './idb.js'
+import * as share from './share.js'
 
 export const FOLDER_NOTICE = { text: 'This file links to other files next to it. Open its folder to follow links and show images.', action: 'folder' }
 
 const nav = window.navigation
+
+const SHARE_ERRORS = {
+  damaged: 'This link is incomplete. Part of it was probably cut off when it was sent. Ask the sender for a new link.',
+  version: 'This link needs a newer version of Leggio. Reload the page to update.',
+  'too-large': 'This link holds a document too large to open.',
+}
+const shareCode = () => (location.hash.startsWith('#share=') ? location.hash.slice(7) : null)
 
 // The folder, the open document, pins and restore: every action that opens something, with
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
@@ -24,6 +32,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   const folderRef = useRef(null)
   const keepScroll = useRef(null)
   const launched = useRef(null) // the file handle the OS opened this window with
+  const sharedAtLoad = useRef(shareCode() !== null)
   // Name of the document Back or Forward goes to: null when there is none, '' when it is unknown.
   const [back, setBack] = useState(null)
   const [forward, setForward] = useState(null)
@@ -40,6 +49,19 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     })
   }, [])
 
+  // A share link, at load or pasted into this tab later. Back and Forward also change the hash, but goTo
+  // already opens their document, so skip an entry that holds this link's document. Not "an entry without
+  // state": Chrome copies the previous entry's state onto an entry typed into the address bar.
+  useEffect(() => {
+    if (sharedAtLoad.current) openShared(shareCode())
+    const onHash = async () => {
+      const code = shareCode()
+      if (code !== null && nav?.currentEntry.getState()?.handle?.copy !== (await share.shareId(code))) openShared(code)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
   // Pins and the restore record, once. A handle that is still granted needs no gesture,
   // so skip the welcome screen entirely and put the reader back in the document.
   useEffect(() => {
@@ -49,7 +71,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       if (!last?.folder) return
       // A pinned file can live outside the folder, so it carries its own grant.
       const granted = (await fs.hasPermission(last.folder)) && (!last.file || (await fs.hasPermission(last.file)))
-      if (granted && (await restore(last))) return
+      // A share link is what the window was opened for. The record stays for the next visit.
+      if (granted && !sharedAtLoad.current && (await restore(last))) return
       setRestorable(last)
     })
   }, [])
@@ -179,7 +202,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   }
 
   // dirPath and root are set when the file lives inside an open folder; null otherwise.
-  async function openFile(handle, { dirPath = null, root = null, fromHistory = false } = {}) {
+  async function openFile(handle, { dirPath = null, root = null, fromHistory = false, here = false } = {}) {
     try {
       if (!(await fs.ensurePermission(handle))) {
         setError(`Access to ${handle.name} was not granted.`)
@@ -192,7 +215,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
         return false
       }
       const text = await file.text()
-      if (!fromHistory) await record({ handle, name: handle.name, dirPath, root })
+      if (!fromHistory) await record({ handle, name: handle.name, dirPath, root }, here)
       show({ handle, name: handle.name, dirPath, root, text })
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
       // so the handle rides along as the fallback.
@@ -219,6 +242,21 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     }
   }
 
+  // A shared document is a copy of one file, marked shared. Its copy id comes from the link, so the same link
+  // opened again (a reload, Back) is the same document to record() and replaces its entry.
+  async function openShared(code) {
+    let doc
+    try {
+      doc = await share.decode(code)
+    } catch (err) {
+      setNotice({ text: SHARE_ERRORS[err.reason] ?? SHARE_ERRORS.damaged })
+      return false
+    }
+    const file = new File([doc.text], doc.name || 'Shared document', { type: 'text/markdown' })
+    // here: the browser already made this link's entry, and any state on it belongs to another document.
+    return openFile({ ...fs.fromFile(file), copy: await share.shareId(code), shared: true }, { here: true })
+  }
+
   // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
   // No README auto-open: the person already has a document.
   async function showFolder(root) {
@@ -229,6 +267,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // document's own folder, which is not necessarily the one the sidebar shows.
   async function followLink(href) {
     const cur = currentRef.current
+    if (cur?.handle?.shared) return setNotice({ text: "Linked files aren't included in a shared document." })
     const root = cur?.root
     if (!cur?.dirPath || !root) {
       pendingLink.current = href // followed once the folder is granted
@@ -332,7 +371,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
 
   function writeEntry(entry, push = false) {
     if (!nav) return
-    if (push) history.pushState(null, '')
+    // The share link stays on its own entries (a heading jump inside it) and nowhere else, so reloading another
+    // document never reopens the shared one.
+    if (push) history.pushState(null, '', entry.handle?.shared ? location.href : location.pathname + location.search)
     nav.updateCurrentEntry({ state: entry })
   }
 
@@ -340,11 +381,14 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // ponytail: for a copy, entry.root is the whole copied tree, and the browser clones it into history state on
   // every write, scroll saves included. Fine for notes; for a copied folder of thousands of files, keep copies in
   // a module-level map and store only the copy id here.
-  async function record(entry) {
+  async function record(entry, here = false) {
     const prev = nav?.currentEntry.getState()
     const same = await fs.isSame(prev?.handle, entry.handle)
-    if (!prev || same) return writeEntry(entry)
-    writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
+    // An entry on a share link holds only that link's document. One left without it (the link was damaged) would
+    // reopen the link on reload, and replaceState is out, so another document gets an entry of its own.
+    const onLink = !entry.handle?.shared && location.hash.startsWith('#share=')
+    if ((!prev || same || here) && !onLink) return writeEntry(entry)
+    if (prev) writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
     writeEntry(entry, true)
   }
 

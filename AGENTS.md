@@ -41,6 +41,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
 | `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s, which JSON can't hold. Failures resolve to `undefined`. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
+| `src/share.js` | The share link: encodes a document into the `#share=` fragment and decodes it back. Pure, so it runs under node. |
 | `src/render.js` | One markdown-it instance (`html: false`), the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
 | `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background. |
 | `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. |
@@ -84,9 +85,10 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - In the installed app, the bar is the window's title bar (`window-controls-overlay` in `manifest.json` and `styles.css`). Its empty parts drag the window. Anything clickable you add to the bar must be a `button`, `a`, `input`, `select` or popover, or get `app-region: no-drag`, or it won't take clicks.
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
   1. A stated notice, such as an error or a deleted file.
-  2. The folder offer.
-  3. The copy notice, while the document is a copy.
-  4. The install tip.
+  2. The web images offer, in a shared document with web images.
+  3. The folder offer (never for a shared document).
+  4. The copy notice, while the document is a copy (never for a shared document, which has the Shared chip in the bar instead).
+  5. The install tip.
 
 ### Copies
 
@@ -94,6 +96,17 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - A copy has no live reload, no pins and no restore after a reload. Links, images, the tree and Back and Forward work.
 - A copy must stay plain data, never a class or an object with methods. History state stores it through a structured clone, which drops methods.
 - A picker that throws (not a cancel) marks file access as blocked for the session, and from then on the inputs open directly.
+
+### Shared links
+
+- A share link carries the document in the URL fragment (`#share=`, see `share.js`), which the browser never sends to the server. Don't move it to the query string or the path.
+- A shared document is a copy of one file with `shared: true`. Its copy id comes from `share.shareId`, so a reload or a Back to the same link replaces its history entry instead of adding one.
+- The `#share=` URL stays only on the shared document's own entries. `writeEntry` pushes every other document without it.
+- `hashchange` opens a link unless the entry already holds that link's document (same copy id). Back and Forward change the hash too, and `goTo` opens their documents. Don't test for an entry without state: Chrome copies the previous entry's state onto an entry typed into the address bar.
+- A shared document is written onto the entry the browser made for its link (`openFile(…, { here: true })`), never pushed after it.
+- Another document never takes over an entry whose URL holds a share link, even one whose link was damaged. `record` pushes a new entry, so a reload doesn't reopen the link.
+- A shared document's web images also include diagram styles: `render` drops every `url(…)` in a diagram except `#id` references in share mode.
+- A shared document comes from someone else. Its web images render as `data-src` (`render(text, { share: true })`) and load only when the reader asks, because loading them tells the image host who opened the document.
 
 ### Build and deploy
 

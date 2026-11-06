@@ -115,3 +115,33 @@ test('local images carry data-src and no src; external ones keep src', () => {
   assert.match(html, /<img src="https:\/\/e.com\/c.png"/)
   assert.doesNotMatch(html, /<img(?![^>]*data-src)[^>]*src="logo/)
 })
+
+test('share mode never emits a web src', () => {
+  for (const url of ['https://x.test/a.png', '//x.test/a.png']) {
+    const out = render(`![a](${url})`, { share: true })
+    assert.ok(out.includes(`data-src="${url}"`), out)
+    assert.doesNotMatch(out, /\ssrc=/)
+  }
+})
+
+test('share mode keeps data images', () => {
+  assert.match(render('![a](data:image/png;base64,iVBORw0KGgo=)', { share: true }), /\ssrc="data:image\/png;base64,iVBORw0KGgo="/)
+})
+
+test('normal mode keeps web src', () => {
+  assert.match(render('![a](https://x.test/a.png)'), /\ssrc="https:\/\/x.test\/a.png"/)
+})
+
+// Shared documents come from strangers: a diagram label must never become markup.
+test('mermaid labels are escaped', () => {
+  for (const src of ['flowchart LR\n  A["<img src=x onerror=alert(1)>"] --> B', 'sequenceDiagram\n  Alice->>Bob: <script>x</script>']) {
+    assert.doesNotMatch(render('```mermaid\n' + src + '\n```'), /<img|<script/)
+  }
+})
+
+// A diagram style can point a fill at a web URL, which the browser fetches as soon as the SVG is on the page.
+test('share mode drops web urls from diagrams', () => {
+  const src = '```mermaid\nflowchart LR\n  A --> B\n  style A fill:url(https://x.test/a.png)\n```'
+  assert.match(render(src), /x\.test/) // not a share: the reader's own file keeps its style
+  assert.doesNotMatch(render(src, { share: true }), /x\.test/)
+})

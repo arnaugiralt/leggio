@@ -4,8 +4,10 @@ import { isLocal, resolvePath, getFileByPath, getFile } from './fs.js'
 import { X } from './icons.jsx'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
-export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative }) {
-  const html = useMemo(() => render(text), [text])
+// shared: the document came in a link from someone else. Its web images wait for imagesOn, and onWebImages
+// reports how many there are and from which hosts.
+export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative, shared = false, imagesOn = false, onWebImages }) {
+  const html = useMemo(() => render(text, { share: shared }), [text, shared])
   const urls = useRef([])
   const [zoomed, setZoomed] = useState(null)
 
@@ -21,12 +23,43 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
     article.querySelectorAll('.img-note').forEach(n => n.remove()) // re-added below, so a re-run never doubles them
     // Local images come as data-src (render.js), so no request leaves for them. A previous pass may have
     // set a blob src on this same unchanged html; clear it so a missing folder shows no stale image.
-    for (const img of article.querySelectorAll('img[data-src]')) img.removeAttribute('src')
+    for (const img of article.querySelectorAll('img[data-src]')) {
+      img.removeAttribute('src')
+      img.hidden = false
+    }
     // Above the folder check: diagrams open in the lightbox with or without one.
     for (const fig of article.querySelectorAll('.diagram')) {
       fig.tabIndex = 0
       fig.setAttribute('role', 'button')
       fig.setAttribute('aria-label', 'Open diagram full size')
+    }
+    if (shared) {
+      onRelative(false) // a shared document has no folder to offer
+      const hosts = []
+      for (const img of article.querySelectorAll('img[data-src]')) {
+        const src = img.dataset.src
+        if (isLocal(src)) {
+          img.hidden = true
+          note(img, `${src.split('/').filter(Boolean).pop() ?? src} wasn't included in the link.`, 'img-placeholder')
+          continue
+        }
+        let host
+        try {
+          host = new URL(src, location.href).host
+        } catch {
+          continue
+        }
+        hosts.push(host)
+        if (imagesOn) {
+          img.src = src
+          img.addEventListener('error', () => note(img, "Image couldn't load."), { once: true })
+        } else {
+          img.hidden = true
+          note(img, `${img.alt ? `${img.alt}. ` : ''}Image from ${host}, not loaded.`, 'img-placeholder')
+        }
+      }
+      onWebImages?.({ count: hosts.length, hosts: [...new Set(hosts)] })
+      return
     }
     // Without a folder, relative images are broken and links cannot be followed: App offers the folder.
     onRelative((!dirPath || !root) && [...article.querySelectorAll('img[data-src], a[href]')].some(el => isLocal(el.getAttribute(el.localName === 'a' ? 'href' : 'data-src') ?? '')))
@@ -55,7 +88,7 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
     return () => {
       cancelled = true
     }
-  }, [html, root, dirPath])
+  }, [html, root, dirPath, imagesOn])
 
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), [])
 
@@ -95,10 +128,10 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
   )
 }
 
-function note(img, text) {
+function note(img, text, kind) {
   if (img.nextElementSibling?.classList.contains('img-note')) return
   const span = document.createElement('span')
-  span.className = 'img-note'
+  span.className = kind ? `img-note ${kind}` : 'img-note'
   span.textContent = text
   img.after(span)
 }
