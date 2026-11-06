@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { encode, decode, shareId, rawUrl, readLink, webName } from '../src/share.js'
+import { encode, decode, shareId, httpsUrl, readLink, webName } from '../src/share.js'
 
 const reason = r => err => err.reason === r
 
@@ -44,20 +44,13 @@ test('shareId is stable and short', async () => {
   assert.match(await shareId(code), /^share-[0-9a-f]{16}$/)
 })
 
-test('rawUrl rewrites a GitHub blob', () => {
-  assert.equal(rawUrl('https://github.com/a/b/blob/main/docs/x.md'), 'https://raw.githubusercontent.com/a/b/main/docs/x.md')
+// No rewriting: a GitHub or gist page address is fetched as given (and fails), the raw address works.
+test('httpsUrl keeps an https address as it is', () => {
+  for (const url of ['https://example.com/a.md?x=1', 'https://github.com/a/b/blob/main/docs/x.md']) assert.equal(httpsUrl(url), url)
 })
 
-test('rawUrl rewrites a gist page', () => {
-  assert.equal(rawUrl('https://gist.github.com/a/0123abcd'), 'https://gist.githubusercontent.com/a/0123abcd/raw')
-})
-
-test('rawUrl keeps other https', () => {
-  assert.equal(rawUrl('https://example.com/a.md?x=1'), 'https://example.com/a.md?x=1')
-})
-
-test('rawUrl refuses http and junk', () => {
-  for (const url of ['http://example.com/a.md', 'ftp://x', 'not a url']) assert.equal(rawUrl(url), null)
+test('httpsUrl refuses http and junk', () => {
+  for (const url of ['http://example.com/a.md', 'ftp://x', 'not a url']) assert.equal(httpsUrl(url), null)
 })
 
 test('readLink reads both Leggio links from any origin', () => {

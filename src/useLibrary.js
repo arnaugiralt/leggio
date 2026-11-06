@@ -24,7 +24,7 @@ function linkFromHash() {
   }
 }
 // The copy id the link's document gets, so an entry that already holds it is recognised.
-const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + share.rawUrl(link.url))
+const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + share.httpsUrl(link.url))
 
 // The folder, the open document, pins and restore: every action that opens something, with
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
@@ -273,7 +273,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // A web document is a copy of one file, marked with its address, which is also its copy id. Opening it again
   // (a reload, Back) fetches it again: it may have changed, and nothing of it is kept.
   async function openUrl(address) {
-    const url = share.rawUrl(address)
+    const url = share.httpsUrl(address)
     if (!url) return setNotice({ text: HTTPS_ONLY }), false
     const host = new URL(url).host
     const asked = location.hash // the link this fetch belongs to; the reader may move on while it runs
@@ -306,7 +306,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   function openLink(text) {
     const link = share.readLink(text)
     if (!link) return false
-    const url = link.url && share.rawUrl(link.url)
+    const url = link.url && share.httpsUrl(link.url)
     if (link.url && !url) return setNotice({ text: HTTPS_ONLY }), true
     const hash = link.share ? `#share=${link.share}` : `#url=${encodeURIComponent(url)}`
     // The same link again (a retry after the site was offline) changes no hash, so no hashchange: open it here.

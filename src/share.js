@@ -87,17 +87,12 @@ const parse = text => {
   }
 }
 
-// The address to fetch for a web document: GitHub and gist pages show the file inside a page, so they become
-// the raw file. Only https: an http fetch from an https page is blocked anyway, and would show who reads what.
-export function rawUrl(text) {
+// The address to fetch for a web document, as given: only https, since an http fetch from an https page is
+// blocked anyway and would show who reads what. No rewriting of GitHub or gist pages for now; their Raw
+// address works.
+export function httpsUrl(text) {
   const url = parse(text)
-  if (url?.protocol !== 'https:') return null
-  const path = url.pathname.split('/').filter(Boolean)
-  if (url.host === 'github.com' && path[2] === 'blob' && path.length > 4) {
-    return `https://raw.githubusercontent.com/${[path[0], path[1], ...path.slice(3)].join('/')}`
-  }
-  if (url.host === 'gist.github.com' && path.length === 2) return `https://gist.githubusercontent.com/${path[0]}/${path[1]}/raw`
-  return url.href
+  return url?.protocol === 'https:' ? url.href : null
 }
 
 // What a pasted text opens: a Leggio link from any origin (the dev server, a preview, the site), or a web
