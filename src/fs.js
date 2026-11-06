@@ -48,8 +48,13 @@ export async function hasPermission(handle) {
 }
 
 // Denied, not just ungranted: 'prompt' can still be granted (ensurePermission asks), so only 'denied' rules a handle out.
+// A query that fails counts as denied, so the caller falls back to a copy instead of stopping.
 export async function isDenied(handle) {
-  return !!handle.queryPermission && (await handle.queryPermission({ mode: 'read' })) === 'denied'
+  try {
+    return !!handle.queryPermission && (await handle.queryPermission({ mode: 'read' })) === 'denied'
+  } catch {
+    return true
+  }
 }
 
 // Call from a user gesture whenever a prompt is possible.

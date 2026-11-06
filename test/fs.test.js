@@ -122,4 +122,5 @@ test('only a denied handle is ruled out; one that can still prompt is kept', asy
   assert.equal(await isDenied(handle('prompt')), false)
   assert.equal(await isDenied(handle('granted')), false)
   assert.equal(await isDenied(fromFile(new File(['x'], 'a.md'))), false)
+  assert.equal(await isDenied({ queryPermission: async () => { throw new Error('boom') } }), true)
 })

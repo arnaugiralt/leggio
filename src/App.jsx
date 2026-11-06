@@ -222,7 +222,8 @@ export function App() {
   // Takes an options object, not a flag, because it is also a click handler and gets the event as its argument.
   async function pickFolder({ forCurrent = false } = {}) {
     folderFor.current = forCurrent
-    if (!fileAccess.current) return folderInput.current.click()
+    // A copy can only be found in a copied folder (by name, size and date), never in a real one.
+    if (!fileAccess.current || (forCurrent && current?.handle?.copy)) return folderInput.current.click()
     try {
       const handle = await fs.pickDirectory({ startIn: forCurrent ? current?.handle : undefined })
       if (handle) forCurrent ? openFolderFor(handle) : openFolder(handle, { pick: true })
