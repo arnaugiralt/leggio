@@ -38,7 +38,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/main.jsx` | The entry point. Renders `App` and registers `sw.js`. |
 | `src/App.jsx` | Layout, settings, drop and keyboard handling, the top bar and the notice slot. |
 | `src/useLibrary.js` | What is open: the folder, pins, the current document, restore after reload, the live-reload watchers, files opened from the operating system, session history and `followLink`. Every action that opens something lives here. |
-| `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. Other files call methods on the handles it returns (`getFile`, `isSameEntry`, `resolve`), and `useLibrary.js` holds the `launchQueue` handler. |
+| `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
 | `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s, which JSON can't hold. Failures resolve to `undefined`. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
 | `src/render.js` | One markdown-it instance (`html: false`), the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
@@ -85,7 +85,15 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
   1. A stated notice, such as an error or a deleted file.
   2. The folder offer.
-  3. The install tip.
+  3. The copy notice, while the document is a copy.
+  4. The install tip.
+
+### Copies
+
+- When the browser has no File System Access API (Firefox, Safari), or blocks it (a managed Chrome can, by policy), files open through a file input, a folder input (`webkitdirectory`) or a drop (`webkitGetAsEntry`). `fs.js` turns them into a copy: plain objects with `File`s inside, marked by a `copy` id.
+- A copy has no live reload, no pins and no restore after a reload. Links, images, the tree and Back and Forward work.
+- A copy must stay plain data, never a class or an object with methods. History state stores it through a structured clone, which drops methods.
+- A picker that throws (not a cancel) marks file access as blocked for the session, and from then on the inputs open directly.
 
 ### Build and deploy
 
@@ -108,6 +116,8 @@ await out.write('# Hello\n')
 await out.close()
 await window.leggio.openFolder(dir)
 ```
+
+To check copies, remove the pickers before the app loads (in Playwright, `page.addInitScript(() => { delete window.showDirectoryPicker; delete window.showOpenFilePicker })`), or replace them with functions that reject to act like a blocked Chrome. The file inputs then open, and automation can fill them with a real folder on disk.
 
 Changes to the interface and to the Default theme must work with the keyboard alone, with a visible focus ring, and keep text contrast at 4.5:1 or more.
 

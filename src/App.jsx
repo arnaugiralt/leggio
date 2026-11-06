@@ -13,6 +13,23 @@ const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
 const UI_KEY = 'leggio.ui'
 const TIP_KEY = 'leggio.install-tip-dismissed'
+const COPY_KEY = 'leggio.copy-note-dismissed'
+
+const COPY_NOTICE = { text: "Leggio is reading a copy of this file, so it won't update when the file changes.", action: 'reopen' }
+
+// Dismissals are conveniences: with site storage blocked they last for the session.
+function remembered(key) {
+  try {
+    return !!localStorage.getItem(key)
+  } catch {
+    return false
+  }
+}
+function remember(key) {
+  try {
+    localStorage.setItem(key, '1')
+  } catch {}
+}
 
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).
 const NARROW = '(max-width: 759.98px)' // the drawer breakpoint in styles.css
@@ -39,23 +56,22 @@ export function App() {
   const [hasContents, setHasContents] = useState(false)
   const [folderOfferHidden, setFolderOfferHidden] = useState(false)
   const [installEvent, setInstallEvent] = useState(null)
-  const [tipHidden, setTipHidden] = useState(() => {
-    try {
-      return !!localStorage.getItem(TIP_KEY)
-    } catch {
-      return false
-    }
-  })
+  const [tipHidden, setTipHidden] = useState(() => remembered(TIP_KEY))
+  const [copyNoticeHidden, setCopyNoticeHidden] = useState(() => remembered(COPY_KEY))
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
   const fileInput = useRef()
+  const folderInput = useRef()
+  const folderFor = useRef(false) // the folder input is open to find the current file's folder, not to browse one
+  // False once the File System Access API is missing or blocked: from then on files open as copies, through the inputs.
+  const fileAccess = useRef(fs.supported)
   const filesBtn = useRef()
   const settingsBtn = useRef()
   const settingsTitle = useRef()
   const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
   const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
-  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
+  const { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
     onReveal: path => {
@@ -175,9 +191,7 @@ export function App() {
 
   function hideTip() {
     setTipHidden(true)
-    try {
-      localStorage.setItem(TIP_KEY, '1')
-    } catch {}
+    remember(TIP_KEY)
   }
 
   async function install() {
@@ -187,20 +201,34 @@ export function App() {
     await event.prompt()
   }
 
+  // A managed Chrome can block file access, and then the pickers throw instead of opening. The file inputs still
+  // work, but after the failed picker the click may no longer count as a user gesture, so the notice offers the
+  // input as a fresh click.
+  function blocked(action) {
+    fileAccess.current = false
+    setNotice({ text: "This browser blocks file access, so Leggio can only open a copy. A copy won't update when the file changes.", action })
+  }
+
   async function pickFile() {
-    if (!fs.supported) return fileInput.current.click()
-    const handle = await fs.pickFile()
-    if (handle) openFile(handle)
+    if (!fileAccess.current) return fileInput.current.click()
+    try {
+      const handle = await fs.pickFile()
+      if (handle) openFile(handle)
+    } catch {
+      blocked('copyFile')
+    }
   }
 
-  async function pickFolder() {
-    const handle = await fs.pickDirectory()
-    if (handle) openFolder(handle, { pick: true })
-  }
-
-  async function pickFolderForCurrent() {
-    const handle = await fs.pickDirectory({ startIn: current?.handle })
-    if (handle) openFolderFor(handle)
+  // Takes an options object, not a flag, because it is also a click handler and gets the event as its argument.
+  async function pickFolder({ forCurrent = false } = {}) {
+    folderFor.current = forCurrent
+    if (!fileAccess.current) return folderInput.current.click()
+    try {
+      const handle = await fs.pickDirectory({ startIn: forCurrent ? current?.handle : undefined })
+      if (handle) forCurrent ? openFolderFor(handle) : openFolder(handle, { pick: true })
+    } catch {
+      blocked('copyFolder')
+    }
   }
 
   const toggleSidebar = () => setUi(u => ({ ...u, sidebarOpen: !u.sidebarOpen }))
@@ -234,11 +262,20 @@ export function App() {
     const drop = async e => {
       e.preventDefault()
       setDragging(false)
-      const file = e.dataTransfer.files[0] // read synchronously; the list is gone after the event
-      const handle = await fs.handleFromDrop(e.dataTransfer)
-      if (handle?.kind === 'directory') openFolder(handle, { pick: true })
-      else if (handle?.kind === 'file') openFile(handle)
-      else openBlob(file)
+      // All three are taken before the first await: the data transfer is emptied once the event returns.
+      const file = e.dataTransfer.files[0]
+      const entry = e.dataTransfer.items?.[0]?.webkitGetAsEntry?.()
+      const pending = fs.handleFromDrop(e.dataTransfer)
+      // A handle keeps live reload and restore. Without one, or without access to it, read a copy.
+      const handle = await pending.catch(() => null)
+      let target = handle && (await fs.hasPermission(handle)) ? handle : null
+      try {
+        target ??= entry ? await fs.fromEntry(entry) : file && fs.fromFile(file)
+      } catch {
+        return setNotice({ text: `Could not read ${entry?.name ?? file?.name}.` })
+      }
+      if (target?.kind === 'directory') openFolder(target, { pick: true })
+      else if (target) openFile(target)
     }
     const key = e => {
       const mod = e.metaKey || e.ctrlKey
@@ -268,14 +305,22 @@ export function App() {
     }
   }, [])
 
-  // Relative links and images cannot resolve without the file's folder; a stated problem wins over this offer.
-  const shown = notice ?? (current?.handle && fs.supported && hasRelative && !folderOfferHidden ? FOLDER_NOTICE : null)
-  const tip = { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true }
-  const shownOrTip = shown ?? (current && installEvent && !tipHidden ? tip : null)
+  // The one notice slot shows the first of these that applies.
+  const shown = [
+    // A stated notice: an error, a deleted file. Dismissing a stated folder offer also hides the derived one.
+    notice && { ...notice, dismiss: notice.action !== 'another' && (() => (setNotice(null), setFolderOfferHidden(true))) },
+    // Relative links and images cannot resolve without the file's folder.
+    current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
+    current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
+    current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
+  ].find(Boolean)
   const actions = {
     install: ['Install', install],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
-    folder: ['Open folder', pickFolderForCurrent],
+    folder: ['Open folder', () => pickFolder({ forCurrent: true })],
+    reopen: ['Open again', () => (current.root?.copy ? pickFolder() : pickFile())],
+    copyFile: ['Open a copy', () => fileInput.current.click()],
+    copyFolder: ['Open a copy', () => folderInput.current.click()],
   }
   // Read, Pin and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
   const menu = read => (
@@ -284,7 +329,7 @@ export function App() {
       {hasContents && (
         <button type="button" class="quiet menu-contents" onClick={openContentsFromMenu}>Contents</button>
       )}
-      {current?.handle && (
+      {current?.handle && !current.handle.copy && (
         <button type="button" class="quiet" onClick={() => togglePin({ kind: 'file', name: current.name, handle: current.handle })}>
           {currentPinned ? 'Unpin' : 'Pin'}
         </button>
@@ -341,8 +386,20 @@ export function App() {
         accept=".md,.markdown,.txt"
         hidden
         onChange={e => {
-          openBlob(e.currentTarget.files[0])
+          const file = e.currentTarget.files[0] // before the reset below, which empties the list
           e.currentTarget.value = ''
+          if (file) openFile(fs.fromFile(file))
+        }}
+      />
+      <input
+        ref={folderInput}
+        type="file"
+        webkitdirectory
+        hidden
+        onChange={e => {
+          const root = fs.fromFileList(e.currentTarget.files)
+          e.currentTarget.value = ''
+          if (root) folderFor.current ? openFolderFor(root) : openFolder(root, { pick: true })
         }}
       />
       {ui.sidebarOpen && <div class="scrim" onClick={toggleSidebar} />}
@@ -350,13 +407,13 @@ export function App() {
         <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root) => { readFromDrawer(); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} />
       </nav>
       <main class="main">
-        {shownOrTip && (
-          <div class={shownOrTip.tip ? 'notice tip' : 'notice'} role="status">
-            <span>{shownOrTip.text}</span>
+        {shown && (
+          <div class={shown.tip ? 'notice tip' : 'notice'} role="status">
+            <span>{shown.text}</span>
             <span class="notice-buttons">
-              {shownOrTip.action && <button type="button" class="quiet notice-action" onClick={actions[shownOrTip.action][1]}>{actions[shownOrTip.action][0]}</button>}
-              {shownOrTip.tip && <button type="button" class="quiet" onClick={hideTip}>Not now</button>}
-              {shownOrTip.action !== 'another' && !shownOrTip.tip && <button type="button" class="quiet" aria-label="Dismiss" onClick={() => { setNotice(null); setFolderOfferHidden(true) }}>✕</button>}
+              {shown.action && <button type="button" class="quiet notice-action" onClick={actions[shown.action][1]}>{actions[shown.action][0]}</button>}
+              {shown.tip && <button type="button" class="quiet" onClick={hideTip}>Not now</button>}
+              {shown.dismiss && <button type="button" class="quiet" aria-label="Dismiss" onClick={shown.dismiss}>✕</button>}
             </span>
           </div>
         )}
@@ -380,7 +437,7 @@ export function App() {
             )}
             <div class="empty-actions">
               {restorable && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
-              {fs.supported && <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>}
+              <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>
             </div>
             <p class="empty-hint">Files are read on this computer and never uploaded.</p>
             <p class="empty-hint">

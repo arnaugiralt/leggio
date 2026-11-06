@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { render } from './render.js'
-import { isLocal, resolvePath, getFileByPath } from './fs.js'
+import { isLocal, resolvePath, getFileByPath, getFile } from './fs.js'
 import { X } from './icons.jsx'
 
 // Renders markdown, then resolves relative images and links against the open folder in a DOM pass.
@@ -43,7 +43,7 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
       const segments = resolvePath(dirPath, src)
       if (!segments) continue
       getFileByPath(root, segments)
-        .then(handle => handle.getFile())
+        .then(getFile)
         .then(file => {
           if (cancelled) return
           const url = URL.createObjectURL(file)

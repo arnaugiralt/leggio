@@ -4,7 +4,7 @@
 
 A markdown reader built for reading. Calm, customizable, offline, private.
 
-**[Open Leggio](https://leggio.compostela.dev)** in Chrome or Edge on a computer. It works in the browser with no account, and you can install it as an app from there.
+**[Open Leggio](https://leggio.compostela.dev)** on a computer, best in Chrome or Edge. It works in the browser with no account, and you can install it as an app from there.
 
 <img src=".github/screenshot.png" alt="Leggio showing a recipe: the folder of notes on the left, the document with a flowchart and a table on the right">
 
@@ -50,7 +50,7 @@ Shortcuts: ⌘O opens a file, ⇧⌘O a folder, ⌘B shows or hides the Files pa
 
 ## Requirements
 
-A Chromium-based browser on a computer, such as Chrome or Edge. Leggio reads files and folders through the File System Access API, which other browsers don't support yet.
+A browser on a computer. Chrome or Edge works best: Leggio reads files and folders through the File System Access API, which gives live reload, pins and restoring the last document. In other browsers, or when a company setting blocks file access, Leggio reads a copy of the files you open. A copy doesn't update when the file changes, and pins and restore are off.
 
 ## Develop
 

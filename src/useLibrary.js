@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
-import { resolvePath } from './fs.js'
 import * as idb from './idb.js'
 
 export const FOLDER_NOTICE = { text: 'This file links to other files next to it. Open its folder to follow links and show images.', action: 'folder' }
@@ -99,14 +98,14 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     }
   }, [])
 
-  // Is the current file pinned? isSameEntry is async, so this is derived in an effect.
+  // Is the current file pinned? isSame is async, so this is derived in an effect.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       let found = false
       if (current?.handle) {
         for (const item of pinned) {
-          if (item.kind === 'file' && (await item.handle.isSameEntry(current.handle))) found = true
+          if (item.kind === 'file' && (await fs.isSame(item.handle, current.handle))) found = true
         }
       }
       if (!cancelled) setCurrentPinned(found)
@@ -138,7 +137,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       onFolderOpen() // show the result; otherwise opening a folder looks like nothing happened
       setRestorable(null)
       setError('')
-      if (!currentRef.current) idb.set('last', { folder: handle, filePath: null, file: null }) // reading something: its own record stays
+      // A copy cannot be reopened after a reload, so it never replaces the restore record.
+      if (!currentRef.current && !handle.copy) idb.set('last', { folder: handle, filePath: null, file: null }) // reading something: its own record stays
       stopFolderWatch.current()
       let timer = 0
       const relist = () => {
@@ -185,17 +185,23 @@ export function useLibrary({ onFolderOpen, onReveal }) {
         setError(`Access to ${handle.name} was not granted.`)
         return false
       }
-      const text = await fs.readText(handle)
+      const file = await fs.getFile(handle)
+      // Pickers and links only offer markdown names; a drop can bring anything. Other text files still open.
+      if (!fs.isMarkdownName(handle.name) && !file.type.startsWith('text/')) {
+        setError(`${handle.name} isn't a markdown file. Open a .md, .markdown or .txt file.`)
+        return false
+      }
+      const text = await file.text()
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root })
       show({ handle, name: handle.name, dirPath, root, text })
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
       // so the handle rides along as the fallback.
       const inFolder = root ?? folderRef.current
-      if (inFolder) idb.set('last', { folder: inFolder, filePath: root && dirPath ? [...dirPath, handle.name] : null, file: handle })
+      if (inFolder && !inFolder.copy && !handle.copy) idb.set('last', { folder: inFolder, filePath: root && dirPath ? [...dirPath, handle.name] : null, file: handle })
       stopFileWatch.current()
       stopFileWatch.current = fs.watch(handle, async () => {
         try {
-          const next = await fs.readText(handle)
+          const next = await (await fs.getFile(handle)).text()
           setCurrent(c => {
             if (!c || c.handle !== handle || c.text === next) return c
             keepScroll.current = window.scrollY
@@ -213,27 +219,10 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     }
   }
 
-  // Plain File objects from the input element or a non-Chromium drop. No handle, no watch, no relative resolution.
-  async function openBlob(file) {
-    if (!file) return
-    if (!fs.isMarkdownName(file.name) && !file.type.startsWith('text/')) {
-      setError(`${file.name} isn't a markdown file. Drop a .md, .markdown or .txt file.`)
-      return
-    }
-    try {
-      const text = await file.text()
-      await record({ handle: null, name: file.name, text }) // no handle to reopen, so the entry keeps the text
-      stopFileWatch.current()
-      show({ handle: null, name: file.name, dirPath: null, root: null, text })
-    } catch {
-      setError(`Could not read ${file.name}.`)
-    }
-  }
-
   // The sidebar follows the document's folder (Finder's Back, a link back out of another folder).
   // No README auto-open: the person already has a document.
   async function showFolder(root) {
-    if (!(folderRef.current && (await folderRef.current.isSameEntry(root)))) await openFolder(root)
+    if (!(await fs.isSame(folderRef.current, root))) await openFolder(root)
   }
 
   // Every relative link lands here, so none of them can navigate the window. It resolves against the
@@ -246,7 +235,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       return setNotice(FOLDER_NOTICE)
     }
     const [path, hash] = href.split('#')
-    const segments = resolvePath(cur.dirPath, path)
+    const segments = fs.resolvePath(cur.dirPath, path)
     const name = path.split('/').filter(Boolean).pop() || path
     try {
       if (!segments) throw 0
@@ -265,7 +254,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
         if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
         return
       }
-      const file = await handle.getFile()
+      const file = await fs.getFile(handle)
       const url = URL.createObjectURL(file)
       if (fs.opensInTab(file.type)) window.open(url, '_blank')
       else {
@@ -287,7 +276,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   async function openFolderFor(dir) {
     const cur = currentRef.current
     if (!cur?.handle || !(await openFolder(dir))) return false
-    const segments = await dir.resolve(cur.handle)
+    const segments = await fs.resolve(dir, cur.handle)
     if (!segments) {
       setNotice({ text: `${cur.name} isn't inside ${dir.name}. Choose the folder that contains it.`, action: 'folder' })
       return false
@@ -317,7 +306,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
 
   async function togglePin(item) {
     let index = -1
-    for (let i = 0; i < pinned.length; i++) if (await pinned[i].handle.isSameEntry(item.handle)) index = i
+    for (let i = 0; i < pinned.length; i++) if (await fs.isSame(pinned[i].handle, item.handle)) index = i
     // A row key: names repeat (README.md in two folders) and handles are not stable values across reloads.
     const next = index >= 0 ? pinned.filter((_, i) => i !== index) : [...pinned, { id: crypto.randomUUID(), kind: item.kind, name: item.name, handle: item.handle }]
     setPinned(next)
@@ -350,7 +339,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // A new document pushes an entry; the first one in the window, or the same file again, replaces.
   async function record(entry) {
     const prev = nav?.currentEntry.getState()
-    const same = prev?.handle && entry.handle && (await prev.handle.isSameEntry(entry.handle))
+    const same = await fs.isSame(prev?.handle, entry.handle)
     if (!prev || same) return writeEntry(entry)
     writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
     writeEntry(entry, true)
@@ -359,13 +348,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   async function goTo(entry) {
     // ponytail: Chrome keeps only the current entry's state across a reload, so older entries come back
     // empty. Mirroring each folder path into history.state would let them reopen from the open folder.
-    if (!entry) return setError('This document was opened before the window reloaded. Open it again from Files.')
+    // No handle: an entry saved before plain files became copies.
+    if (!entry?.handle) return setError('This document was opened before the window reloaded. Open it again from Files.')
     keepScroll.current = entry.scrollY ?? null
-    if (!entry.handle) {
-      stopFileWatch.current()
-      setCurrent({ handle: null, name: entry.name, dirPath: null, root: null, text: entry.text })
-      return
-    }
     // The tree follows the document, as Finder's Back changes the location.
     if (entry.root) await showFolder(entry.root)
     if (!(await openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root, fromHistory: true }))) {
@@ -386,5 +371,5 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, openBlob, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
+  return { folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }

@@ -3,6 +3,7 @@ import * as fs from './fs.js'
 import { FileText, Folder, FolderOpen } from './icons.jsx'
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
+  if (item.handle.copy) return null // a pin reopens its file after a reload, and a copy cannot be reopened
   return (
     <button type="button" class="pin" aria-label={`${label} ${item.name}`} onClick={() => onTogglePin(item)}>
       {label}
@@ -56,7 +57,7 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const same = !!(current?.root && folder && (current.root === folder.handle || (await current.root.isSameEntry(folder.handle))))
+      const same = !!(current?.root && folder && (await fs.isSame(current.root, folder.handle)))
       if (!cancelled) setSameRoot(same)
     })()
     return () => {
@@ -101,14 +102,12 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
       <section>
         <h2>
           <span class="row-name">{folder ? folder.name : 'Folder'}</span>
-          {fs.supported && (
-            <button type="button" class="quiet small" onClick={onPickFolder}>
-              {folder ? 'Change folder' : 'Open a folder'}
-            </button>
-          )}
+          <button type="button" class="quiet small" onClick={onPickFolder}>
+            {folder ? 'Change folder' : 'Open a folder'}
+          </button>
         </h2>
         {folder && !folder.tree.children.length && <p class="side-hint">No markdown files in {folder.name}.</p>}
-        {folder ? <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} /> : !fs.supported && <p class="side-hint">Folders need Chrome or Edge.</p>}
+        {folder && <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} />}
       </section>
     </div>
   )

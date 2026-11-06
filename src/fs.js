@@ -1,4 +1,5 @@
 // The only module that touches the File System Access API. A Tauri backend would replace this file.
+// Every function here also takes a copy (see "Copies" below), so other modules never call handle methods.
 
 export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -15,7 +16,7 @@ export const isLocal = url => isRelative(url) || /^\/(?!\/)/.test(url)
 // startIn may be a file handle: the picker then opens in that file's folder, so granting it is one click.
 export async function pickDirectory({ startIn } = {}) {
   try {
-    return await window.showDirectoryPicker({ mode: 'read', ...(startIn && { startIn }) })
+    return await window.showDirectoryPicker({ mode: 'read', ...(startIn && !startIn.copy && { startIn }) })
   } catch (err) {
     if (err.name === 'AbortError') return null
     throw err
@@ -55,13 +56,14 @@ export async function ensurePermission(handle) {
 }
 
 const byName = (a, b) => a.name.localeCompare(b.name)
+const skipped = name => name.startsWith('.') || name === 'node_modules'
 
 // Markdown files only; hidden folders and node_modules skipped; folders without markdown pruned; folders first.
 export async function listMarkdown(dir) {
   const files = []
   const dirs = []
-  for await (const [name, handle] of dir.entries()) {
-    if (name.startsWith('.') || name === 'node_modules') continue
+  for await (const [name, handle] of dir.copy ? dir.children.map(c => [c.name, c]) : dir.entries()) {
+    if (skipped(name)) continue
     if (handle.kind === 'directory') {
       const child = await listMarkdown(handle)
       if (child.children.length) dirs.push(child)
@@ -72,11 +74,12 @@ export async function listMarkdown(dir) {
   return { name: dir.name, kind: 'directory', handle: dir, children: [...dirs.sort(byName), ...files.sort(byName)] }
 }
 
-export const readText = async handle => (await handle.getFile()).text()
+export const getFile = handle => (handle.copy ? Promise.resolve(handle.file) : handle.getFile())
 
 // FileSystemObserver where present. Fallback polls lastModified once a second for files only;
-// folders without the observer are relisted on window focus by the caller.
+// folders without the observer are relisted on window focus by the caller. A copy never changes.
 export function watch(handle, onChange) {
+  if (handle.copy) return () => {}
   if (typeof FileSystemObserver === 'function') {
     const observer = new FileSystemObserver(() => onChange())
     observer.observe(handle, { recursive: handle.kind === 'directory' }).catch(() => {})
@@ -121,21 +124,50 @@ export function resolvePath(dirPath, relative) {
   return out.length ? out : null
 }
 
+// A copy throws the same DOMException names as a handle, so callers handle both alike.
+async function child(dir, name, kind) {
+  if (!dir.copy) return kind === 'file' ? dir.getFileHandle(name) : dir.getDirectoryHandle(name)
+  const hit = dir.children.find(c => c.name === name)
+  if (!hit) throw new DOMException(`${name} was not found`, 'NotFoundError')
+  if (hit.kind !== kind) throw new DOMException(`${name} is not a ${kind}`, 'TypeMismatchError')
+  return hit
+}
+
 // A decoded segment may contain '/' (from %2F); getDirectoryHandle and getFileHandle reject such names, so it fails closed.
 export async function getFileByPath(root, segments) {
   let dir = root
-  for (const seg of segments.slice(0, -1)) dir = await dir.getDirectoryHandle(seg)
-  return dir.getFileHandle(segments[segments.length - 1])
+  for (const seg of segments.slice(0, -1)) dir = await child(dir, seg, 'directory')
+  return child(dir, segments[segments.length - 1], 'file')
 }
 
 export async function getDirByPath(root, segments) {
   let dir = root
-  for (const seg of segments) dir = await dir.getDirectoryHandle(seg)
+  for (const seg of segments) dir = await child(dir, seg, 'directory')
   return dir
 }
 
+export async function isSame(a, b) {
+  if (!a || !b) return false
+  if (a.copy || b.copy) return a.copy === b.copy && a.kind === b.kind && a.path.join('/') === b.path.join('/')
+  return a === b || a.isSameEntry(b)
+}
+
+// The path of handle inside dir, or null when it is not inside.
+export async function resolve(dir, handle) {
+  if (!dir.copy) return handle.copy ? null : dir.resolve(handle)
+  if (dir.copy === handle.copy) return handle.path.slice(0, dir.path.length).join('/') === dir.path.join('/') ? handle.path.slice(dir.path.length) : null
+  // A copy has no location on disk. The file is taken to be the one in the folder with its name, size and date,
+  // if exactly one matches.
+  const file = await getFile(handle)
+  const same = copiedFiles(dir).filter(c => c.name === file.name && c.file.size === file.size && c.file.lastModified === file.lastModified)
+  return same.length === 1 ? same[0].path.slice(dir.path.length) : null
+}
+
+const copiedFiles = dir => dir.children.flatMap(c => (c.kind === 'file' ? [c] : copiedFiles(c)))
+
 // Only NotFoundError means gone; anything else (permission, a busy disk) says nothing about the entry.
 export async function exists(handle) {
+  if (handle.copy) return true
   try {
     if (handle.kind === 'file') await handle.getFile()
     else await handle.entries().next()
@@ -143,6 +175,60 @@ export async function exists(handle) {
   } catch (err) {
     return err.name !== 'NotFoundError'
   }
+}
+
+// Copies. Without the File System Access API, or when the browser blocks it (a managed Chrome can), files come
+// from a file input or a drop instead. Those give File objects read at that moment: no live reload, no restore,
+// no pins. A copy is plain data plus File objects, never a class, because history state keeps it through a
+// structured clone, which drops methods. `copy` is an id shared by every node of one copy, so isSame works on clones.
+
+export function fromFile(file) {
+  return { copy: crypto.randomUUID(), kind: 'file', name: file.name, path: [file.name], file }
+}
+
+// files: [[segments below the root], File]. Folders are created from the paths, so empty ones never appear.
+function copyTree(name, files) {
+  const copy = crypto.randomUUID()
+  const root = { copy, kind: 'directory', name, path: [], children: [] }
+  for (const [segments, file] of files) {
+    if (segments.some(skipped)) continue
+    let dir = root
+    segments.slice(0, -1).forEach((seg, i) => {
+      let next = dir.children.find(c => c.kind === 'directory' && c.name === seg)
+      if (!next) dir.children.push((next = { copy, kind: 'directory', name: seg, path: segments.slice(0, i + 1), children: [] }))
+      dir = next
+    })
+    dir.children.push({ copy, kind: 'file', name: file.name, path: segments, file })
+  }
+  return root
+}
+
+// From <input webkitdirectory>: each file's webkitRelativePath starts with the chosen folder's name.
+export function fromFileList(list) {
+  const files = [...list].map(file => [file.webkitRelativePath.split('/'), file])
+  if (!files.length) return null
+  return copyTree(files[0][0][0], files.map(([segments, file]) => [segments.slice(1), file]))
+}
+
+// From a drop, through the older entries API, which no file access setting blocks. The entry must be taken
+// inside the drop handler; reading it later is fine.
+export async function fromEntry(entry) {
+  const fileOf = e => new Promise((resolve, reject) => e.file(resolve, reject))
+  if (entry.isFile) return fromFile(await fileOf(entry))
+  const files = []
+  async function walk(dir, prefix) {
+    const reader = dir.createReader()
+    // readEntries returns at most 100 entries per call; an empty batch is the end.
+    for (let batch; (batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject))).length; ) {
+      for (const e of batch) {
+        if (skipped(e.name)) continue
+        if (e.isDirectory) await walk(e, [...prefix, e.name])
+        else files.push([[...prefix, e.name], await fileOf(e)])
+      }
+    }
+  }
+  await walk(entry, [])
+  return copyTree(entry.name, files)
 }
 
 // Types a new tab shows instead of saving. SVG and HTML are left out: opened from a blob URL they run

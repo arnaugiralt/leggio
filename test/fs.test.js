@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isRelative, isMarkdownName, resolvePath, listMarkdown } from '../src/fs.js'
+import { isRelative, isMarkdownName, resolvePath, listMarkdown, fromFile, fromFileList, getFileByPath, getDirByPath, getFile, isSame, resolve, watch, exists } from '../src/fs.js'
 
 function file(name) {
   return { kind: 'file', name }
@@ -63,4 +63,55 @@ test('opensInTab', async () => {
   const { opensInTab } = await import('../src/fs.js')
   for (const t of ['image/png', 'application/pdf', 'text/plain', 'audio/mpeg', 'video/mp4']) assert.equal(opensInTab(t), true, t)
   for (const t of ['text/csv', 'text/html', 'image/svg+xml', 'application/zip', '']) assert.equal(opensInTab(t), false, t)
+})
+
+// What <input webkitdirectory> returns: File objects whose webkitRelativePath starts with the folder name.
+function picked(paths) {
+  return paths.map(path => Object.assign(new File([path], path.split('/').pop(), { lastModified: 1000 }), { webkitRelativePath: path }))
+}
+const notes = () => fromFileList(picked(['notes/README.md', 'notes/img/a.png', 'notes/docs/b.md', 'notes/.git/c.md', 'notes/node_modules/x/r.md']))
+
+test('a copied folder lists like a real one', async () => {
+  const tree = await listMarkdown(notes())
+  assert.equal(tree.name, 'notes')
+  assert.deepEqual(names(tree), ['docs', 'README.md'])
+  assert.deepEqual(names(tree.children[0]), ['b.md'])
+})
+
+test('a copied folder resolves paths with the same errors as a handle', async () => {
+  const root = notes()
+  const b = await getFileByPath(root, ['docs', 'b.md'])
+  assert.equal(await (await getFile(b)).text(), 'notes/docs/b.md')
+  assert.equal((await getDirByPath(root, ['img'])).name, 'img')
+  await assert.rejects(getFileByPath(root, ['docs']), { name: 'TypeMismatchError' })
+  await assert.rejects(getFileByPath(root, ['missing.md']), { name: 'NotFoundError' })
+  await assert.rejects(getFileByPath(root, ['.git', 'c.md']), { name: 'NotFoundError' })
+})
+
+test('copies keep their identity through a structured clone, as history state does', async () => {
+  const root = notes()
+  const b = await getFileByPath(root, ['docs', 'b.md'])
+  const [rootClone, bClone] = structuredClone([root, b])
+  assert.equal(await isSame(rootClone, root), true)
+  assert.equal(await isSame(bClone, b), true)
+  assert.equal(await isSame(b, root), false)
+  assert.equal(await isSame(notes(), root), false) // another pick is another copy
+  assert.deepEqual(await resolve(rootClone, bClone), ['docs', 'b.md'])
+  assert.deepEqual(await resolve(await getDirByPath(root, ['docs']), b), ['b.md'])
+})
+
+test('a copied file is found in a copied folder by name, size and date', async () => {
+  const root = notes()
+  const [readme] = picked(['notes/README.md'])
+  assert.deepEqual(await resolve(root, fromFile(readme)), ['README.md'])
+  const other = new File(['different'], 'README.md', { lastModified: 1000 })
+  assert.equal(await resolve(root, fromFile(other)), null)
+})
+
+test('copies never change and always exist', async () => {
+  let called = false
+  const stop = watch(fromFile(new File(['x'], 'a.md')), () => (called = true))
+  stop()
+  assert.equal(called, false)
+  assert.equal(await exists(notes()), true)
 })
