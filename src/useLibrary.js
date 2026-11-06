@@ -337,6 +337,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   }
 
   // A new document pushes an entry; the first one in the window, or the same file again, replaces.
+  // ponytail: for a copy, entry.root is the whole copied tree, and the browser clones it into history state on
+  // every write, scroll saves included. Fine for notes; for a copied folder of thousands of files, keep copies in
+  // a module-level map and store only the copy id here.
   async function record(entry) {
     const prev = nav?.currentEntry.getState()
     const same = await fs.isSame(prev?.handle, entry.handle)

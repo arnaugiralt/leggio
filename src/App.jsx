@@ -266,9 +266,9 @@ export function App() {
       const file = e.dataTransfer.files[0]
       const entry = e.dataTransfer.items?.[0]?.webkitGetAsEntry?.()
       const pending = fs.handleFromDrop(e.dataTransfer)
-      // A handle keeps live reload and restore. Without one, or without access to it, read a copy.
+      // A handle keeps live reload and restore. Without one, or when access to it is denied, read a copy.
       const handle = await pending.catch(() => null)
-      let target = handle && (await fs.hasPermission(handle)) ? handle : null
+      let target = handle && !(await fs.isDenied(handle)) ? handle : null
       try {
         target ??= entry ? await fs.fromEntry(entry) : file && fs.fromFile(file)
       } catch {

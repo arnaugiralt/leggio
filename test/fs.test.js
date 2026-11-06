@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isRelative, isMarkdownName, resolvePath, listMarkdown, fromFile, fromFileList, getFileByPath, getDirByPath, getFile, isSame, resolve, watch, exists } from '../src/fs.js'
+import { isRelative, isMarkdownName, resolvePath, listMarkdown, fromFile, fromFileList, getFileByPath, getDirByPath, getFile, isSame, resolve, watch, exists, isDenied } from '../src/fs.js'
 
 function file(name) {
   return { kind: 'file', name }
@@ -114,4 +114,12 @@ test('copies never change and always exist', async () => {
   stop()
   assert.equal(called, false)
   assert.equal(await exists(notes()), true)
+})
+
+test('only a denied handle is ruled out; one that can still prompt is kept', async () => {
+  const handle = state => ({ queryPermission: async () => state })
+  assert.equal(await isDenied(handle('denied')), true)
+  assert.equal(await isDenied(handle('prompt')), false)
+  assert.equal(await isDenied(handle('granted')), false)
+  assert.equal(await isDenied(fromFile(new File(['x'], 'a.md'))), false)
 })
