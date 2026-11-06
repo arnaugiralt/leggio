@@ -848,6 +848,14 @@ html:has(dialog.lightbox[open]) {
 .theme-sample { font-size: 1.05rem; font-weight: 600; line-height: 1; }
 .theme-accent { width: 1.5rem; height: 3px; border-radius: 2px; }
 .theme-name { font-size: 0.72rem; opacity: 0.65; }
+.themes-heading { margin: 1rem 0 0.4rem; font-size: 0.8rem; color: var(--ui-muted); }
+.theme-save { border-style: dashed; background: transparent; color: var(--ui-muted); }
+.theme-editing { cursor: default; }
+.theme-name-field input { width: 100%; min-width: 0; padding: 0.15rem 0.3rem; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; font-size: 0.75rem; }
+.theme-actions { display: flex; align-items: center; gap: 0.25rem; margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--ui-muted); }
+.theme-actions span { margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backup { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.backup .quiet { flex: 1; border: 1px solid var(--ui-hairline); }
 .themes-note { margin: 0.5rem 0 0; }
 .field-error { color: var(--color-fg); font-weight: 600; }
 

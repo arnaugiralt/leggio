@@ -261,3 +261,74 @@ function isDark(hex) {
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
 }
+
+// Import, export and saved themes. A settings file comes from outside, so every value passes the same kind of
+// check a control in Settings would give it, and anything that fails is left out rather than guessed at. The
+// font address matters most: it becomes a stylesheet link, so only Google Fonts stylesheets pass (the content
+// security policy allows nothing else either).
+const COLOR = /^#[0-9a-f]{6}$/i
+const FONT_NAME = /^[\p{L}\p{N} _-]{0,60}$/u
+const range = (min, max) => v => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
+// The same bounds as the fields in Settings.jsx.
+const CHECKS = {
+  fontUrl: v => v === '' || (typeof v === 'string' && v.length < 2000 && v.startsWith('https://fonts.googleapis.com/')),
+  textFont: v => typeof v === 'string' && FONT_NAME.test(v),
+  codeFont: v => typeof v === 'string' && FONT_NAME.test(v),
+  uiFont: v => typeof v === 'string' && FONT_NAME.test(v),
+  fontSize: range(10, 40),
+  fontWeight: range(100, 900),
+  lineHeight: range(1, 2.5),
+  contentWidth: range(400, 1400),
+  wideWidth: range(400, 2400),
+  codeFontSize: range(8, 32),
+  bg: v => COLOR.test(v),
+  fg: v => COLOR.test(v),
+  accent: v => COLOR.test(v),
+  codeBg: v => COLOR.test(v),
+  diagramTheme: v => DIAGRAM_THEMES.includes(v),
+  followSystem: v => typeof v === 'boolean',
+  voice: v => typeof v === 'string' && v.length <= 200,
+  speechRate: range(0.5, 2),
+}
+
+const passing = (source, keys) => Object.fromEntries(keys.filter(k => Object.hasOwn(source, k) && CHECKS[k](source[k])).map(k => [k, source[k]]))
+
+// A saved theme: a name and the look it keeps (the LOOK keys, nothing personal).
+function readTheme(t) {
+  if (!t || typeof t !== 'object' || typeof t.name !== 'string') return []
+  const name = t.name.trim()
+  if (!name || name.length > 60) return []
+  return [{ name, ...passing(t, LOOK) }]
+}
+
+export const THEMES_KEY = 'leggio.themes'
+
+export function loadThemes(storage) {
+  try {
+    const parsed = JSON.parse((storage ?? globalThis.localStorage).getItem(THEMES_KEY) ?? '[]')
+    return Array.isArray(parsed) ? parsed.flatMap(readTheme) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveThemes(themes, storage) {
+  try {
+    ;(storage ?? globalThis.localStorage).setItem(THEMES_KEY, JSON.stringify(themes))
+  } catch {}
+}
+
+export function exportSettings(settings, themes = settings.themes ?? []) {
+  return { app: 'leggio', version: 1, settings: { ...Object.fromEntries(Object.keys(CHECKS).map(k => [k, settings[k]])), themes } }
+}
+
+// { settings, themes }: the values that passed, ready to merge. Throws when the text isn't a settings file.
+export function readSettingsFile(text) {
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {}
+  const s = data?.settings
+  if (data?.app !== 'leggio' || !s || typeof s !== 'object' || Array.isArray(s)) throw new Error("This file isn't a Leggio settings file.")
+  return { settings: passing(s, Object.keys(CHECKS)), themes: Array.isArray(s.themes) ? s.themes.flatMap(readTheme).slice(0, 50) : [] }
+}

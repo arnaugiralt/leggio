@@ -4,7 +4,7 @@ import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
 import { Sidebar } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
-import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
+import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
@@ -65,6 +65,7 @@ function loadUi() {
 
 export function App() {
   const [settings, setSettings] = useState(load)
+  const [themes, setThemes] = useState(loadThemes) // the reader's saved looks, beside the presets
   const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
   const [showSettings, setShowSettings] = useState(false)
   const [ui, setUi] = useState(loadUi)
@@ -118,6 +119,7 @@ export function App() {
     applyFontUrl(settings.fontUrl)
   }, [settings, dark])
   useEffect(() => save(settings), [settings])
+  useEffect(() => saveThemes(themes), [themes])
 
   // With the title bar hidden, the OS paints the strips behind the window controls in theme-color, so there it
   // follows the page. The paper color stays for the normal title bar.
@@ -749,7 +751,16 @@ export function App() {
             <X size="1.2em" />
           </button>
         </div>
-        <Settings settings={lookShown} onChange={change} open={showSettings} dark={dark} />
+        <Settings
+          settings={lookShown}
+          onChange={change}
+          open={showSettings}
+          dark={dark}
+          themes={themes}
+          onThemes={setThemes}
+          // Imported themes join the saved ones; a name already there keeps the one on this device.
+          onImport={read => (change(read.settings), setThemes(t => [...t, ...read.themes.filter(n => !t.some(o => o.name === n.name))]))}
+        />
       </aside>
     </div>
   )

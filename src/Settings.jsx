@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'preact/hooks'
-import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective } from './settings.js'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
 import * as speech from './speech.js'
 
 const GROUPS = [
@@ -139,38 +139,172 @@ const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, themeLabel(name)])
 const GOOGLE_PRESETS = PRESETS.filter(p => p.fontUrl).map(p => p.name)
 const GOOGLE_NOTE = `${GOOGLE_PRESETS.slice(0, -1).join(', ')} and ${GOOGLE_PRESETS.at(-1)} load their fonts from Google Fonts.`
 
-function Themes({ settings, onChange, dark }) {
+// A saved theme fills any look key it lacks (an imported one may) from Default, as a preset would.
+const lookOf = ({ name, ...look }) => ({ ...Object.fromEntries(LOOK.map(k => [k, DEFAULTS[k]])), ...look })
+const lookNow = settings => Object.fromEntries(LOOK.map(k => [k, settings[k]]))
+
+function Card({ name, look, pressed, onPick, note }) {
+  return (
+    <button type="button" class="theme" aria-pressed={pressed} style={`background:${look.bg};color:${look.fg}`} onClick={onPick}>
+      <span class="theme-sample">Aa</span>
+      <span class="theme-accent" style={`background:${look.accent}`} />
+      <span class="theme-name">{name}</span>
+      {note}
+    </button>
+  )
+}
+
+// A name field for saving or renaming a theme; Enter keeps, Esc leaves it as it was.
+function NameField({ value, onDone }) {
+  const input = useRef()
+  useEffect(() => input.current.select(), [])
+  return (
+    <span class="theme-name-field">
+      <input
+        ref={input}
+        defaultValue={value}
+        maxLength={60}
+        aria-label="Theme name"
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            onDone(e.currentTarget.value.trim() || value)
+          } else if (e.key === 'Escape') {
+            e.stopPropagation()
+            onDone(null)
+          }
+        }}
+        onBlur={e => onDone(e.currentTarget.value.trim() || value)}
+      />
+    </span>
+  )
+}
+
+function Themes({ settings, onChange, dark, themes, onThemes }) {
+  const [naming, setNaming] = useState(null) // 'new' | index of the theme being renamed
+  const [removed, setRemoved] = useState(null) // { theme, index }, for Undo
+  const picked = themes.findIndex(t => matchesPreset(settings, lookOf(t)))
+  const matchesAny = PRESETS.some(({ name, ...look }) => (name === 'Default' ? settings.followSystem : matchesPreset(settings, look))) || picked >= 0
+  const freeName = () => {
+    for (let n = themes.length + 1; ; n++) if (!themes.some(t => t.name === `My theme ${n}`)) return `My theme ${n}`
+  }
+  function save(name) {
+    setNaming(null)
+    if (name) onThemes([...themes, { name, ...lookNow(settings) }])
+  }
+  function rename(i, name) {
+    setNaming(null)
+    if (name) onThemes(themes.map((t, j) => (j === i ? { ...t, name } : t)))
+  }
+  function remove(i) {
+    setRemoved({ theme: themes[i], index: i })
+    onThemes(themes.filter((_, j) => j !== i))
+  }
   return (
     <fieldset>
       <legend>Theme</legend>
       <div class="themes">
         {PRESETS.map(({ name, ...look }) => {
           const follows = name === 'Default' && settings.followSystem
-          const shown = follows && dark ? { ...look, ...DARK } : look
-          return (
-            <button
-              key={name}
-              type="button"
-              class="theme"
-              aria-pressed={name === 'Default' ? settings.followSystem : matchesPreset(settings, look)}
-              style={`background:${shown.bg};color:${shown.fg}`}
-              onClick={() => onChange(look)}
-            >
-              <span class="theme-sample">Aa</span>
-              <span class="theme-accent" style={`background:${shown.accent}`} />
-              <span class="theme-name">{name}</span>
-            </button>
-          )
+          return <Card key={name} name={name} look={follows && dark ? { ...look, ...DARK } : look} pressed={name === 'Default' ? settings.followSystem : matchesPreset(settings, look)} onPick={() => onChange(look)} />
         })}
       </div>
       {/* Under the grid, not in the card: an extra line in one card made its row taller than the rest. */}
       {settings.followSystem && <p class="field-hint themes-note">Default follows your system's light or dark setting.</p>}
+      {(themes.length > 0 || !matchesAny) && (
+        <>
+          <p class="themes-heading">Your themes</p>
+          <div class="themes">
+            {themes.map((t, i) =>
+              naming === i ? (
+                <div key={i} class="theme theme-editing" style={`background:${lookOf(t).bg};color:${lookOf(t).fg}`}>
+                  <span class="theme-sample">Aa</span>
+                  <NameField value={t.name} onDone={name => rename(i, name)} />
+                </div>
+              ) : (
+                <Card key={i} name={t.name} look={lookOf(t)} pressed={i === picked} onPick={() => onChange(lookOf(t))} />
+              ),
+            )}
+            {/* Saving is offered only while the look on screen is one nobody has kept yet. */}
+            {!matchesAny &&
+              (naming === 'new' ? (
+                <div class="theme theme-editing" style={`background:${settings.bg};color:${settings.fg}`}>
+                  <span class="theme-sample">Aa</span>
+                  <NameField value={freeName()} onDone={save} />
+                </div>
+              ) : (
+                <button type="button" class="theme theme-save" onClick={() => setNaming('new')}>
+                  <span class="theme-sample">+</span>
+                  <span class="theme-name">Save this look</span>
+                </button>
+              ))}
+          </div>
+          {picked >= 0 && naming === null && (
+            <p class="theme-actions">
+              <span>{themes[picked].name}</span>
+              <button type="button" class="quiet" onClick={() => setNaming(picked)}>Rename</button>
+              <button type="button" class="quiet" onClick={() => remove(picked)}>Delete</button>
+            </p>
+          )}
+          {removed && (
+            <p class="reset-row" role="status">
+              Deleted {removed.theme.name}.
+              <button type="button" class="quiet" onClick={() => { onThemes([...themes.slice(0, removed.index), removed.theme, ...themes.slice(removed.index)]); setRemoved(null) }}>Undo</button>
+            </p>
+          )}
+        </>
+      )}
       <p class="field-hint themes-note">{GOOGLE_NOTE}</p>
     </fieldset>
   )
 }
 
-export function Settings({ settings, onChange, open, dark }) {
+// Export as a file the browser saves; import from a file the reader picks. Both are the reader's own action.
+function Backup({ settings, themes, onImport }) {
+  const [said, setSaid] = useState('')
+  const input = useRef()
+  function exportFile() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(exportSettings(settings, themes), null, 2)], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'leggio-settings.json'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+    setSaid('Settings exported.')
+  }
+  async function importFile(file) {
+    try {
+      const read = readSettingsFile(await file.text())
+      const count = Object.keys(read.settings).length
+      onImport(read)
+      setSaid(`Imported ${count === 1 ? '1 setting' : `${count} settings`}${read.themes.length ? ` and ${read.themes.length === 1 ? '1 theme' : `${read.themes.length} themes`}` : ''}.`)
+    } catch (err) {
+      setSaid(err.message.startsWith('This file') ? err.message : "This file couldn't be read.")
+    }
+  }
+  return (
+    <>
+      <div class="backup">
+        <button type="button" class="quiet" onClick={exportFile}>Export settings</button>
+        <button type="button" class="quiet" onClick={() => input.current.click()}>Import settings…</button>
+        <input
+          ref={input}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={e => {
+            const file = e.currentTarget.files[0]
+            e.currentTarget.value = ''
+            if (file) importFile(file)
+          }}
+        />
+      </div>
+      {said && <p class="field-hint" role="status">{said}</p>}
+    </>
+  )
+}
+
+export function Settings({ settings, onChange, open, dark, themes, onThemes, onImport }) {
   const [undo, setUndo] = useState(null) // the settings a reset replaced
   // getVoices() is empty until the list loads, and Chrome refills it when the network voices arrive.
   const [voices, setVoices] = useState(speech.voices)
@@ -216,7 +350,7 @@ export function Settings({ settings, onChange, open, dark }) {
 
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
-      <Themes settings={settings} onChange={onChange} dark={dark} />
+      <Themes settings={settings} onChange={onChange} dark={dark} themes={themes} onThemes={onThemes} />
       {GROUPS.map(group => (
         <fieldset key={group.title}>
           <legend>{group.title}</legend>
@@ -237,6 +371,7 @@ export function Settings({ settings, onChange, open, dark }) {
           )}
         </fieldset>
       ))}
+      <Backup settings={settings} themes={themes} onImport={onImport} />
       <button type="button" class="quiet reset" onClick={reset}>Reset to defaults</button>
       {undo && atDefaults && (
         <p class="reset-row" role="status">
