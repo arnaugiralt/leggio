@@ -44,7 +44,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/share.js` | The share link: encodes a document into the `#share=` fragment and decodes it back. Pure, so it runs under node. |
 | `src/render.js` | One markdown-it instance (`html: false`), the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
 | `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background. |
-| `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. |
+| `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared document it shows placeholders for images and loads web images only after the reader asks. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
 | `src/Sidebar.jsx`, `Outline.jsx`, `Settings.jsx`, `icons.jsx` | Pins and folder tree; heading list with the active section; the settings form; inline SVG icons (Lucide paths). |
 | `src/styles.css` | All styles. |
@@ -81,7 +81,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ### Layout
 
-- Below 760 px (`NARROW` in `App.jsx`, and the same breakpoint in `styles.css`), the files panel is a drawer, the settings sheet is full width, and Read, Contents, Pin and Open move into the More menu.
+- Below 760 px (`NARROW` in `App.jsx`, and the same breakpoint in `styles.css`), the files panel is a drawer, the settings sheet is full width, and Read, Contents, Pin, Share (Save file on a shared document) and Open move into the More menu.
 - In the installed app, the bar is the window's title bar (`window-controls-overlay` in `manifest.json` and `styles.css`). Its empty parts drag the window. Anything clickable you add to the bar must be a `button`, `a`, `input`, `select` or popover, or get `app-region: no-drag`, or it won't take clicks.
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
   1. A stated notice, such as an error or a deleted file.
@@ -117,7 +117,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ## Check your change
 
-`pnpm test` covers only the modules with no user interface: `render`, `settings`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them.
+`pnpm test` covers only the modules with no user interface: `render`, `settings`, `share`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them.
 
 Check everything else in a real browser, in a wide window and at about 390 px wide. Browser automation can't drive the native file pickers, so the app exposes `window.leggio = { openFolder, openFile, openFolderFor }`. Use a folder in the origin private file system (storage the browser keeps for the page, with no picker). Run this in the page:
 

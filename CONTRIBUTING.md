@@ -16,7 +16,7 @@ If a pull request doesn't do what it says, or its author can't answer questions 
 
 - **Reading only.** Leggio never changes your files. I won't merge features that edit, save, rename or delete files.
 - **Few dependencies.** The project has 13 packages in total, counting indirect dependencies. All are pinned to exact versions, with install scripts disabled. See "Before you start" for the rule on new dependencies.
-- **Local and private.** Leggio never uploads your files. It has no accounts, no analytics and no server code. Changes must keep it that way. Three things do use the network: the fonts of some themes load from Google Fonts, images from the web that a document links to load from their own servers, and if you pick an online voice for read-aloud, the browser sends the text being read to that voice service. The voice setting says so.
+- **Local and private.** Leggio never uploads your files. It has no accounts, no analytics and no server code. Changes must keep it that way. Three things do use the network: the fonts of some themes load from Google Fonts, images from the web that a document links to load from their own servers, and if you pick an online voice for read-aloud, the browser sends the text being read to that voice service. The voice setting says so. Share puts the document inside the link itself, never on a server, and a shared document loads web images only after the reader asks.
 - **Browsers.** Leggio works best in a Chromium-based browser such as Chrome or Edge, because it reads files and folders through the File System Access API. That browser feature lets a web page read the files and folders you choose, again and again, which gives live reload, pins and restore. Other browsers, and a Chrome where a company setting blocks that feature, get a copy of the files instead. A change must keep both ways working.
 
 ## Before you start
@@ -52,7 +52,7 @@ pnpm serve     # builds, then serves site/ on http://localhost:8765
 
 ## Check your change
 
-`pnpm test` covers the modules without a user interface: rendering, settings, the sentence splitting for read-aloud, and the path helpers. It doesn't test anything on screen, so check every visible change in a browser, in a wide window and in a narrow one (about 390 px).
+`pnpm test` covers the modules without a user interface: rendering, settings, share links, the sentence splitting for read-aloud, and the path helpers. It doesn't test anything on screen, so check every visible change in a browser, in a wide window and in a narrow one (about 390 px).
 
 Some changes need extra checks. This applies to changes to the interface (the top bar, the panels, the settings, the notices) and to the Default theme, light and dark. These changes must also:
 
