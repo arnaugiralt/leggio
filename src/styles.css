@@ -107,20 +107,12 @@ body {
   text-overflow: ellipsis;
 }
 .bar-title .dim { color: var(--ui-faint); }
-/* A shared document: the chip stays whole and the name gives way, so the ellipsis moves onto the name. */
-.bar-title.has-chip { display: flex; align-items: center; justify-content: center; gap: 0.5rem; direction: ltr; overflow: visible; } /* the name clips itself; the chip keeps its focus ring */
-.bar-title.has-chip bdi { min-width: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
-.quiet.chip { /* .quiet comes later and would reset the frame */
-  anchor-name: --shared;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.55rem;
-  border: 1px solid color-mix(in oklab, var(--color-accent) 45%, var(--color-bg));
-  background: color-mix(in oklab, var(--color-accent) 10%, var(--color-bg));
-  color: var(--color-fg); /* the accent alone can miss 4.5:1 on some palettes; it tints the frame instead */
-}
+/* A shared document: "Shared /" sits where a folder path would, and stays whole while the name gives way. */
+.bar-title.from-link { display: flex; align-items: center; justify-content: center; direction: ltr; overflow: visible; } /* the name clips itself; the button keeps its focus ring */
+.bar-title.from-link > * { flex-shrink: 0; }
+.bar-title.from-link bdi { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.quiet.crumb { anchor-name: --shared; padding: 0.3rem 0.3em; margin-inline: -0.3em 0; color: var(--ui-faint); line-height: inherit; } /* the path's color; the padding is only the hover box */
+.bar-title.from-link .dim { margin-right: 0.3em; } /* matches the crumb's padding, so the slash sits between equal spaces */
 .shared-pop {
   position: fixed;
   position-anchor: --shared;
@@ -210,7 +202,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 0.75rem 0.5rem 1.25rem;
+  /* Text and buttons line up with the document's text column (.prose: --content-width, 1.5rem inside), so the
+     message and its actions read as one line instead of sitting at the two edges of the window. */
+  padding: 0.5rem max(1.25rem, (100cqw - min(var(--content-width), 100cqw)) / 2 + 1.5rem);
   background: var(--ui-surface);
   border-bottom: 1px solid var(--ui-hairline);
   font-family: var(--ui-font);
@@ -219,7 +213,7 @@ body {
   line-height: 1.4;
   color: var(--color-fg);
 }
-.notice.tip { background: transparent; color: var(--ui-muted); }
+.notice.tip { background: var(--color-bg); color: var(--ui-muted); } /* opaque: the notice is sticky and the page scrolls under it */
 .notice-buttons { display: flex; gap: 0.25rem; flex-shrink: 0; }
 /* Below this the text would be squeezed into a thin column beside its buttons. */
 @container (max-width: 34rem) {
@@ -924,7 +918,7 @@ html:has(dialog.lightbox[open]) {
     font-size: 0.85rem;
   }
   .bar-menu .quiet { padding: 0.6rem 0.75rem; text-align: left; }
-  .shared-pop { left: 0.75rem; width: auto; right: 0.75rem; } /* no room to hang it off the chip */
+  .shared-pop { left: 0.75rem; width: auto; right: 0.75rem; } /* no room to hang it off "Shared" */
   .bar-menu .reading-toggle { justify-items: start; }
 
   .sidebar-open .main, .settings-open .main { padding-inline: 0; }

@@ -8,7 +8,7 @@ import { DEFAULTS, LOOK, load, save, applyToRoot, applyFontUrl, effective, isDef
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronLeft, ChevronRight, Link, List, X } from './icons.jsx'
+import { ChevronLeft, ChevronRight, List, X } from './icons.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
@@ -364,7 +364,7 @@ export function App() {
       action: 'images',
       dismiss: () => setSharedView({ noticeHidden: true }),
     },
-    // A shared document has no folder and no file to reopen; the Shared chip explains it instead.
+    // A shared document has no folder and no file to reopen; "Shared" in the bar explains it instead.
     !shared && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
     !shared && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
     current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
@@ -419,12 +419,15 @@ export function App() {
             </>
           )}
         </div>
-        <span class={shared ? 'bar-title has-chip' : 'bar-title'} title={current ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
+        <span class={shared ? 'bar-title from-link' : 'bar-title'} title={current && !shared ? [...(current.dirPath ?? []), current.name].join(' / ') : undefined}>
+          {/* Where the document comes from, in the place a folder path takes: "Shared / name" like "docs / name". */}
           {shared && (
-            <button type="button" class="quiet chip" popovertarget="shared-info" title="Shared with you">
-              <Link size="1em" />
-              Shared
-            </button>
+            <>
+              <button type="button" class="quiet crumb" popovertarget="shared-info" title="Shared with you">
+                Shared
+              </button>
+              <span class="dim" aria-hidden="true">/</span>
+            </>
           )}
           <bdi>
             {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}

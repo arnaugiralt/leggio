@@ -87,7 +87,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
   1. A stated notice, such as an error or a deleted file.
   2. The web images offer, in a shared document with web images.
   3. The folder offer (never for a shared document).
-  4. The copy notice, while the document is a copy (never for a shared document, which has the Shared chip in the bar instead).
+  4. The copy notice, while the document is a copy (never for a shared document, which shows "Shared /" before its name in the bar instead).
   5. The install tip.
 
 ### Copies
