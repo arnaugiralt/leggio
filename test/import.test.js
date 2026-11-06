@@ -1,12 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULTS, exportSettings, readSettingsFile } from '../src/settings.js'
+import { DEFAULTS, exportSettings, readSettingsFile, loadThemes } from '../src/settings.js'
 
 const file = settings => JSON.stringify({ app: 'leggio', version: 1, settings })
 
 test('an export reads back as the same settings', () => {
-  const settings = { ...DEFAULTS, bg: '#101112', fontSize: 20, themes: [{ name: 'Night', bg: '#000000', fg: '#eeeeee' }] }
-  const { settings: read, themes } = readSettingsFile(JSON.stringify(exportSettings(settings)))
+  const settings = { ...DEFAULTS, bg: '#101112', fontSize: 20 }
+  const { settings: read, themes } = readSettingsFile(JSON.stringify(exportSettings(settings, [{ name: 'Night', bg: '#000000', fg: '#eeeeee' }])))
   assert.equal(read.bg, '#101112')
   assert.equal(read.fontSize, 20)
   assert.equal(themes.length, 1)
@@ -45,4 +45,15 @@ test('themes keep only a name and valid look values', () => {
   const { themes } = readSettingsFile(file({ themes: [{ name: 'Ok', bg: '#ffffff', fontSize: 30 }, { bg: '#000000' }, 'junk', { name: 'x'.repeat(200) }] }))
   assert.equal(themes.length, 1)
   assert.deepEqual(Object.keys(themes[0]).sort(), ['bg', 'name'])
+})
+
+test('a file too large to be settings is refused before it is parsed', () => {
+  assert.throws(() => readSettingsFile('x'.repeat(1_000_001)), /too large/)
+})
+
+test('saved themes load only when they are valid', () => {
+  const storage = value => ({ getItem: () => value })
+  assert.deepEqual(loadThemes(storage('not json')), [])
+  assert.deepEqual(loadThemes(storage('{"a":1}')), [])
+  assert.deepEqual(loadThemes(storage(JSON.stringify([{ name: 'Ok', bg: '#000000' }, { bg: '#ffffff' }, 'x']))), [{ name: 'Ok', bg: '#000000' }])
 })

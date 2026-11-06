@@ -10,11 +10,18 @@ test('a web document is kept by its address', () => {
   assert.deepEqual(e, { key: 'url:https://x.test/a.md', kind: 'web', name: 'a.md', url: 'https://x.test/a.md', when: 5 })
 })
 
-test('a copy keeps its text, so it can come back after a reload', () => {
-  const e = entryFor({ handle: { copy: 'c1' }, name: 'a.md', dirPath: ['docs'], text: '# A' }, 5)
+test('a copy keeps its text and its date, so it can come back after a reload', () => {
+  const e = entryFor({ handle: { copy: 'c1', file: { size: 3, lastModified: 7 } }, name: 'a.md', dirPath: ['docs'], text: '# A' }, 5)
   assert.equal(e.kind, 'copy')
   assert.equal(e.text, '# A')
-  assert.equal(e.key, 'copy:docs/a.md')
+  assert.equal(e.modified, 7)
+  assert.equal(e.key, 'copy:docs/a.md:3:7')
+})
+
+test('two shared documents with the same name both stay', async () => {
+  const one = entryFor({ handle: { copy: 'share-1', shared: true }, name: 'notes.md', text: 'one' })
+  const two = entryFor({ handle: { copy: 'share-2', shared: true }, name: 'notes.md', text: 'two' })
+  assert.equal((await add([one], two, async () => false)).length, 2)
 })
 
 test('a shared document is kept as text too, marked shared', () => {
@@ -22,7 +29,7 @@ test('a shared document is kept as text too, marked shared', () => {
 })
 
 test('a copy too long to keep is left out', () => {
-  assert.equal(entryFor({ handle: { copy: 'c1' }, name: 'a.md', text: 'x'.repeat(2_000_001) }), null)
+  assert.equal(entryFor({ handle: { copy: 'c1' }, name: 'a.md', text: 'x'.repeat(1_000_001) }), null)
 })
 
 test('a real file is kept by its handle and folder', () => {
@@ -48,9 +55,13 @@ test(`add keeps at most ${MAX_RECENT}`, async () => {
 
 test('docKey names a document the same way each time it opens', () => {
   assert.equal(docKey({ web: 'https://x.test/a.md' }, null, 'a.md'), 'url:https://x.test/a.md')
-  assert.equal(docKey({ copy: 'c1' }, ['docs'], 'a.md'), 'copy:docs/a.md')
-  assert.equal(docKey({ copy: 'share-1', shared: true }, null, 'a.md'), 'shared:a.md')
-  assert.equal(docKey({ kind: 'file' }, ['docs'], 'a.md'), 'file:docs/a.md')
+  assert.equal(docKey({ copy: 'c1', file: { size: 3, lastModified: 7 } }, ['docs'], 'a.md'), 'copy:docs/a.md:3:7')
+  assert.equal(docKey({ copy: 'share-1', shared: true }, null, 'a.md'), 'shared:share-1')
+  assert.equal(docKey({ kind: 'file' }, ['docs'], 'a.md', { name: 'handbook' }), 'file:handbook/docs/a.md')
+})
+
+test('README.md in two folders keeps two positions', () => {
+  assert.notEqual(docKey({ kind: 'file' }, [], 'README.md', { name: 'one' }), docKey({ kind: 'file' }, [], 'README.md', { name: 'two' }))
 })
 
 test('scroll positions are kept per document, the oldest dropped past the limit', () => {

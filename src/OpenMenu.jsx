@@ -1,44 +1,81 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 
 // The address field for "Open a link…": inline in the empty state and inside the Open menu, so it reads and
-// behaves the same in both. onOpen returns true when the text was a link it handled (or explained).
-export function LinkForm({ onOpen, onClose }) {
+// behaves the same in both. onOpen(text, { say }) is openLink: false when the text isn't a link, else a promise of
+// whether the document opened. Until it has, the field keeps what was typed; a failure is said under the field,
+// with how to fix it, and focus stays there.
+export function LinkForm({ onOpen, onClose, onCancel }) {
   const input = useRef()
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   useEffect(() => input.current.focus(), [])
+  async function submit(e) {
+    e.preventDefault()
+    setError('')
+    const result = onOpen(input.current.value, { say: setError })
+    if (result === false) return setError('Enter an https address, like https://example.com/notes.md.')
+    setBusy(true)
+    const ok = await result
+    setBusy(false)
+    if (ok) onClose()
+    else input.current?.focus()
+  }
   return (
-    <form
-      class="link-form"
-      onSubmit={e => {
-        e.preventDefault()
-        if (onOpen(input.current.value)) onClose()
-      }}
-    >
-      <input
-        ref={input}
-        name="link"
-        type="url"
-        required
-        placeholder="https://…"
-        aria-label="Address of a markdown document"
-        onKeyDown={e => {
-          if (e.key !== 'Escape') return
-          e.stopPropagation() // Esc leaves the field, not the whole menu or the settings
-          onClose()
-        }}
-        onBlur={e => !e.currentTarget.value && !e.relatedTarget?.closest('.link-form') && onClose()}
-      />
-      <button type="submit" class="quiet notice-action">
-        Open
-      </button>
+    <form class="link-form" onSubmit={submit}>
+      <label class="link-label" for="link-field">Address of a markdown file</label>
+      <div class="link-row">
+        <input
+          ref={input}
+          id="link-field"
+          name="link"
+          type="url"
+          required
+          placeholder="https://…"
+          aria-describedby={error ? 'link-error' : undefined}
+          aria-invalid={error ? 'true' : undefined}
+          onKeyDown={e => {
+            if (e.key !== 'Escape') return
+            e.stopPropagation() // Esc leaves the field, not the whole menu or the settings
+            if (busy) onCancel?.()
+            onClose()
+          }}
+          onBlur={e => !busy && !e.currentTarget.value && !e.relatedTarget?.closest('.link-form') && onClose()}
+        />
+        {busy ? (
+          <button type="button" class="quiet notice-action" onClick={() => (onCancel?.(), setBusy(false), input.current.focus())}>
+            Cancel
+          </button>
+        ) : (
+          <button type="submit" class="quiet notice-action">
+            Open
+          </button>
+        )}
+      </div>
+      {busy && <p class="link-status" role="status">Opening…</p>}
+      {error && (
+        <p id="link-error" class="link-error" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   )
+}
+
+// ↑↓, Home and End between a menu's items, as in the Files tree. Not inside the address field.
+export function menuKeys(e) {
+  if (e.target.closest('input') || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+  const items = [...e.currentTarget.querySelectorAll('button')].filter(b => b.offsetParent)
+  const i = items.indexOf(document.activeElement)
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key]
+  e.preventDefault()
+  items[(to + items.length) % items.length]?.focus()
 }
 
 // Everything that opens something else, in one popover: a file, a folder where the browser can open one, a
 // link, and what was read recently. The bar's "Open" button and the narrow More menu both show it.
 // control.current opens it on just the address field or just Recent, for the narrow More menu, which already
 // lists the other actions.
-export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, recent, onRecent, onForget, control }) {
+export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCancelLink, recent, onRecent, onForget, control }) {
   const [mode, setMode] = useState('all') // 'all' | 'link' | 'recent'
   const pop = useRef()
   const close = () => pop.current?.hidePopover()
@@ -50,12 +87,13 @@ export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, recen
       ref={pop}
       class="open-pop"
       popover="auto"
+      onKeyDown={menuKeys}
       onToggle={e => {
         if (e.newState === 'open') pop.current.querySelector('input, button')?.focus()
         else setMode('all')
       }}
     >
-      {mode === 'link' && <LinkForm onOpen={onLink} onClose={close} />}
+      {mode === 'link' && <LinkForm onOpen={onLink} onClose={close} onCancel={onCancelLink} />}
       {mode === 'all' && (
         <>
           <button type="button" class="quiet menu-item" onClick={() => (close(), onFile())}>
@@ -95,5 +133,6 @@ export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, recen
 export function recentWhere(entry) {
   if (entry.kind === 'web') return new URL(entry.url).host
   if (entry.kind === 'shared') return 'Shared'
-  return entry.dirPath?.join(' / ') ?? ''
+  // A file at a folder's root names the folder, so two README.md entries can be told apart.
+  return entry.dirPath?.length ? entry.dirPath.join(' / ') : entry.root?.name ?? ''
 }

@@ -143,9 +143,9 @@ const GOOGLE_NOTE = `${GOOGLE_PRESETS.slice(0, -1).join(', ')} and ${GOOGLE_PRES
 const lookOf = ({ name, ...look }) => ({ ...Object.fromEntries(LOOK.map(k => [k, DEFAULTS[k]])), ...look })
 const lookNow = settings => Object.fromEntries(LOOK.map(k => [k, settings[k]]))
 
-function Card({ name, look, pressed, onPick, note }) {
+function Card({ name, look, pressed, onPick, note, saved }) {
   return (
-    <button type="button" class="theme" aria-pressed={pressed} style={`background:${look.bg};color:${look.fg}`} onClick={onPick}>
+    <button type="button" class="theme" data-saved={saved} aria-pressed={pressed} style={`background:${look.bg};color:${look.fg}`} onClick={onPick}>
       <span class="theme-sample">Aa</span>
       <span class="theme-accent" style={`background:${look.accent}`} />
       <span class="theme-name">{name}</span>
@@ -157,6 +157,12 @@ function Card({ name, look, pressed, onPick, note }) {
 // A name field for saving or renaming a theme; Enter keeps, Esc leaves it as it was.
 function NameField({ value, onDone }) {
   const input = useRef()
+  const done = useRef(false) // Esc removes the field, and the blur that follows must not save after all
+  const finish = name => {
+    if (done.current) return
+    done.current = true
+    onDone(name)
+  }
   useEffect(() => input.current.select(), [])
   return (
     <span class="theme-name-field">
@@ -168,13 +174,13 @@ function NameField({ value, onDone }) {
         onKeyDown={e => {
           if (e.key === 'Enter') {
             e.preventDefault()
-            onDone(e.currentTarget.value.trim() || value)
+            finish(e.currentTarget.value.trim() || value)
           } else if (e.key === 'Escape') {
             e.stopPropagation()
-            onDone(null)
+            finish(null)
           }
         }}
-        onBlur={e => onDone(e.currentTarget.value.trim() || value)}
+        onBlur={e => finish(e.currentTarget.value.trim() || value)}
       />
     </span>
   )
@@ -183,6 +189,17 @@ function NameField({ value, onDone }) {
 function Themes({ settings, onChange, dark, themes, onThemes }) {
   const [naming, setNaming] = useState(null) // 'new' | index of the theme being renamed
   const [removed, setRemoved] = useState(null) // { theme, index }, for Undo
+  const [focusNext, setFocusNext] = useState(null) // a saved theme's name, or 'undo': where focus goes after a change
+  const box = useRef()
+  // Saving, renaming, deleting and Undo each replace the control that had focus; focus goes to what it acted on.
+  useEffect(() => {
+    if (!focusNext) return
+    const target = focusNext === 'undo' ? box.current?.querySelector('.theme-undo') : [...(box.current?.querySelectorAll('.theme[data-saved]') ?? [])].find(b => b.dataset.saved === focusNext)
+    target?.focus()
+    setFocusNext(null)
+  }, [focusNext, themes, removed])
+  // The offer to undo a delete lasts until the look changes: after that, putting it back would surprise.
+  useEffect(() => setRemoved(null), [settings.bg, settings.fg, settings.accent, settings.codeBg, settings.textFont])
   const picked = themes.findIndex(t => matchesPreset(settings, lookOf(t)))
   const matchesAny = PRESETS.some(({ name, ...look }) => (name === 'Default' ? settings.followSystem : matchesPreset(settings, look))) || picked >= 0
   const freeName = () => {
@@ -190,18 +207,29 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
   }
   function save(name) {
     setNaming(null)
-    if (name) onThemes([...themes, { name, ...lookNow(settings) }])
+    if (name) {
+      onThemes([...themes, { name, ...lookNow(settings) }])
+      setFocusNext(name)
+    }
   }
   function rename(i, name) {
     setNaming(null)
     if (name) onThemes(themes.map((t, j) => (j === i ? { ...t, name } : t)))
+    setFocusNext(name ?? themes[i].name)
   }
   function remove(i) {
     setRemoved({ theme: themes[i], index: i })
     onThemes(themes.filter((_, j) => j !== i))
+    setFocusNext('undo')
+  }
+  function undoRemove() {
+    const at = Math.min(removed.index, themes.length)
+    onThemes([...themes.slice(0, at), removed.theme, ...themes.slice(at)])
+    setFocusNext(removed.theme.name)
+    setRemoved(null)
   }
   return (
-    <fieldset>
+    <fieldset ref={box}>
       <legend>Theme</legend>
       <div class="themes">
         {PRESETS.map(({ name, ...look }) => {
@@ -222,7 +250,7 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
                   <NameField value={t.name} onDone={name => rename(i, name)} />
                 </div>
               ) : (
-                <Card key={i} name={t.name} look={lookOf(t)} pressed={i === picked} onPick={() => onChange(lookOf(t))} />
+                <Card key={i} name={t.name} saved={t.name} look={lookOf(t)} pressed={i === picked} onPick={() => onChange(lookOf(t))} />
               ),
             )}
             {/* Saving is offered only while the look on screen is one nobody has kept yet. */}
@@ -249,7 +277,7 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
           {removed && (
             <p class="reset-row" role="status">
               Deleted {removed.theme.name}.
-              <button type="button" class="quiet" onClick={() => { onThemes([...themes.slice(0, removed.index), removed.theme, ...themes.slice(removed.index)]); setRemoved(null) }}>Undo</button>
+              <button type="button" class="quiet theme-undo" onClick={undoRemove}>Undo</button>
             </p>
           )}
         </>
@@ -262,6 +290,7 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
 // Export as a file the browser saves; import from a file the reader picks. Both are the reader's own action.
 function Backup({ settings, themes, onImport }) {
   const [said, setSaid] = useState('')
+  const [undo, setUndo] = useState(null) // puts back what an import replaced
   const input = useRef()
   function exportFile() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(exportSettings(settings, themes), null, 2)], { type: 'application/json' }))
@@ -270,15 +299,17 @@ function Backup({ settings, themes, onImport }) {
     a.download = 'leggio-settings.json'
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 60000)
+    setUndo(null)
     setSaid('Settings exported.')
   }
   async function importFile(file) {
     try {
       const read = readSettingsFile(await file.text())
-      const count = Object.keys(read.settings).length
-      onImport(read)
-      setSaid(`Imported ${count === 1 ? '1 setting' : `${count} settings`}${read.themes.length ? ` and ${read.themes.length === 1 ? '1 theme' : `${read.themes.length} themes`}` : ''}.`)
+      const { added, undo } = onImport(read)
+      setUndo(() => undo)
+      setSaid(`Settings imported.${added ? ` ${added === 1 ? '1 new theme' : `${added} new themes`} in Your themes.` : ''}`)
     } catch (err) {
+      setUndo(null)
       setSaid(err.message.startsWith('This file') ? err.message : "This file couldn't be read.")
     }
   }
@@ -299,7 +330,16 @@ function Backup({ settings, themes, onImport }) {
           }}
         />
       </div>
-      {said && <p class="field-hint" role="status">{said}</p>}
+      {said && (
+        <p class="reset-row" role="status">
+          {said}
+          {undo && (
+            <button type="button" class="quiet" onClick={() => (undo(), setUndo(null), setSaid('Import undone.'))}>
+              Undo
+            </button>
+          )}
+        </p>
+      )}
     </>
   )
 }

@@ -150,8 +150,13 @@ export function Speech({ articleRef, text, settings, children }) {
   // Both labels share one grid cell, so the button never changes width and nothing beside it moves.
   const toggle = speech.supported && (
     <button type="button" class="quiet reading-toggle" aria-pressed={playing} onClick={playing ? () => speech.stop() : start}>
-      <span class={playing ? 'ghost' : undefined}>Read</span>
-      <span class={playing ? undefined : 'ghost'}>Reading</span>
+      {/* "aloud" only in the More menu, where "Read" next to "Open a file…" would be ambiguous. */}
+      <span class={playing ? 'ghost' : undefined}>
+        Read<span class="in-menu"> aloud</span>
+      </span>
+      <span class={playing ? undefined : 'ghost'}>
+        Reading<span class="in-menu"> aloud</span>
+      </span>
     </button>
   )
   if (!speech.supported) return children(null)

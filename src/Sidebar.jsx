@@ -67,7 +67,7 @@ function rove(container) {
   }
 }
 
-function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onTogglePin, label }) {
+function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onTogglePin, label, level = 1 }) {
   return (
     <ul class="tree" role={label ? 'tree' : 'group'} aria-label={label} onKeyDown={label ? onTreeKey : undefined}>
       {node.children.map(child => {
@@ -78,13 +78,13 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
           return (
             <li key={key} data-path={key} role="none">
               <div class="row">
-                <button type="button" role="treeitem" class="row-main" title={child.name} aria-expanded={open ? 'true' : 'false'} onClick={() => toggle(key)}>
+                <button type="button" role="treeitem" aria-level={level} class="row-main" title={child.name} aria-expanded={open ? 'true' : 'false'} onClick={() => toggle(key)}>
                   {open ? <FolderOpen size={14} class="kind" /> : <Folder size={14} class="kind" />}
                   <span class="row-name">{child.name}</span>
                 </button>
                 <PinButton item={child} onTogglePin={onTogglePin} />
               </div>
-              {open && <Tree node={child} root={root} path={childPath} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} />}
+              {open && <Tree node={child} root={root} path={childPath} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} level={level + 1} />}
             </li>
           )
         }
@@ -92,7 +92,7 @@ function Tree({ node, root, path, collapsed, toggle, activePath, onOpenFile, onT
         return (
           <li key={key} role="none">
             <div class={`row${active ? ' active' : ''}`}>
-              <button type="button" role="treeitem" class="row-main" title={child.name} aria-current={active ? 'page' : undefined} onClick={() => onOpenFile(child.handle, path, root)}>
+              <button type="button" role="treeitem" aria-level={level} class="row-main" title={child.name} aria-current={active ? 'page' : undefined} onClick={() => onOpenFile(child.handle, path, root)}>
                 <FileText size={14} class="kind" />
                 <span class="row-name">{child.name}</span>
               </button>
@@ -110,13 +110,24 @@ function filesOf(node, path = []) {
   return node.children.flatMap(c => (c.kind === 'directory' ? filesOf(c, [...path, c.name]) : [{ name: c.name, handle: c.handle, path }]))
 }
 
-// A short piece of text around the first match.
+// Where q appears in text, ignoring case, as [index, length] in text itself. A regular expression rather than
+// toLowerCase, whose offsets drift where lowercasing changes a string's length (İ).
+export function findIn(text, q) {
+  if (!q) return []
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu')
+  return [...text.matchAll(re)].map(m => [m.index, m[0].length])
+}
+
+// Markup would read as noise in a snippet: headings' #, emphasis, a link's address. Blocks join with " · ".
+const plainText = text =>
+  text.replace(/\]\([^)]*\)/g, '').replace(/[#*_`>~[\]!]+/g, '').replace(/[ \t]*\n\s*/g, ' · ').replace(/\s+/g, ' ')
+
+// A short piece of text around the first match, with the match itself apart so it can be marked.
 function snippet(text, at, length) {
   const start = Math.max(0, at - 40)
   const end = Math.min(text.length, at + length + 60)
-  // Markup would read as noise here: headings' #, emphasis, a link's address.
-  const plain = text.slice(start, end).replace(/\]\([^)]*\)/g, '').replace(/[#*_`>~[\]!]+/g, '').replace(/\s+/g, ' ').trim()
-  return `${start > 0 ? '…' : ''}${plain}${end < text.length ? '…' : ''}`
+  const before = plainText(text.slice(start, at)).replace(/^[\s·.,;:]+/, '')
+  return { before: `${start > 0 ? '…' : ''}${before}`, match: text.slice(at, at + length), after: `${plainText(text.slice(at + length, end)).replace(/[\s·]+$/, '')}${end < text.length ? '…' : ''}` }
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
@@ -131,12 +142,18 @@ function Search({ folder, onOpenFile, query, setQuery }) {
 
   useEffect(() => cache.current.clear(), [folder.handle])
   useEffect(() => list.current && rove(list.current.parentElement)) // results stream in after the panel's own render
+  // The folder is listed again on window focus, which gives a new tree each time; the search only reruns when
+  // the files themselves changed, so focus and the results stay where they are.
+  const files = filesOf(folder.tree)
+  const filesNow = useRef(files)
+  filesNow.current = files
+  const signature = files.map(f => [...f.path, f.name].join('/')).join('\n')
 
   useEffect(() => {
     const q = query.trim().toLowerCase()
     if (!q) return setResult(null)
     let stop = false
-    const files = filesOf(folder.tree)
+    const files = filesNow.current
     const names = files.filter(f => [...f.path, f.name].join('/').toLowerCase().includes(q))
     const texts = []
     let matches = 0
@@ -151,13 +168,10 @@ function Search({ folder, onOpenFile, query, setQuery }) {
           const stamp = `${file.lastModified}:${file.size}`
           let hit = cache.current.get(key)
           if (hit?.stamp !== stamp) cache.current.set(key, (hit = { stamp, text: await file.text() }))
-          const lower = hit.text.toLowerCase()
-          const at = lower.indexOf(q)
-          if (at >= 0) {
-            let count = 0
-            for (let i = at; i >= 0; i = lower.indexOf(q, i + q.length)) count++
-            matches += count
-            texts.push({ ...f, count, snippet: snippet(hit.text, at, q.length) })
+          const found = findIn(hit.text, query.trim())
+          if (found.length) {
+            matches += found.length
+            texts.push({ ...f, count: found.length, snippet: snippet(hit.text, ...found[0]) })
           }
         } catch {
           failed++
@@ -170,7 +184,7 @@ function Search({ folder, onOpenFile, query, setQuery }) {
       stop = true
       clearTimeout(timer)
     }
-  }, [query, folder.tree])
+  }, [query, signature])
 
   const open = f => onOpenFile(f.handle, f.path, folder.handle, query.trim())
   const row = (f, extra) => (
@@ -179,8 +193,11 @@ function Search({ folder, onOpenFile, query, setQuery }) {
         <button type="button" role="treeitem" class="row-main result" title={[...f.path, f.name].join(' / ')} onClick={() => open(f)}>
           <FileText size={14} class="kind" />
           <span class="result-text">
-            <span class="row-name">{f.name}</span>
-            {f.path.length > 0 && <span class="result-meta">{f.path.join(' / ')}</span>}
+            {/* The folder on the name's line: a result keeps one muted line, the snippet. */}
+            <span class="result-line">
+              <span class="row-name">{f.name}</span>
+              {f.path.length > 0 && <span class="result-meta">{f.path.join(' / ')}</span>}
+            </span>
             {extra}
           </span>
         </button>
@@ -216,7 +233,24 @@ function Search({ folder, onOpenFile, query, setQuery }) {
       </div>
       {result && (
         // One tree for both groups, so ↓ runs from the name matches on into the text matches.
-        <div ref={list} class="results" role="tree" aria-label="Search results" onKeyDown={onTreeKey}>
+        <div
+          ref={list}
+          class="results"
+          role="tree"
+          aria-label="Search results"
+          onKeyDown={e => {
+            // Esc clears the search and goes back to the tree, as the spec has it.
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setQuery('')
+              // After the tree is back (a timeout, not a frame: the render that brings it runs after the next frame).
+              setTimeout(() => {
+                const tree = document.querySelector('#files .tree[role="tree"]:not(.results)')
+                ;(tree?.querySelector('.row-main[aria-current]') ?? tree?.querySelector('.row-main'))?.focus()
+              }, 50)
+            } else onTreeKey(e)
+          }}
+        >
           {result.names.length > 0 && (
             <>
               <h3>Names</h3>
@@ -231,7 +265,7 @@ function Search({ folder, onOpenFile, query, setQuery }) {
                 Text · {plural(result.matches, 'match', 'matches')} in {plural(result.texts.length, 'file', 'files')}
               </h3>
               <ul class="tree" role="group" aria-label="Files whose text matches">
-                {result.texts.map(f => row(f, <span class="result-snippet">{f.snippet}</span>))}
+                {result.texts.map(f => row(f, <span class="result-snippet">{f.snippet.before}<mark>{f.snippet.match}</mark>{f.snippet.after}</span>))}
               </ul>
             </>
           )}
@@ -252,7 +286,7 @@ function Search({ folder, onOpenFile, query, setQuery }) {
 
 // Pinned items, the open folder's markdown tree, and search in that folder. Folders start expanded; collapse
 // state is keyed by path.
-export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPinned, onPickFolder, onTogglePin, query, setQuery }) {
+export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPinned, onPickFolder, onTogglePin, query, setQuery, restorable, onRestore }) {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const box = useRef()
   // The document keeps the folder it was opened in; its row only shows when that is the folder in the tree.
@@ -307,10 +341,17 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
       {(folder || fs.canOpenFolders) && <section>
         <h2>
           <span class="row-name">{folder ? folder.name : 'Folder'}</span>
-          {fs.canOpenFolders && (
-            <button type="button" class="quiet small" onClick={onPickFolder}>
-              {folder ? 'Change folder' : 'Open a folder'}
+          {/* The last folder can come back with one click (its permission is asked from that click). */}
+          {restorable ? (
+            <button type="button" class="quiet small" onClick={onRestore}>
+              Continue in {restorable.folder.name}
             </button>
+          ) : (
+            fs.canOpenFolders && (
+              <button type="button" class="quiet small" onClick={onPickFolder}>
+                {folder ? 'Change folder' : 'Open a folder'}
+              </button>
+            )
           )}
         </h2>
         {folder && folder.tree.children.length > 0 && <Search folder={folder} onOpenFile={onOpenFile} query={query} setQuery={setQuery} />}

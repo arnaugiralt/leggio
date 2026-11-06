@@ -6,14 +6,16 @@
 // on the device: that is how a phone, which only reads copies, gets its document back after a reload.
 
 export const MAX_RECENT = 10
-export const MAX_TEXT = 2_000_000 // characters; a bigger copy isn't kept
+// Characters; a bigger copy isn't kept. Under the 5 MB a shared document may decode to, even in 4-byte UTF-8.
+export const MAX_TEXT = 1_000_000
 
 export function entryFor({ handle, name, dirPath = null, root = null, text }, when = Date.now()) {
-  if (handle.web) return { key: `url:${handle.web}`, kind: 'web', name, url: handle.web, when }
+  if (handle.web) return { key: docKey(handle), kind: 'web', name, url: handle.web, when }
   if (handle.copy) {
     if (text.length > MAX_TEXT) return null
     const kind = handle.shared ? 'shared' : 'copy'
-    return { key: `${kind}:${[...(dirPath ?? []), name].join('/')}`, kind, name, dirPath, text, when }
+    // The date comes back on the copy made from this text, so it keeps its key, and its scroll position.
+    return { key: docKey(handle, dirPath, name), kind, name, dirPath, text, modified: handle.file?.lastModified ?? 0, when }
   }
   return { key: null, kind: 'file', name, dirPath, root, handle, when }
 }
@@ -29,13 +31,15 @@ export async function add(list, entry, sameFile) {
   return [entry, ...rest].slice(0, MAX_RECENT)
 }
 
-// One name per document, stable across opens: what the scroll position is kept under.
-export function docKey(handle, dirPath, name) {
+// One name per document, stable across opens: what Recent and the scroll position know it by. Two documents with
+// one name must not share it: a shared one goes by its share id, a copy by its size and date too, and a file by
+// the folder it was opened in (every folder has a README.md).
+export function docKey(handle, dirPath, name, root) {
   const path = [...(dirPath ?? []), name].join('/')
   if (handle.web) return `url:${handle.web}`
-  if (handle.shared) return `shared:${path}`
-  if (handle.copy) return `copy:${path}`
-  return `file:${path}`
+  if (handle.shared) return `shared:${handle.copy}`
+  if (handle.copy) return `copy:${path}:${handle.file?.size ?? 0}:${handle.file?.lastModified ?? 0}`
+  return `file:${root?.name ? `${root.name}/` : ''}${path}`
 }
 
 // Where each document was left, so reopening it from Recent, a pin or a reload resumes there. Long documents
@@ -64,3 +68,18 @@ export function keepScroll(key, y, storage) {
 }
 
 export const scrollOf = (key, storage) => scrolls(storage)[key] ?? null
+
+// "Forget recent" forgets where documents were left too; the old map comes back with Undo.
+export function forgetScrolls(storage) {
+  const all = scrolls(storage)
+  try {
+    ;(storage ?? globalThis.localStorage).removeItem(SCROLL_KEY)
+  } catch {}
+  return all
+}
+
+export function restoreScrolls(all, storage) {
+  try {
+    ;(storage ?? globalThis.localStorage).setItem(SCROLL_KEY, JSON.stringify(all))
+  } catch {}
+}

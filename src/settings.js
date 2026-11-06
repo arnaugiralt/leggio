@@ -318,17 +318,20 @@ export function saveThemes(themes, storage) {
   } catch {}
 }
 
-export function exportSettings(settings, themes = settings.themes ?? []) {
-  return { app: 'leggio', version: 1, settings: { ...Object.fromEntries(Object.keys(CHECKS).map(k => [k, settings[k]])), themes } }
+export function exportSettings(settings, themes = []) {
+  return { app: 'leggio', version: 1, settings: Object.fromEntries(Object.keys(CHECKS).map(k => [k, settings[k]])), themes }
 }
 
 // { settings, themes }: the values that passed, ready to merge. Throws when the text isn't a settings file.
 export function readSettingsFile(text) {
+  if (text.length > 1_000_000) throw new Error("This file is too large to be Leggio settings.")
   let data
   try {
     data = JSON.parse(text)
   } catch {}
   const s = data?.settings
   if (data?.app !== 'leggio' || !s || typeof s !== 'object' || Array.isArray(s)) throw new Error("This file isn't a Leggio settings file.")
-  return { settings: passing(s, Object.keys(CHECKS)), themes: Array.isArray(s.themes) ? s.themes.flatMap(readTheme).slice(0, 50) : [] }
+  // Themes sit beside the settings; a file from before kept them inside.
+  const themes = Array.isArray(data.themes) ? data.themes : Array.isArray(s.themes) ? s.themes : []
+  return { settings: passing(s, Object.keys(CHECKS)), themes: themes.flatMap(readTheme).slice(0, 50) }
 }

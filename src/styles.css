@@ -162,6 +162,7 @@ body {
 .menu-contents { display: none; }
 .open-btn { anchor-name: --open; display: inline-flex; align-items: center; gap: 0.3rem; }
 .narrow-item { display: none; }
+.in-menu { display: none; }
 /* The Open menu: under its button, like Contents. */
 .open-pop {
   position: fixed;
@@ -189,6 +190,9 @@ body {
 .menu-item kbd { font: inherit; font-size: 0.78rem; color: var(--ui-faint); border: 0; background: none; padding: 0; } /* a hint, not a key cap */
 .open-pop .link-form { width: min(24rem, calc(100vw - 2.5rem)); padding: 0.25rem; }
 .menu-heading { margin: 0.5rem 0.75rem 0.15rem; padding-top: 0.5rem; border-top: 1px solid var(--ui-hairline); font-size: 0.75rem; color: var(--ui-faint); }
+.menu-heading:first-child { margin-top: 0.25rem; padding-top: 0; border-top: 0; } /* Recent alone, from the More menu */
+.menu-item { white-space: nowrap; } /* a mono interface font wrapped "Open a folder…" */
+.menu-forget { margin-top: 0.25rem; border-top: 1px solid var(--ui-hairline); border-radius: 0 0 6px 6px; } /* an action, not one more document */
 .menu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg); }
 .menu-meta { flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: var(--ui-faint); }
 .menu-forget { color: var(--ui-muted); }
@@ -262,6 +266,9 @@ body {
 @container (max-width: 34rem) {
   .notice { flex-wrap: wrap; }
   .notice > span:first-child { flex: 1 1 100%; }
+  /* With only ✕, the button stays on the text's line instead of a row of its own. */
+  .notice:not(:has(.notice-action)) { flex-wrap: nowrap; }
+  .notice:not(:has(.notice-action)) > span:first-child { flex: 1 1 auto; }
 }
 .notice-action { color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--ui-hairline); }
 
@@ -286,8 +293,13 @@ body {
 }
 .empty-hint { margin: 0; font-size: 0.8rem; color: var(--ui-faint); }
 .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
-.link-form { display: flex; gap: 0.5rem; width: min(26rem, 100%); }
+.link-form { display: grid; gap: 0.35rem; width: min(26rem, 100%); text-align: left; }
+.link-label { font-size: 0.8rem; color: var(--ui-muted); }
+.link-row { display: flex; gap: 0.5rem; }
 .link-form input { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; border: 1px solid var(--ui-hairline); border-radius: 6px; background: var(--ui-surface); color: inherit; font: inherit; } /* as the settings fields */
+.link-form input[aria-invalid="true"] { border-color: var(--color-accent); }
+.link-status, .link-error { margin: 0; font-size: 0.8rem; color: var(--ui-muted); }
+.link-error { color: var(--color-fg); }
 kbd {
   padding: 0.1em 0.4em;
   border: 1px solid var(--ui-hairline);
@@ -705,8 +717,10 @@ html:has(dialog.lightbox[open]) {
 .row-main.result { align-items: flex-start; }
 .row-main.result .kind { margin-top: 0.2em; }
 .result-text { display: grid; min-width: 0; gap: 0.1rem; }
+.result-line { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
 .result-meta, .result-snippet { overflow: hidden; text-overflow: ellipsis; font-size: 0.78rem; color: var(--ui-faint); }
-.result-meta { white-space: nowrap; }
+.result-meta { flex-shrink: 1; min-width: 0; white-space: nowrap; }
+.result-snippet mark { background: none; color: var(--color-fg); font-weight: 600; } /* the match, in the text's own color */
 .result-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
 
 .tree { list-style: none; margin: 0; padding: 0; }
@@ -856,6 +870,7 @@ html:has(dialog.lightbox[open]) {
 .theme-name { font-size: 0.72rem; opacity: 0.65; }
 .themes-heading { margin: 1rem 0 0.4rem; font-size: 0.8rem; color: var(--ui-muted); }
 .theme-save { border-style: dashed; background: transparent; color: var(--ui-muted); }
+.theme-save .theme-name { opacity: 1; } /* the dashed border says "empty slot"; the text stays readable */
 .theme-editing { cursor: default; }
 .theme-name-field input { width: 100%; min-width: 0; padding: 0.15rem 0.3rem; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; font-size: 0.75rem; }
 .theme-actions { display: flex; align-items: center; gap: 0.25rem; margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--ui-muted); }
@@ -995,6 +1010,7 @@ html:has(dialog.lightbox[open]) {
   .more-btn { anchor-name: --more, --contents, --open; }
   .open-btn { display: none; }
   .narrow-item { display: block; }
+  .bar-menu .in-menu { display: inline; }
   .bar-menu .menu-sep { margin-top: 0.25rem; border-top: 1px solid var(--ui-hairline); border-radius: 0 0 6px 6px; } /* this document above, other documents below */
   .more-btn { display: block; }
   .bar-menu { display: none; } /* back to the UA's closed popover */
@@ -1063,7 +1079,8 @@ html:has(dialog.lightbox[open]) {
   .phone-icon { display: block; }
   .bar-menu .phone-item { display: block; }
   .files-btn, .more-btn { display: inline-flex; align-items: center; justify-content: center; }
-  .bar .quiet, .bar-menu .quiet, .menu-item, .recent-row, .row-main, .notice .quiet, .sheet-close { min-height: 44px; min-width: 44px; }
+  .bar .quiet, .bar-menu .quiet, .menu-item, .recent-row, .row-main, .notice .quiet, .sheet-close, .empty .quiet, #settings :is(button, select, input:not([type="color"])) { min-height: 44px; }
+  .bar .quiet, .notice .quiet, .sheet-close { min-width: 44px; }
   .bar, .notice { transition: transform 200ms var(--ease-out); }
   .bar-hidden .bar { transform: translateY(-100%); }
   .bar-hidden .notice { transform: translateY(calc(-100% - var(--bar-h))); } /* away with the bar, back with it */
@@ -1085,8 +1102,8 @@ html:has(dialog.lightbox[open]) {
 .shortcuts-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
 .shortcuts-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
 .shortcuts dl { margin: 0; }
-.shortcuts dl div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; border-top: 1px solid var(--ui-hairline); }
-.shortcuts dd { margin: 0; color: var(--ui-muted); text-align: right; }
+.shortcuts dl div { display: grid; grid-template-columns: 9.5rem 1fr; gap: 1rem; align-items: baseline; padding: 0.45rem 0; border-top: 1px solid var(--ui-hairline); }
+.shortcuts dd { margin: 0; color: var(--ui-muted); } /* next to its key, so the eye doesn't cross the dialog */
 .shortcuts kbd { white-space: pre; }
 .settings .shortcuts-link { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; margin-top: 0.5rem; }
 
@@ -1119,4 +1136,5 @@ html:has(dialog.lightbox[open]) {
   .prose pre, .prose tr, .diagram, .prose img, .prose blockquote { break-inside: avoid; }
   .prose h1, .prose h2, .prose h3, .prose h4 { break-after: avoid; }
   .prose li.task-item input[type=checkbox], .prose li.task-item input[type=checkbox]::before { print-color-adjust: exact; -webkit-print-color-adjust: exact; } /* it printed unchecked */
+  .footnote-back { display: none; } /* there is nothing to go back to on paper */
 }

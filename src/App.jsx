@@ -2,19 +2,25 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { Viewer } from './Viewer.jsx'
 import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
-import { Sidebar } from './Sidebar.jsx'
+import { Sidebar, findIn } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
 import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
 import { ChevronDown, ChevronLeft, ChevronRight, Ellipsis, List, Menu, X } from './icons.jsx'
-import { LinkForm, OpenMenu, recentWhere } from './OpenMenu.jsx'
+import { LinkForm, OpenMenu, menuKeys, recentWhere } from './OpenMenu.jsx'
 import { Shortcuts } from './Shortcuts.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const mod = isMac ? '⌘' : 'Ctrl+'
-const KEYS = { file: isMac ? '⌘O' : 'Ctrl+O', folder: isMac ? '⇧⌘O' : 'Ctrl+Shift+O' }
+const KEYS = {
+  file: isMac ? '⌘O' : 'Ctrl+O',
+  folder: isMac ? '⇧⌘O' : 'Ctrl+Shift+O',
+  files: isMac ? '⌘B' : 'Ctrl+B',
+  search: isMac ? '⇧⌘F' : 'Ctrl+Shift+F',
+  history: isMac ? '⌘[  ⌘]' : 'Ctrl+[  Ctrl+]',
+}
 const UI_KEY = 'leggio.ui'
 const TIP_KEY = 'leggio.install-tip-dismissed'
 const COPY_KEY = 'leggio.copy-note-dismissed'
@@ -84,6 +90,16 @@ export function App() {
   const [sharedChoice, setSharedChoice] = useState({ id: null, imagesOn: false, noticeHidden: false })
   const [query, setQuery] = useState('') // search in the open folder, in the Files panel
   const [shortcuts, setShortcuts] = useState(false) // the keyboard shortcuts list is open
+  const [, setWindowWidth] = useState(0) // a resize re-renders, so the Files panel's width limit follows the window
+  useEffect(() => {
+    let frame = 0
+    const onResize = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => setWindowWidth(innerWidth))
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [find, setFind] = useState(null) // { q, handle }: a document opened from search, its matches marked
   const [reveal, setReveal] = useState(null) // { path, n }: a folder the tree should expand and scroll to
   const [focusRows, setFocusRows] = useState(0)
@@ -98,7 +114,7 @@ export function App() {
   const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
   const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
-  const { recent, openRecent, forgetRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
+  const { cancelOpen, recent, openRecent, forgetRecent, restoreRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
     onReveal: path => {
@@ -206,27 +222,41 @@ export function App() {
     document.title = current ? (from ? `${current.name} (${from})` : current.name) : 'Leggio'
   }, [current])
 
+  // On paper a closed <details> would lose its content: open them for the print, and close them again after.
+  useEffect(() => {
+    const before = () => document.querySelectorAll('#document details:not([open])').forEach(d => ((d.open = true), (d.dataset.printOpened = '')))
+    const after = () => document.querySelectorAll('#document details[data-print-opened]').forEach(d => ((d.open = false), delete d.dataset.printOpened))
+    window.addEventListener('beforeprint', before)
+    window.addEventListener('afterprint', after)
+    return () => {
+      window.removeEventListener('beforeprint', before)
+      window.removeEventListener('afterprint', after)
+    }
+  }, [])
+
   // A document opened from search: its matches are marked (the CSS Custom Highlight API, as read-aloud uses)
-  // and the first one is brought into view. Any other document clears them.
+  // and the first one is brought into view, once: a live reload marks them again but leaves the reader where
+  // they are. Any other document clears them.
+  const findShown = useRef(null)
   useEffect(() => {
     if (!window.CSS?.highlights) return
     CSS.highlights.delete('find')
     const article = document.getElementById('document')
     if (!find || !current || current.handle !== find.handle || !article) return
-    const q = find.q.toLowerCase()
     const ranges = []
     const walk = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
     for (let node = walk.nextNode(); node; node = walk.nextNode()) {
-      const text = node.data.toLowerCase()
-      for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + q.length)) {
+      for (const [at, length] of findIn(node.data, find.q)) {
         const range = new Range()
-        range.setStart(node, i)
-        range.setEnd(node, i + q.length)
+        range.setStart(node, at)
+        range.setEnd(node, at + length)
         ranges.push(range)
       }
     }
     if (!ranges.length) return
     CSS.highlights.set('find', new Highlight(...ranges))
+    if (findShown.current === find) return
+    findShown.current = find
     requestAnimationFrame(() => ranges[0].startContainer.parentElement?.scrollIntoView({ block: 'center' }))
   }, [current, find])
 
@@ -375,7 +405,7 @@ export function App() {
         if (!folderNow.current) return
         e.preventDefault()
         setUi(u => ({ ...u, sidebarOpen: true }))
-        requestAnimationFrame(() => document.querySelector('#files .search input')?.focus())
+        requestAnimationFrame(() => document.querySelector('#files .search input')?.select()) // a new search replaces the last
       } else if (e.key === '?' && !mod && !touch && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
         e.preventDefault()
         setShortcuts(true)
@@ -383,6 +413,8 @@ export function App() {
         e.preventDefault()
         toggleSidebar()
       } else if (e.key === 'Escape') {
+        // One Esc closes one thing: a dialog (the shortcuts list) handles its own, and Settings stays open behind it.
+        if (document.querySelector('dialog[open]')) return
         setShowSettings(false)
         if (narrow()) setUi(u => ({ ...u, sidebarOpen: false }))
       }
@@ -454,10 +486,12 @@ export function App() {
   const isOpen = e => current && e === recent[0]
   const others = recent.filter(e => !isOpen(e))
   const forgotten = useRef(null)
-  function forget() {
-    forgotten.current = forgetRecent()
+  async function forget() {
+    forgotten.current = await forgetRecent()
     setNotice({ text: 'Recent is cleared.', action: 'undoForget' })
   }
+  // After Undo, focus goes back to where Recent lives, not to the page.
+  const focusOpen = () => requestAnimationFrame(() => [...document.querySelectorAll('.open-btn, .more-btn')].find(b => b.offsetParent)?.focus())
 
   // The one notice slot shows the first of these that applies.
   const shown = [
@@ -472,15 +506,17 @@ export function App() {
       dismiss: () => setSharedView({ noticeHidden: true }),
     },
     // A shared or web document has no folder and no file to reopen; the bar says where it comes from instead.
-    !foreign && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
-    !foreign && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
+    // Not where no folder can open (a phone): its button would be a dead end.
+    !foreign && fs.canOpenFolders && current?.handle && hasRelative && !folderOfferHidden && { ...FOLDER_NOTICE, dismiss: () => setFolderOfferHidden(true) },
+    // Not on a touch screen: there every file is a copy, so the notice tells the reader nothing they can act on.
+    !foreign && !touch && current?.handle?.copy && !copyNoticeHidden && { ...COPY_NOTICE, dismiss: () => (setCopyNoticeHidden(true), remember(COPY_KEY)) },
     current && installEvent && !tipHidden && { text: `Install Leggio to open .md files from ${isMac ? 'Finder' : 'your file manager'}.`, action: 'install', tip: true },
     current && iosBrowser && !standalone && !tipHidden && { text: 'Add Leggio to your Home Screen: tap Share, then Add to Home Screen.', tip: true },
   ].find(Boolean)
   const actions = {
     install: ['Install', install],
     cancel: ['Cancel', () => loading?.cancel()],
-    undoForget: ['Undo', () => (forgetRecent(forgotten.current ?? []), setNotice(null))],
+    undoForget: ['Undo', () => (forgotten.current && restoreRecent(forgotten.current), setNotice(null), focusOpen())],
     images: ['Load images', loadImages],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', () => pickFolder({ forCurrent: true })],
@@ -490,7 +526,7 @@ export function App() {
   }
   // Read, Pin, Share and Open: inline in a wide bar, a popover under "More" in a narrow one (display: contents in between).
   const menu = read => (
-    <div id="bar-menu" class="bar-menu" popover="auto" onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
+    <div id="bar-menu" class="bar-menu" popover="auto" onKeyDown={e => e.currentTarget.matches(':popover-open') && menuKeys(e)} onClick={e => e.currentTarget.matches(':popover-open') && e.currentTarget.hidePopover()}>
       {read}
       {hasContents && (
         <button type="button" class="quiet menu-contents" onClick={openContentsFromMenu}>Contents</button>
@@ -532,6 +568,8 @@ export function App() {
   // Dragging writes the width straight to the page and saves it once, at the end: a render per pointer move
   // would re-render the document.
   function resizeStart(e) {
+    if (e.button !== 0) return
+    e.preventDefault() // no text selection while dragging
     const handle = e.currentTarget
     const app = handle.closest('.app')
     handle.setPointerCapture(e.pointerId)
@@ -604,7 +642,7 @@ export function App() {
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
-        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
+        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} onCancelLink={cancelOpen} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
         {foreign && (
           <div id="shared-info" class="shared-pop" popover="auto">
             <p class="shared-pop-title">{web ? `Read from ${host}` : 'Shared with you'}</p>
@@ -681,7 +719,7 @@ export function App() {
         />
       )}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={setQuery} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={q => (setQuery(q), q.trim() || setFind(null))} restorable={folder ? null : restorable} onRestore={() => restore()} />
       </nav>
       <main class="main">
         {shown && (
@@ -694,7 +732,7 @@ export function App() {
             </span>
           </div>
         )}
-        {loading && !current ? (
+        {loading && !current && !linkField ? (
           <div class="empty" role="status">
             <p class="empty-title">Opening {loading.name}</p>
             <p class="empty-hint">from {loading.host}…</p>
@@ -741,7 +779,7 @@ export function App() {
                 </button>
               )}
             </div>
-            {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} />}
+            {linkField && <LinkForm onOpen={openLink} onClose={() => setLinkField(false)} onCancel={cancelOpen} />}
             <p class="empty-hint">Files are read on this device and never uploaded.{touch ? '' : ' Paste a link anywhere to open it.'}</p>
             {!touch && <p class="empty-hint">
               <kbd>{isMac ? '⌘' : 'Ctrl'} O</kbd> file, <kbd>{isMac ? '⌘' : 'Ctrl'} ⇧ O</kbd> folder, <kbd>{isMac ? '⌘' : 'Ctrl'} B</kbd> files panel
@@ -763,12 +801,18 @@ export function App() {
           dark={dark}
           themes={themes}
           onThemes={setThemes}
-          // Imported themes join the saved ones; a name already there keeps the one on this device.
-          onImport={read => (change(read.settings), setThemes(t => [...t, ...read.themes.filter(n => !t.some(o => o.name === n.name))]))}
+          onImport={read => {
+            // Imported themes join the saved ones; a name already there keeps the one on this device.
+            const before = { settings, themes }
+            const added = read.themes.filter(n => !themes.some(o => o.name === n.name))
+            change(read.settings)
+            setThemes([...themes, ...added])
+            return { added: added.length, undo: () => (setSettings(before.settings), setThemes(before.themes)) }
+          }}
           onShortcuts={touch ? null : () => setShortcuts(true)}
         />
       </aside>
-      {shortcuts && <Shortcuts mod={isMac ? '⌘' : 'Ctrl+'} canFolders={fs.canOpenFolders} onClose={() => setShortcuts(false)} />}
+      {shortcuts && <Shortcuts keys={KEYS} canFolders={fs.canOpenFolders} onClose={() => setShortcuts(false)} />}
     </div>
   )
 }

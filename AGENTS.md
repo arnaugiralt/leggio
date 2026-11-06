@@ -58,6 +58,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ### Links and navigation
 
+- Every link that isn't a `#` jump or a local file opens in a new tab (`Viewer.jsx` decides by what the link is, not by its spelling), so nothing a document links to can take the Leggio window.
 - Every local link goes through `followLink` in `useLibrary.js`. That covers relative links and root-relative links, which start with a single `/`, such as `/x`. `fs.isLocal` decides which links are local. Nothing may let a click navigate the window: the window would leave Leggio for the link target, and the reading session would be lost.
 - A document resolves links and images against its own folder (`current.root`), not the folder shown in the sidebar.
 - Local images render as `data-src`, never `src`, so the browser never asks the hosting server for the reader's file names. `Viewer.jsx` resolves them to blob URLs.
@@ -94,8 +95,8 @@ The table runs from the entry point to the build, in layers. Each row says what 
   1. A web document on its way ("Opening … from …", with Cancel), over an open document. With nothing open, the main area says it instead.
   2. A stated notice, such as an error or a deleted file.
   3. The web images offer, in a shared or web document with images from other hosts.
-  4. The folder offer (never for a shared or web document).
-  5. The copy notice, while the document is a copy (never for a shared or web document, which shows "Shared /" or its host before its name in the bar instead).
+  4. The folder offer (never for a shared or web document, and never where no folder can open: there a relative link says the file isn't available).
+  5. The copy notice, while the document is a copy (never on a touch screen, where every file is a copy, and never for a shared or web document, which shows "Shared /" or its host before its name in the bar instead).
   6. The install tip, or on iOS Safari the Add to Home Screen tip.
 
 ### Copies
@@ -110,6 +111,8 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - markdown-it runs with `html: true` only so HTML reaches the allowlist in `render.js`, which rebuilds each allowed tag from its name and listed attributes and turns everything else back into text. Never let HTML through as written.
 - `href` and `src` go through markdown-it's `validateLink`. An HTML `<img>` follows the markdown image rule: local, or any non-data one in a shared or web document, becomes `data-src`.
 - Add a tag only if it can carry no script and no address beyond `href` and `src`, and add an attack case to `render.test.js`.
+- Allowed tags are balanced: a paragraph or HTML block closes the inline tags it opened, block tags (`details`, `table`, …) are closed at the end of the document, and a stray closing tag is dropped. Keep the tag pattern from crossing `<`: it backtracked quadratically once.
+- Footnote ids are `fn_N` and `fnref_N`. Heading ids never contain an underscore, so the two can't meet.
 
 ### Shared links
 
@@ -120,6 +123,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - A shared document is written onto the entry the browser made for its link (`openFile(…, { here: true })`), never pushed after it.
 - Another document never takes over an entry whose URL holds a share link, even one whose link was damaged. `record` pushes a new entry, so a reload doesn't reopen the link.
 - A shared document's web images also include diagram styles: `render` drops every `url(…)` in a diagram except `#id` references in share mode.
+- A web address opened from inside Leggio (the Open menu, paste, Recent, a relative link) changes nothing until the document has arrived, then gets an entry with its `#url=` link; a failure leaves the address and the document on screen as they were, and the address field shows the error under itself. A `#url=` typed in the address bar goes onto the entry the browser made, as a shared link does.
 - A web document (`#url=`) follows the same entry rules as a shared one: the address stays in the fragment, its copy id is `url:` plus the address, and it is written onto the link's own entry. `openLink` opens anything pasted or typed by setting the fragment, and `hashchange` does the rest.
 - A web document's relative links resolve against its address: markdown opens as another web document, anything else in a new tab. Its images from the same host load at once; images from other hosts wait, as in a shared document.
 - Only `https:` addresses open. `connect-src` in `_headers` allows `https:` for that fetch.

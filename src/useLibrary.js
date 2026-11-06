@@ -26,6 +26,14 @@ function linkFromHash() {
 }
 // The copy id the link's document gets, so an entry that already holds it is recognised.
 const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + withoutSection(share.httpsUrl(link.url)))
+// A #section as written in a link; a malformed escape is looked up as it is.
+function decoded(text) {
+  try {
+    return decodeURIComponent(text)
+  } catch {
+    return text
+  }
+}
 // A web address may carry a #section to open at. The document itself is the address without it.
 function withoutSection(url) {
   if (!url) return url
@@ -137,7 +145,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
         const entry = nav.currentEntry.getState()
         if (entry) writeEntry({ ...entry, scrollY: window.scrollY })
         const cur = currentRef.current
-        if (cur) recents.keepScroll(recents.docKey(cur.handle, cur.dirPath, cur.name), window.scrollY)
+        if (cur) recents.keepScroll(recents.docKey(cur.handle, cur.dirPath, cur.name, cur.root), window.scrollY)
       }, 150)
     }
     const onChange = e => {
@@ -258,7 +266,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       if (!fromHistory) await record({ handle, name: handle.name, dirPath, root }, here)
       show({ handle, name: handle.name, dirPath, root, text })
       remember({ handle, name: handle.name, dirPath, root, text })
-      const key = recents.docKey(handle, dirPath, handle.name)
+      const key = recents.docKey(handle, dirPath, handle.name, root)
       if (resume || resumeNext.current === key) keepScroll.current = recents.scrollOf(key)
       resumeNext.current = null
       // The path is what survives a folder being re-granted, but pins and the picker give no path,
@@ -293,6 +301,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     try {
       doc = await share.decode(code)
     } catch (err) {
+      resumeNext.current = null
       setNotice({ text: SHARE_ERRORS[err.reason] ?? SHARE_ERRORS.damaged })
       return false
     }
@@ -303,13 +312,22 @@ export function useLibrary({ onFolderOpen, onReveal }) {
 
   // A web document is a copy of one file, marked with its address, which is also its copy id. Opening it again
   // (a reload, Back) fetches it again: it may have changed, and nothing of it is kept.
-  async function openUrl(address) {
+  // here: the browser already made this link's entry (a link typed in the address bar, a reload), so the
+  // document goes onto it. Otherwise the reader asked from inside Leggio: nothing changes until the document has
+  // arrived, and then it gets an entry of its own, so a failed address never replaces what is on screen.
+  // say reports a failure: a notice by default, or the address field that asked.
+  async function openUrl(address, { here = false, say = text => setNotice({ text }) } = {}) {
+    const fail = text => {
+      resumeNext.current = null
+      say(text)
+      return false
+    }
     const asked = share.httpsUrl(address)
-    if (!asked) return setNotice({ text: HTTPS_ONLY }), false
+    if (!asked) return fail(HTTPS_ONLY)
     const url = withoutSection(asked)
     const section = new URL(asked).hash.slice(1)
     const host = new URL(url).host
-    const askedHash = location.hash // the link this fetch belongs to; the reader may move on while it runs
+    const askedHash = location.hash // with here: the link this fetch belongs to; the reader may move on while it runs
     fetching.current?.abort()
     const ctrl = (fetching.current = new AbortController())
     // Only a slow fetch says so: a fast one would flash the message.
@@ -324,62 +342,86 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     let body
     try {
       const res = await fetch(url, { credentials: 'omit', cache: 'no-cache', signal: ctrl.signal })
-      if (!res.ok) return done(), setNotice({ text: `${host} answered ${res.status} for this address.` }), false
+      if (!res.ok) return done(), fail(`${host} answered ${res.status} for this address. Check that it is right.`)
       body = await share.readCapped(res.body)
     } catch (err) {
       done()
-      if (ctrl.signal.aborted) return false // the reader cancelled, or opened something else
+      if (ctrl.signal.aborted) return (resumeNext.current = null), false // the reader cancelled, or opened something else
       // A site that doesn't allow other pages to read it fails exactly like one that is offline.
-      const why = err.reason === 'too-large' ? 'This document is too large to open.' : `Couldn't read ${host}. The site may be offline, or it doesn't let other pages read its files.`
-      setNotice({ text: why })
-      return false
+      return fail(err.reason === 'too-large' ? 'This document is too large to open.' : `Couldn't read ${host}. The site may be offline, or it doesn't let other pages read its files. On GitHub, use the address of the Raw button.`)
     }
     done()
     // Another document opened meanwhile: this one would land on its entry.
-    if (location.hash !== askedHash) return false
+    if (here && location.hash !== askedHash) return (resumeNext.current = null), false
     let text
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(body)
     } catch {
-      setNotice({ text: "This address isn't a text document." }) // an image or a download, say
-      return false
+      return fail("This address isn't a text document.") // an image or a download, say
     }
+    // A web page's source is no document to read (a GitHub file page, say, instead of its raw file).
+    if (/^\s*<(?:!doctype html|html[\s>])/i.test(text)) return fail('This address is a web page, not a markdown file. On GitHub, open the file and use the address of its Raw button.')
     const file = new File([text], share.docName(url, text), { type: 'text/markdown' })
-    const ok = await openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here: true })
-    if (ok && section) requestAnimationFrame(() => document.getElementById(decodeURIComponent(section))?.scrollIntoView({ block: 'start' }))
+    const ok = await openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here })
+    if (ok && section) requestAnimationFrame(() => document.getElementById(decoded(section))?.scrollIntoView({ block: 'start' }))
     return ok
   }
 
-  // A pasted or typed link, through the fragment: the entry the browser makes for it is the one the document
-  // goes onto, and hashchange opens it. False when the text isn't a link, so the caller lets the paste through.
-  function openLink(text) {
+  // A pasted or typed link. False when the text isn't a link, so the caller lets the paste through; otherwise a
+  // promise of whether it opened. A share link goes through the fragment, as one typed in the address bar would.
+  function openLink(text, { say } = {}) {
     const link = share.readLink(text)
     if (!link) return false
     const url = link.url && share.httpsUrl(link.url)
-    if (link.url && !url) return setNotice({ text: HTTPS_ONLY }), true
-    const hash = link.share ? `#share=${link.share}` : `#url=${encodeURIComponent(url)}`
-    // The same link again (a retry after the site was offline) changes no hash, so no hashchange: open it here.
-    if (hash === location.hash) link.share ? openShared(link.share) : openUrl(url)
-    else location.hash = hash
-    return true
+    if (link.url && !url) {
+      ;(say ?? (t => setNotice({ text: t })))(HTTPS_ONLY)
+      return Promise.resolve(false)
+    }
+    if (link.share) {
+      const hash = `#share=${link.share}`
+      // The same link again changes no hash, so no hashchange: open it here.
+      if (hash === location.hash) return openShared(link.share)
+      location.hash = hash
+      return Promise.resolve(true)
+    }
+    // The address already on screen (a retry after the site was offline) opens onto its own entry.
+    return openUrl(url, { here: `#url=${encodeURIComponent(url)}` === location.hash, say })
   }
 
-  async function remember(doc) {
+  // One at a time: two opens close together (a folder's README, then a click) would otherwise both start from the
+  // same list, and the second would drop the first.
+  const remembering = useRef(Promise.resolve())
+  function remember(doc) {
     const entry = recents.entryFor(doc)
     if (!entry) return
-    const next = await recents.add(recentRef.current, entry, fs.isSame)
-    recentRef.current = next
-    setRecent(next)
-    idb.set('recent', next)
+    remembering.current = remembering.current.then(async () => {
+      const next = await recents.add(recentRef.current, entry, fs.isSame)
+      recentRef.current = next
+      setRecent(next)
+      idb.set('recent', next)
+    })
   }
 
-  // Returns what was forgotten, so the caller can offer Undo.
-  function forgetRecent(list = []) {
-    const before = recentRef.current
+  function setRecentList(list) {
     recentRef.current = list
     setRecent(list)
     idb.set('recent', list)
-    return before
+  }
+
+  // Forgets what was read: the list, the copies' text, where each document was left, and the restore record.
+  // Returns all of it, so the caller can offer Undo.
+  async function forgetRecent() {
+    const forgotten = { recent: recentRef.current, scrolls: recents.forgetScrolls(), last: await idb.get('last') }
+    setRecentList([])
+    idb.set('last', null)
+    setRestorable(null)
+    return forgotten
+  }
+
+  function restoreRecent(forgotten) {
+    setRecentList(forgotten.recent)
+    recents.restoreScrolls(forgotten.scrolls)
+    if (forgotten.last) idb.set('last', forgotten.last)
   }
 
   // From a click, so a file that needs its permission asked again can ask.
@@ -391,21 +433,24 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       return openLink(entry.url)
     }
     if (entry.kind === 'shared') {
-      resumeNext.current = recents.docKey({ shared: true }, null, entry.name)
       const code = await share.encode(entry.name, entry.text)
+      resumeNext.current = recents.docKey({ shared: true, copy: await share.shareId(code) })
       if (atLoad) return openShared(code)
       location.hash = `#share=${code}`
       return true
     }
-    if (entry.kind === 'copy') return openFile(fs.fromFile(new File([entry.text], entry.name, { type: 'text/markdown' })), { resume: true })
+    if (entry.kind === 'copy') {
+      // Its saved date comes back with it, so it keeps its place in Recent and its scroll position.
+      const file = new File([entry.text], entry.name, { type: 'text/markdown', lastModified: entry.modified })
+      return openFile(fs.fromFile(file), { resume: true, here: atLoad })
+    }
     if ((await fs.hasPermission(entry.handle)) && !(await fs.exists(entry.handle))) {
-      recentRef.current = recentRef.current.filter(e => e !== entry)
-      setRecent(recentRef.current)
-      idb.set('recent', recentRef.current)
+      setRecentList(recentRef.current.filter(e => e !== entry))
       setNotice({ text: `${entry.name} isn't there any more, so it left Recent.` })
       return false
     }
-    if (entry.root && !(await openFolder(entry.root))) return false
+    // The folder only when it isn't the one open: reopening it would relist it and open the Files panel again.
+    if (entry.root && !(await fs.isSame(folderRef.current, entry.root)) && !(await openFolder(entry.root))) return false
     return openFile(entry.handle, { dirPath: entry.dirPath, root: entry.root, resume: true })
   }
 
@@ -424,13 +469,17 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // tab of its own, so the window never leaves Leggio.
     if (cur?.handle?.web) {
       const url = new URL(href, cur.handle.web)
+      // A section of this same document is a jump, not another fetch.
+      if (withoutSection(url.href) === cur.handle.web && url.hash) return jumpTo(decoded(url.hash.slice(1)))
       // The #section stays inside the address, so the document opens there.
-      if (fs.isMarkdownName(share.webName(url.href))) location.hash = `#url=${encodeURIComponent(url.href)}`
+      if (fs.isMarkdownName(share.webName(url.href))) openUrl(url.href)
       else window.open(url.href, '_blank', 'noopener')
       return
     }
     const root = cur?.root
     if (!cur?.dirPath || !root) {
+      // Where no folder can open (a phone), offering one is a dead end: say what happened instead.
+      if (!fs.canOpenFolders) return setNotice({ text: `${decoded(href.split('#')[0].split('/').filter(Boolean).pop() ?? href)} isn't available: Leggio has only this file.` })
       pendingLink.current = href // followed once the folder is granted
       return setNotice(FOLDER_NOTICE)
     }
@@ -534,7 +583,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     if (!nav) return
     // The share link stays on its own entries (a heading jump inside it) and nowhere else, so reloading another
     // document never reopens the shared one.
-    if (push) history.pushState(null, '', entry.handle?.shared || entry.handle?.web ? location.href : location.pathname + location.search)
+    // A web document opened from inside Leggio gets its own link here, once it has arrived.
+    const page = location.pathname + location.search
+    if (push) history.pushState(null, '', entry.handle?.web ? `${page}#url=${encodeURIComponent(entry.handle.web)}` : entry.handle?.shared ? location.href : page)
     nav.updateCurrentEntry({ state: entry })
   }
 
@@ -548,7 +599,9 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // An entry on a share link holds only that link's document. One left without it (the link was damaged) would
     // reopen the link on reload, and replaceState is out, so another document gets an entry of its own.
     const onLink = !(entry.handle?.shared || entry.handle?.web) && /^#(share|url)=/.test(location.hash)
-    if ((!prev || same || here) && !onLink) return writeEntry(entry)
+    // A web document opened from inside Leggio isn't on its link yet: it takes an entry that is.
+    const needsLink = entry.handle?.web && !here && location.hash !== `#url=${encodeURIComponent(entry.handle.web)}`
+    if ((!prev || same || here) && !onLink && !needsLink) return writeEntry(entry)
     if (prev) writeEntry({ ...prev, scrollY: window.scrollY }) // the debounced save may not have caught the last scroll
     writeEntry(entry, true)
   }
@@ -579,5 +632,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { recent, openRecent, forgetRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
+  // Stops a web document on its way, whether or not "Opening…" shows yet.
+  const cancelOpen = () => fetching.current?.abort()
+
+  return { cancelOpen, recent, openRecent, forgetRecent, restoreRecent, loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }
