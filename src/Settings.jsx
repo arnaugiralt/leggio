@@ -159,11 +159,12 @@ function Themes({ settings, onChange, dark }) {
               <span class="theme-sample">Aa</span>
               <span class="theme-accent" style={`background:${shown.accent}`} />
               <span class="theme-name">{name}</span>
-              {follows && <span class="theme-name">Follows your system</span>}
             </button>
           )
         })}
       </div>
+      {/* Under the grid, not in the card: an extra line in one card made its row taller than the rest. */}
+      {settings.followSystem && <p class="field-hint themes-note">Default follows your system's light or dark setting.</p>}
       <p class="field-hint themes-note">{GOOGLE_NOTE}</p>
     </fieldset>
   )

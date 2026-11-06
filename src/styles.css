@@ -112,6 +112,7 @@ body {
 .bar-title.from-link > * { flex-shrink: 0; }
 .bar-title.from-link bdi { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .crumb { anchor-name: --shared; } /* otherwise a plain .quiet button, like the rest of the bar */
+.crumb-short { display: none; }
 .bar-title.from-link .dim { margin-right: 0.65rem; } /* the button's own side padding, so the slash sits between equal spaces */
 .shared-pop {
   position: fixed;
@@ -192,6 +193,13 @@ body {
   transition: padding-right 180ms var(--ease-out), padding-left 180ms var(--ease-out);
 }
 .settings-open .main { padding-right: var(--sheet-w); }
+/* Below this, pushing the text aside for the sheet leaves a column too thin to read (with Files open, 220 px at
+   800). The sheet covers the right of the page instead, and the change shows on the part still visible. */
+@media (max-width: 1099.98px) {
+  .settings-open .main { padding-right: 0; }
+  .settings-open .sheet { box-shadow: -8px 0 24px -12px color-mix(in oklab, var(--color-fg) 40%, transparent); }
+  .settings-open .notice { padding-right: calc(var(--sheet-w) + 1.25rem); } /* its buttons stay clear of the sheet */
+}
 .sidebar-open .main { padding-left: var(--side-w); }
 
 .notice {
@@ -767,7 +775,6 @@ html:has(dialog.lightbox[open]) {
 .theme-sample { font-size: 1.05rem; font-weight: 600; line-height: 1; }
 .theme-accent { width: 1.5rem; height: 3px; border-radius: 2px; }
 .theme-name { font-size: 0.72rem; opacity: 0.65; }
-.theme-name + .theme-name { font-size: 0.65rem; }
 .themes-note { margin: 0.5rem 0 0; }
 .field-error { color: var(--color-fg); font-weight: 600; }
 
@@ -922,10 +929,16 @@ html:has(dialog.lightbox[open]) {
   }
   .bar-menu .quiet { padding: 0.6rem 0.75rem; text-align: left; }
   .shared-pop { left: 0.75rem; width: auto; right: 0.75rem; } /* no room to hang it off "Shared" */
+  /* Only the file name, cut at its end: the folder path and the start of the name are what a reader recognises,
+     and the path is in the tooltip and the Files drawer. */
+  .bar-title, .bar-title.from-link bdi { direction: ltr; }
+  .bar-title .path { display: none; }
+  .crumb-long { display: none; }
+  .crumb-short { display: inline; }
   .bar-menu .reading-toggle { justify-items: start; }
 
   .sidebar-open .main, .settings-open .main { padding-inline: 0; }
-  .side { z-index: 5; width: min(var(--side-w), 85vw); }
+  .side { z-index: 5; width: min(85vw, 22rem); } /* as wide as a phone allows: file names are what it shows */
   .sidebar-open .side { box-shadow: 0 0 40px rgb(0 0 0 / 0.25); }
   .scrim { display: block; position: fixed; inset: var(--bar-h) 0 0; z-index: 4; background: rgb(0 0 0 / 0.35); }
   .narrow-only { display: inline-block; }
@@ -948,4 +961,35 @@ html:has(dialog.lightbox[open]) {
     --ui-rule: color-mix(in oklab, var(--color-fg) 55%, var(--color-bg));
   }
   .theme-name { opacity: 1; }
+}
+
+/* Print and Save as PDF: the document alone, on paper. */
+@page { margin: 18mm 16mm; }
+@media print {
+  .bar, .side, .scrim, .sheet, .notice, .skip, .outline, .player, [popover], .lightbox { display: none !important; }
+  .main, .sidebar-open .main, .settings-open .main { padding: 0; min-height: 0; }
+  .prose { max-width: none; padding: 0; } /* a screen measure is not a paper measure */
+  /* Inline styles set the palette, so the light one needs !important. Dark pages waste ink and print badly. */
+  :root[data-dark] {
+    color-scheme: light !important;
+    --color-bg: #ffffff !important;
+    --color-fg: #1a1a1a !important;
+    --color-accent: #2563eb !important;
+    --color-code-bg: #f5f5f5 !important;
+    --code-bg: var(--color-code-bg) !important;
+    --code-fg: var(--color-fg) !important;
+    --code-accent: var(--color-accent) !important;
+    --diagram-bg: var(--color-bg) !important;
+    --diagram-fg: var(--color-fg) !important;
+    --diagram-accent: var(--color-accent) !important;
+    --diagram-line: initial !important;
+    --diagram-muted: initial !important;
+  }
+  /* Browsers drop backgrounds when printing, so code and tables keep their shape with a border instead. */
+  .prose pre, .prose .table-wrap { border: 1px solid var(--ui-rule); border-radius: 4px; }
+  .prose .table-wrap { left: 0; transform: none; width: auto; max-width: 100%; mask-image: none; overflow: visible; }
+  .diagram { left: 0; transform: none; width: auto; max-width: 100%; }
+  .prose pre, .prose tr, .diagram, .prose img, .prose blockquote { break-inside: avoid; }
+  .prose h1, .prose h2, .prose h3, .prose h4 { break-after: avoid; }
+  .prose li.task-item input[type=checkbox], .prose li.task-item input[type=checkbox]::before { print-color-adjust: exact; -webkit-print-color-adjust: exact; } /* it printed unchecked */
 }

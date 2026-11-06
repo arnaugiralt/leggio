@@ -216,6 +216,7 @@ export function applyToRoot(settings, root = document.documentElement) {
   for (const role of FONT_ROLES) root.style.setProperty(ROLES[role].cssVar, fontStack(settings, role))
   applyTheme(settings.diagramTheme, root)
   root.style.colorScheme = isDark(settings.bg) ? 'dark' : 'light'
+  root.toggleAttribute?.('data-dark', isDark(settings.bg)) // print swaps a dark look for a light one
 }
 
 const PAGE_DIAGRAM_COLORS = { bg: 'var(--color-bg)', fg: 'var(--color-fg)', accent: 'var(--color-accent)' }

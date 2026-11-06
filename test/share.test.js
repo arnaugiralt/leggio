@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { encode, decode, shareId, httpsUrl, readLink, webName } from '../src/share.js'
+import { encode, decode, shareId, httpsUrl, readLink, webName, docName } from '../src/share.js'
 
 const reason = r => err => err.reason === r
 
@@ -83,4 +83,10 @@ test('readLink keeps an ordinary page whose fragment looks like a link', () => {
 test('webName decodes the last segment', () => {
   assert.equal(webName('https://x.test/docs/My%20notes.md'), 'My notes.md')
   assert.equal(webName('https://x.test/'), 'Document')
+})
+
+test('docName keeps a file name and names the rest from the first heading', () => {
+  assert.equal(docName('https://x.test/docs/notes.md', '# Hi'), 'notes.md')
+  assert.equal(docName('https://gist.githubusercontent.com/a/1/raw', 'Intro\n\n# Deploy *guide*  ##\n'), 'Deploy guide')
+  assert.equal(docName('https://gist.githubusercontent.com/a/1/raw', 'no heading'), 'raw')
 })

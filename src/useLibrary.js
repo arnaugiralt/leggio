@@ -24,7 +24,14 @@ function linkFromHash() {
   }
 }
 // The copy id the link's document gets, so an entry that already holds it is recognised.
-const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + share.httpsUrl(link.url))
+const linkId = async link => (link.share ? share.shareId(link.share) : 'url:' + withoutSection(share.httpsUrl(link.url)))
+// A web address may carry a #section to open at. The document itself is the address without it.
+function withoutSection(url) {
+  if (!url) return url
+  const u = new URL(url)
+  u.hash = ''
+  return u.href
+}
 
 // The folder, the open document, pins and restore: every action that opens something, with
 // the watchers and the IndexedDB records that follow from it. App keeps layout and input.
@@ -35,6 +42,8 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   const [currentPinned, setCurrentPinned] = useState(false)
   const [restorable, setRestorable] = useState(null) // { folder, filePath }
   const [notice, setNotice] = useState(null) // { text, action?: 'another' | 'folder' }, shown by App until another document opens
+  const [loading, setLoading] = useState(null) // { name, host, cancel }: a web document on its way, shown after a moment
+  const fetching = useRef(null) // the AbortController of the web document being fetched
   const setError = text => setNotice(text ? { text } : null)
   const currentRef = useRef(null)
   currentRef.current = current // links and the folder grant run from mount-time closures, where state is stale
@@ -216,6 +225,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
 
   // dirPath and root are set when the file lives inside an open folder; null otherwise.
   async function openFile(handle, { dirPath = null, root = null, fromHistory = false, here = false } = {}) {
+    if (!handle.web) fetching.current?.abort() // the reader moved on: a web document still on its way is dropped
     try {
       if (!(await fs.ensurePermission(handle))) {
         setError(`Access to ${handle.name} was not granted.`)
@@ -273,23 +283,39 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   // A web document is a copy of one file, marked with its address, which is also its copy id. Opening it again
   // (a reload, Back) fetches it again: it may have changed, and nothing of it is kept.
   async function openUrl(address) {
-    const url = share.httpsUrl(address)
-    if (!url) return setNotice({ text: HTTPS_ONLY }), false
+    const asked = share.httpsUrl(address)
+    if (!asked) return setNotice({ text: HTTPS_ONLY }), false
+    const url = withoutSection(asked)
+    const section = new URL(asked).hash.slice(1)
     const host = new URL(url).host
-    const asked = location.hash // the link this fetch belongs to; the reader may move on while it runs
+    const askedHash = location.hash // the link this fetch belongs to; the reader may move on while it runs
+    fetching.current?.abort()
+    const ctrl = (fetching.current = new AbortController())
+    // Only a slow fetch says so: a fast one would flash the message.
+    const timer = setTimeout(() => setLoading({ name: share.webName(url), host, cancel: () => ctrl.abort() }), 300)
+    const done = () => {
+      clearTimeout(timer)
+      if (fetching.current === ctrl) {
+        fetching.current = null
+        setLoading(null)
+      }
+    }
     let body
     try {
-      const res = await fetch(url, { credentials: 'omit', cache: 'no-cache' })
-      if (!res.ok) return setNotice({ text: `${host} answered ${res.status} for this address.` }), false
+      const res = await fetch(url, { credentials: 'omit', cache: 'no-cache', signal: ctrl.signal })
+      if (!res.ok) return done(), setNotice({ text: `${host} answered ${res.status} for this address.` }), false
       body = await share.readCapped(res.body)
     } catch (err) {
+      done()
+      if (ctrl.signal.aborted) return false // the reader cancelled, or opened something else
       // A site that doesn't allow other pages to read it fails exactly like one that is offline.
       const why = err.reason === 'too-large' ? 'This document is too large to open.' : `Couldn't read ${host}. The site may be offline, or it doesn't let other pages read its files.`
       setNotice({ text: why })
       return false
     }
+    done()
     // Another document opened meanwhile: this one would land on its entry.
-    if (location.hash !== asked) return false
+    if (location.hash !== askedHash) return false
     let text
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(body)
@@ -297,8 +323,10 @@ export function useLibrary({ onFolderOpen, onReveal }) {
       setNotice({ text: "This address isn't a text document." }) // an image or a download, say
       return false
     }
-    const file = new File([text], share.webName(url), { type: 'text/markdown' })
-    return openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here: true })
+    const file = new File([text], share.docName(url, text), { type: 'text/markdown' })
+    const ok = await openFile({ ...fs.fromFile(file), copy: 'url:' + url, web: url }, { here: true })
+    if (ok && section) requestAnimationFrame(() => document.getElementById(decodeURIComponent(section))?.scrollIntoView({ block: 'start' }))
+    return ok
   }
 
   // A pasted or typed link, through the fragment: the entry the browser makes for it is the one the document
@@ -330,7 +358,7 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     // tab of its own, so the window never leaves Leggio.
     if (cur?.handle?.web) {
       const url = new URL(href, cur.handle.web)
-      url.hash = ''
+      // The #section stays inside the address, so the document opens there.
       if (fs.isMarkdownName(share.webName(url.href))) location.hash = `#url=${encodeURIComponent(url.href)}`
       else window.open(url.href, '_blank', 'noopener')
       return
@@ -485,5 +513,5 @@ export function useLibrary({ onFolderOpen, onReveal }) {
     el.scrollIntoView({ block: 'start' })
   }
 
-  return { openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
+  return { loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo }
 }

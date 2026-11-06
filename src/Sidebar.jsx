@@ -99,16 +99,18 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
           ))}
         </ul>
       </section>}
-      <section>
+      {(folder || fs.canOpenFolders) && <section>
         <h2>
           <span class="row-name">{folder ? folder.name : 'Folder'}</span>
-          <button type="button" class="quiet small" onClick={onPickFolder}>
-            {folder ? 'Change folder' : 'Open a folder'}
-          </button>
+          {fs.canOpenFolders && (
+            <button type="button" class="quiet small" onClick={onPickFolder}>
+              {folder ? 'Change folder' : 'Open a folder'}
+            </button>
+          )}
         </h2>
         {folder && !folder.tree.children.length && <p class="side-hint">No markdown files in {folder.name}.</p>}
         {folder && <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} />}
-      </section>
+      </section>}
     </div>
   )
 }

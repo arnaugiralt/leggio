@@ -78,7 +78,7 @@ export function App() {
   const toDocument = useRef(false) // a file picked in the drawer: the person chose to read, so focus goes to the page
   const seen = useRef({ settings: false, drawer: false }) // previous open state, so the first render moves no focus
   const article = useRef()
-  const { openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
+  const { loading, openLink, folder, pinned, current, currentPinned, restorable, notice, setNotice, back, forward, openFolder, openFolderFor, openFile, followLink, openPinned, checkPins, togglePin, restore, jumpTo } = useLibrary({
     // A drawer would cover the document the folder is about to open (and every restore); the empty state has its own button.
     onFolderOpen: () => narrow() || setUi(u => ({ ...u, sidebarOpen: true })),
     onReveal: path => {
@@ -297,7 +297,8 @@ export function App() {
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key.toLowerCase() === 'o') {
         e.preventDefault()
-        e.shiftKey ? pickFolder() : pickFile()
+        if (!e.shiftKey) pickFile()
+        else if (fs.canOpenFolders) pickFolder()
       } else if (mod && (e.key === '[' || e.key === ']')) {
         e.preventDefault() // in a tab, Chrome's own ⌘[ would also go back, out of the app when the button is disabled
         if (e.key === '[' ? window.navigation?.canGoBack : window.navigation?.canGoForward) e.key === '[' ? history.back() : history.forward()
@@ -374,6 +375,8 @@ export function App() {
 
   // The one notice slot shows the first of these that applies.
   const shown = [
+    // A web document on its way, over the one being read (with nothing open, the main area says it instead).
+    loading && current && { text: `Opening ${loading.name} from ${loading.host}…`, action: 'cancel' },
     // A stated notice: an error, a deleted file. Dismissing a stated folder offer also hides the derived one.
     notice && { ...notice, dismiss: notice.action !== 'another' && (() => (setNotice(null), setFolderOfferHidden(true))) },
     // Relative links and images cannot resolve without the file's folder.
@@ -389,6 +392,7 @@ export function App() {
   ].find(Boolean)
   const actions = {
     install: ['Install', install],
+    cancel: ['Cancel', () => loading?.cancel()],
     images: ['Load images', loadImages],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', () => pickFolder({ forCurrent: true })],
@@ -444,13 +448,21 @@ export function App() {
           {foreign && (
             <>
               <button type="button" class="quiet crumb" popovertarget="shared-info" title={web ? `Read from ${host}` : 'Shared with you'}>
-                {web ? host : 'Shared'}
+                {web ? (
+                  <>
+                    {/* A host can be long; in a narrow bar "Web" leaves the name its room, and the popover names the host. */}
+                    <span class="crumb-long">{host}</span>
+                    <span class="crumb-short">Web</span>
+                  </>
+                ) : (
+                  'Shared'
+                )}
               </button>
               <span class="dim" aria-hidden="true">/</span>
             </>
           )}
           <bdi>
-            {current?.dirPath?.length > 0 && <span class="dim">{current.dirPath.join(' / ')} / </span>}
+            {current?.dirPath?.length > 0 && <span class="dim path">{current.dirPath.join(' / ')} / </span>}
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
@@ -526,7 +538,15 @@ export function App() {
             </span>
           </div>
         )}
-        {current ? (
+        {loading && !current ? (
+          <div class="empty" role="status">
+            <p class="empty-title">Opening {loading.name}</p>
+            <p class="empty-hint">from {loading.host}…</p>
+            <button type="button" class="quiet" onClick={loading.cancel}>
+              Cancel
+            </button>
+          </div>
+        ) : current ? (
           <>
             <Outline articleRef={article} text={current.text} onContents={setHasContents} />
             <Viewer text={current.text} articleRef={article} root={current.root} dirPath={current.dirPath} onFollow={followLink} onJump={jumpTo} onRelative={setHasRelative} shared={shared} base={web} imagesOn={sharedView.imagesOn} onWebImages={setWebImages} />
@@ -546,7 +566,7 @@ export function App() {
             )}
             <div class="empty-actions">
               {restorable && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
-              <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>
+              {fs.canOpenFolders && <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>}
               {!linkField && (
                 <button type="button" class="quiet" onClick={() => setLinkField(true)}>
                   Open a link…

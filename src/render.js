@@ -144,6 +144,10 @@ md.core.ruler.push('local_images', state => {
 md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
 md.renderer.rules.table_close = () => '</table>\n</div>\n'
 
+// YAML front matter (Obsidian, Jekyll, Hugo) is data about the file, not part of the text: without this it
+// renders as a rule and a heading, and the heading lands in Contents. Only a closed block at the very start.
+const FRONT_MATTER = /^\uFEFF?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
+
 export function render(text, { share = false } = {}) {
-  return md.render(text, { share })
+  return md.render(text.replace(FRONT_MATTER, ''), { share })
 }

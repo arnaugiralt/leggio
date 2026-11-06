@@ -145,3 +145,15 @@ test('share mode drops web urls from diagrams', () => {
   assert.match(render(src), /x\.test/) // not a share: the reader's own file keeps its style
   assert.doesNotMatch(render(src, { share: true }), /x\.test/)
 })
+
+// Obsidian, Jekyll and Hugo put YAML front matter at the top of every file; it is data, not text.
+test('front matter is hidden', () => {
+  const out = render('---\ntitle: Notes\ntags: [a, b]\n---\n# Real\n\nText.\n')
+  assert.doesNotMatch(out, /title: Notes|<hr>/)
+  assert.match(out, /<h1[^>]*>Real<\/h1>/)
+})
+
+test('a rule that only looks like front matter stays', () => {
+  assert.match(render('Intro\n\n---\n\nMore\n'), /<hr>/)
+  assert.match(render('---\nno closing fence\n'), /no closing fence/)
+})

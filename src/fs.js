@@ -2,6 +2,10 @@
 // Every function here also takes a copy (see "Copies" below), so other modules never call handle methods.
 
 export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window
+// Whether a folder can be opened at all: the picker, or a folder input. Phones and tablets report the folder input
+// too (iOS does), but its picker offers no folders there, so a touch-only device gets no folder action.
+export const canOpenFolders =
+  typeof window !== 'undefined' && (supported || ('webkitdirectory' in HTMLInputElement.prototype && !matchMedia('(hover: none) and (pointer: coarse)').matches))
 
 const MARKDOWN = /\.(md|markdown|txt)$/i
 export const isMarkdownName = name => MARKDOWN.test(name)
