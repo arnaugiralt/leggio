@@ -53,7 +53,8 @@ const standalone = navigator.standalone || matchMedia('(display-mode: standalone
 
 // The Files panel's width on wide windows: dragged or set by keyboard, never so wide the text drops below 32rem.
 const SIDE = { min: 200, max: 480, default: 260, step: 16 }
-const sideMax = settingsOpen => Math.max(SIDE.min, Math.min(SIDE.max, innerWidth - 512 - (settingsOpen && innerWidth >= 1100 ? 320 : 0)))
+const SHEET_W = 344 // --sheet-w in styles.css
+const sideMax = settingsOpen => Math.max(SIDE.min, Math.min(SIDE.max, innerWidth - 512 - (settingsOpen && innerWidth >= 1100 ? SHEET_W : 0)))
 const clampSide = (w, settingsOpen) => Math.round(Math.max(SIDE.min, Math.min(sideMax(settingsOpen), w)))
 
 // Below this the panels are overlays, not columns (keep in step with the max-width in styles.css).

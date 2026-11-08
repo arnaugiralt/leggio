@@ -1,66 +1,52 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
+import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, themeLook, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
 import * as speech from './speech.js'
 
-const GROUPS = [
-  {
-    title: 'Type',
-    fields: [
-      { key: 'textFont', label: 'Text font', type: 'font', role: 'text' },
-      { key: 'codeFont', label: 'Code font', type: 'font', role: 'code' },
-      {
-        key: 'uiFont',
-        label: 'Interface font',
-        type: 'font',
-        role: 'ui',
-        hint: 'The sidebar, bar and this sheet. A system font needs no download and stays sharp at small sizes.',
-      },
-      { key: 'fontSize', label: 'Text size', type: 'number', unit: 'px', step: 1, min: 10, max: 40 },
-      { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
-      { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, min: 1, max: 2.5 },
-    ],
-  },
-  {
-    title: 'Layout',
-    fields: [
-      { key: 'contentWidth', label: 'Text width', type: 'number', unit: 'px', step: 10, min: 400, max: 1400 },
-      { key: 'wideWidth', label: 'Wide elements', type: 'number', unit: 'px', step: 50, min: 400, max: 2400, hint: 'Tables and diagrams may grow past the text column up to this width.' },
-    ],
-  },
-  {
-    title: 'Code',
-    fields: [
-      { key: 'codeFontSize', label: 'Code size', type: 'number', unit: 'px', step: 1, min: 8, max: 32 },
-      { key: 'codeBg', label: 'Background', type: 'color' },
-    ],
-  },
+// Everything a theme keeps, under "Customize theme": what "Save this look" saves.
+const CUSTOMIZE = [
   {
     title: 'Colors',
     fields: [
-      { key: 'bg', label: 'Page', type: 'color' },
-      { key: 'fg', label: 'Text color', type: 'color' },
+      { key: 'bg', label: 'Background', type: 'color' },
+      { key: 'fg', label: 'Text', type: 'color' },
       { key: 'accent', label: 'Accent', type: 'color' },
+      { key: 'codeBg', label: 'Code background', type: 'color' },
+      { key: 'diagramTheme', label: 'Diagrams and code', type: 'select' },
     ],
   },
   {
-    title: 'Reading aloud',
+    title: 'Fonts',
     fields: [
-      { key: 'voice', label: 'Voice', type: 'select', hint: 'Online voices sound better. They send the text to the voice service and need a connection; without one, a local voice reads instead.' },
-      { key: 'speechRate', label: 'Rate', type: 'number', step: 0.05, min: 0.5, max: 2 },
+      { key: 'textFont', label: 'Text', type: 'font', role: 'text' },
+      { key: 'codeFont', label: 'Code', type: 'font', role: 'code' },
+      { key: 'uiFont', label: 'Interface', type: 'font', role: 'ui' },
+      { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
+      { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, min: 1, max: 2.5 },
+      { key: 'codeFontSize', label: 'Code size', type: 'number', unit: 'px', step: 1, min: 8, max: 32 },
     ],
   },
   {
-    title: 'Diagram and code colors',
-    fields: [{ key: 'diagramTheme', label: 'Palette', type: 'select', hint: 'Applies to both Mermaid diagrams and code blocks.' }],
+    title: 'Width',
+    fields: [
+      { key: 'contentWidth', label: 'Text', type: 'number', unit: 'px', step: 10, min: 400, max: 1400 },
+      { key: 'wideWidth', label: 'Tables and diagrams', type: 'number', unit: 'px', step: 50, min: 400, max: 2400 },
+    ],
   },
 ]
 
+const READING = [
+  { key: 'voice', label: 'Voice', type: 'select', hint: 'Online voices sound better. They send the text to the voice service and need a connection; without one, a local voice reads instead.' },
+  { key: 'speechRate', label: 'Speed', type: 'number', unit: '×', step: 0.05, min: 0.5, max: 2 },
+]
+
+const TEXT_SIZE = { min: 10, max: 40 }
+
 const FONT_URL = {
   key: 'fontUrl',
-  label: 'Google Fonts URL',
+  label: 'Google Fonts link',
   type: 'url',
   placeholder: 'https://fonts.googleapis.com/css2?family=…',
-  hint: 'Every family in the URL is offered to the three roles below. Ask for 400 and 600; bold text and headings use 600.',
+  hint: 'Every family in the link is offered to the three fonts above. Ask for 400 and 600; bold text and headings use 600.',
 }
 
 const FONT_URL_PREFIX = 'https://fonts.googleapis.com/'
@@ -139,8 +125,6 @@ const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, themeLabel(name)])
 const GOOGLE_PRESETS = PRESETS.filter(p => p.fontUrl).map(p => p.name)
 const GOOGLE_NOTE = `${GOOGLE_PRESETS.slice(0, -1).join(', ')} and ${GOOGLE_PRESETS.at(-1)} load their fonts from Google Fonts.`
 
-// A saved theme fills any look key it lacks (an imported one may) from Default, as a preset would.
-const lookOf = ({ name, ...look }) => ({ ...Object.fromEntries(LOOK.map(k => [k, DEFAULTS[k]])), ...look })
 const lookNow = settings => Object.fromEntries(LOOK.map(k => [k, settings[k]]))
 
 function Card({ name, look, pressed, onPick, note, saved }) {
@@ -186,7 +170,7 @@ function NameField({ value, onDone }) {
   )
 }
 
-function Themes({ settings, onChange, dark, themes, onThemes }) {
+function Themes({ settings, onChange, dark, themes, onThemes, picked, matchesAny }) {
   const [naming, setNaming] = useState(null) // 'new' | index of the theme being renamed
   const [removed, setRemoved] = useState(null) // { theme, index }, for Undo
   const [focusNext, setFocusNext] = useState(null) // a saved theme's name, or 'undo': where focus goes after a change
@@ -200,8 +184,6 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
   }, [focusNext, themes, removed])
   // The offer to undo a delete lasts until the look changes: after that, putting it back would surprise.
   useEffect(() => setRemoved(null), [settings.bg, settings.fg, settings.accent, settings.codeBg, settings.textFont])
-  const picked = themes.findIndex(t => matchesPreset(settings, lookOf(t)))
-  const matchesAny = PRESETS.some(({ name, ...look }) => (name === 'Default' ? settings.followSystem : matchesPreset(settings, look))) || picked >= 0
   const freeName = () => {
     for (let n = themes.length + 1; ; n++) if (!themes.some(t => t.name === `My theme ${n}`)) return `My theme ${n}`
   }
@@ -238,19 +220,19 @@ function Themes({ settings, onChange, dark, themes, onThemes }) {
         })}
       </div>
       {/* Under the grid, not in the card: an extra line in one card made its row taller than the rest. */}
-      {settings.followSystem && <p class="field-hint themes-note">Default follows your system's light or dark setting.</p>}
+      {settings.followSystem && <p class="field-hint themes-note">Default follows your system's light or dark mode.</p>}
       {(themes.length > 0 || !matchesAny) && (
         <>
           <p class="themes-heading">Your themes</p>
           <div class="themes">
             {themes.map((t, i) =>
               naming === i ? (
-                <div key={i} class="theme theme-editing" style={`background:${lookOf(t).bg};color:${lookOf(t).fg}`}>
+                <div key={i} class="theme theme-editing" style={`background:${themeLook(t, settings).bg};color:${themeLook(t, settings).fg}`}>
                   <span class="theme-sample">Aa</span>
                   <NameField value={t.name} onDone={name => rename(i, name)} />
                 </div>
               ) : (
-                <Card key={i} name={t.name} saved={t.name} look={lookOf(t)} pressed={i === picked} onPick={() => onChange(lookOf(t))} />
+                <Card key={i} name={t.name} saved={t.name} look={themeLook(t, settings)} pressed={i === picked} onPick={() => onChange(themeLook(t, settings))} />
               ),
             )}
             {/* Saving is offered only while the look on screen is one nobody has kept yet. */}
@@ -317,8 +299,8 @@ function Backup({ settings, themes, onImport }) {
   return (
     <>
       <div class="backup">
-        <button type="button" class="quiet" onClick={exportFile}>Export settings</button>
-        <button type="button" class="quiet" onClick={() => input.current.click()}>Import settings…</button>
+        <button type="button" class="quiet action" onClick={exportFile}>Export settings</button>
+        <button type="button" class="quiet action" onClick={() => input.current.click()}>Import settings…</button>
         <input
           ref={input}
           type="file"
@@ -342,6 +324,25 @@ function Backup({ settings, themes, onImport }) {
         </p>
       )}
     </>
+  )
+}
+
+// The one setting people change most, as two buttons: no field to click into first. aria-disabled, not
+// disabled, at the ends: a disabled button would drop the focus it holds.
+function TextSize({ value, onChange }) {
+  const step = by => {
+    const next = Math.min(TEXT_SIZE.max, Math.max(TEXT_SIZE.min, value + by))
+    if (next !== value) onChange({ fontSize: next })
+  }
+  return (
+    <div class="field text-size" role="group" aria-labelledby="text-size-label">
+      <span id="text-size-label" class="field-label">Text size</span>
+      <span class="stepper">
+        <button type="button" class="quiet action" aria-label="Smaller text" aria-disabled={value <= TEXT_SIZE.min} onClick={() => step(-1)}>−</button>
+        <output aria-live="polite">{value} px</output>
+        <button type="button" class="quiet action" aria-label="Larger text" aria-disabled={value >= TEXT_SIZE.max} onClick={() => step(1)}>+</button>
+      </span>
+    </div>
   )
 }
 
@@ -389,42 +390,65 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
     }
   }
 
+  // A theme is picked when the look on screen equals it; Default also while the look follows the system.
+  const picked = themes.findIndex(t => matchesPreset(settings, themeLook(t, settings)))
+  const matchesAny = PRESETS.some(({ name, ...look }) => (name === 'Default' ? settings.followSystem : matchesPreset(settings, look))) || picked >= 0
+  // Closed while a theme is picked; open when the sheet opens on a look nobody has kept, which is a theme being made.
+  const [customOpen, setCustomOpen] = useState(!matchesAny)
+  useEffect(() => {
+    if (open) setCustomOpen(!matchesAny)
+  }, [open])
+
+  const field = f => (
+    <Field
+      key={f.key}
+      field={f}
+      value={f.type === 'font' ? fontName(settings, f.role) : settings[f.key]}
+      options={optionsFor(f)}
+      onInput={update}
+    />
+  )
+
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
-      <Themes settings={settings} onChange={onChange} dark={dark} themes={themes} onThemes={onThemes} />
-      {GROUPS.map(group => (
-        <fieldset key={group.title}>
-          <legend>{group.title}</legend>
-          {group.fields.map(field => (
-            <Field
-              key={field.key}
-              field={field}
-              value={field.type === 'font' ? fontName(settings, field.role) : settings[field.key]}
-              options={optionsFor(field)}
-              onInput={update}
-            />
-          ))}
-          {group.title === 'Type' && (
-            <details open={!!settings.fontUrl}>
-              <summary>Custom fonts</summary>
-              <Field field={FONT_URL} value={settings.fontUrl} onInput={update} />
-            </details>
+      <TextSize value={settings.fontSize} onChange={onChange} />
+      <Themes settings={settings} onChange={onChange} dark={dark} themes={themes} onThemes={onThemes} picked={picked} matchesAny={matchesAny} />
+      <details class="customize" open={customOpen} onToggle={e => setCustomOpen(e.currentTarget.open)}>
+        <summary>Customize theme</summary>
+        {CUSTOMIZE.map(group => (
+          <fieldset key={group.title}>
+            <legend>{group.title}</legend>
+            {group.fields.map(field)}
+            {group.title === 'Fonts' && (
+              <details class="google-fonts" open={!!settings.fontUrl}>
+                <summary>Google Fonts</summary>
+                <Field field={FONT_URL} value={settings.fontUrl} onInput={update} />
+              </details>
+            )}
+          </fieldset>
+        ))}
+      </details>
+      <fieldset>
+        <legend>Reading aloud</legend>
+        {READING.map(field)}
+      </fieldset>
+      <div class="settings-foot">
+        <Backup settings={settings} themes={themes} onImport={onImport} />
+        <div class="foot-row">
+          {onShortcuts && (
+            <button type="button" class="quiet shortcuts-link" onClick={onShortcuts}>
+              Keyboard shortcuts <kbd>?</kbd>
+            </button>
           )}
-        </fieldset>
-      ))}
-      <Backup settings={settings} themes={themes} onImport={onImport} />
-      {onShortcuts && (
-        <button type="button" class="quiet shortcuts-link" onClick={onShortcuts}>
-          Keyboard shortcuts <kbd>?</kbd>
-        </button>
-      )}
-      <button type="button" class="quiet reset" onClick={reset}>Reset to defaults</button>
-      {undo && atDefaults && (
-        <p class="reset-row" role="status">
-          Settings reset.
-          <button type="button" class="quiet" onClick={() => { onChange(undo); setUndo(null) }}>Undo</button>
-        </p>
-      )}
+          <button type="button" class="quiet reset" onClick={reset}>Reset to defaults</button>
+        </div>
+        {undo && atDefaults && (
+          <p class="reset-row" role="status">
+            Settings reset.
+            <button type="button" class="quiet" onClick={() => { onChange(undo); setUndo(null) }}>Undo</button>
+          </p>
+        )}
+      </div>
     </form>
   )
 }

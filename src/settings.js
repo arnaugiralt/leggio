@@ -30,14 +30,18 @@ export const DEFAULTS = {
   speechRate: 1,
 }
 
-// The keys a preset owns: the whole look, nothing personal. Everything else
-// (sizes, widths, voice) survives a theme change, and every one of these stays
-// editable afterwards — picking a preset is a one-shot write, not a mode.
-export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 'textFont', 'codeFont', 'uiFont', 'lineHeight']
+// The keys a theme owns: the whole design of the page. Text size, the voice and its speed are personal and
+// survive a theme change. Every one of these stays editable afterwards: picking a theme is a one-shot write, not a mode.
+export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 'textFont', 'codeFont', 'uiFont', 'lineHeight', 'fontWeight', 'codeFontSize', 'contentWidth', 'wideWidth']
+// The proportions every built-in theme shares; a theme may set its own.
+const MEASURE = { fontWeight: DEFAULTS.fontWeight, codeFontSize: DEFAULTS.codeFontSize, contentWidth: DEFAULTS.contentWidth, wideWidth: DEFAULTS.wideWidth }
 
 // What Default becomes on a dark OS. Stored settings keep the light values; App
 // merges edits onto the effective look, so a changed color starts from what was on screen.
 export const DARK = { bg: '#16181d', fg: '#e3e5e8', accent: '#6ea8fe', codeBg: '#1f2228' }
+
+// A saved theme's look. A key it lacks (saved before themes held widths, or imported) keeps the current value.
+export const themeLook = ({ name, ...look }, current) => ({ ...Object.fromEntries(LOOK.map(k => [k, current[k]])), ...look })
 
 export const isDefaultLook = s => LOOK.every(key => s[key] === DEFAULTS[key])
 
@@ -94,7 +98,7 @@ export const PRESETS = [
     textFont: 'Source Serif 4', codeFont: 'JetBrains Mono', uiFont: 'ui-sans-serif',
     lineHeight: 1.7,
   },
-]
+].map(preset => ({ ...MEASURE, ...preset }))
 
 // setting key -> [css variable, unit, divisor]. Text sizes go out in rem so the browser's default
 // font size scales them; the stored value and the number shown stay in px. fontUrl is handled by fontFamilies and applyFontUrl.

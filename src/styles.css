@@ -26,7 +26,7 @@
   --ui-surface: color-mix(in oklab, var(--color-fg) 5%, var(--color-bg));
   --ui-hover: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
   --bar-h: 2.75rem;
-  --sheet-w: 320px;
+  --sheet-w: 344px; /* SHEET_W in App.jsx */
   --side-w: 260px;
   --rail-space: 4.5rem; /* kept clear on both sides of a wide block so the heading rail never sits against one */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -809,19 +809,37 @@ html:has(dialog.lightbox[open]) {
   font-weight: 600;
   color: var(--ui-muted);
 }
+/* Every control in one fixed column, so their edges line up down the sheet. */
 .field {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 10rem;
   align-items: center;
   gap: 0.25rem 0.75rem;
   padding: 0.3rem 0;
 }
 .field-url { grid-template-columns: 1fr; }
-.field-input { display: inline-flex; align-items: center; gap: 0.35rem; }
+/* A number and its unit in one box, as wide as a select, so every control ends on the same edge. */
+.field-input { display: flex; align-items: center; border: 1px solid var(--ui-hairline); border-radius: 6px; background: var(--ui-surface); }
+.field-input:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.settings .field-input input { flex: 1; border: 0; background: transparent; outline: none; }
+.field > select { width: 100%; }
+.field > input[type="color"] { justify-self: end; }
 /* min-width holds the cell when a field has no unit, so every number input shares one right edge */
-.unit { min-width: 1.4rem; font-size: 0.78rem; color: var(--ui-muted); }
+.unit { padding-right: 0.5rem; font-size: 0.78rem; color: var(--ui-muted); }
+.unit:empty { display: none; }
 .settings details { margin: 0.25rem 0 0.75rem; }
 .settings summary { cursor: pointer; font-size: 0.85rem; color: var(--ui-muted); padding: 0.25rem 0; }
+/* Customize theme: what a theme keeps, indented under its own line so it reads as part of the cards above. */
+.settings .customize { margin: -0.5rem 0 1.25rem; }
+.customize > summary { color: var(--color-fg); padding: 0.4rem 0; }
+.customize > fieldset { margin: 0.5rem 0 0.75rem; padding-left: 0.9rem; }
+.customize > fieldset:last-child { margin-bottom: 0; }
+.settings .google-fonts { margin: 0.25rem 0 0; }
+.text-size { margin-bottom: 1rem; }
+.stepper { display: grid; grid-template-columns: 2rem 1fr 2rem; align-items: center; gap: 0.25rem; }
+.stepper .quiet { height: 2rem; padding: 0; font-size: 1rem; }
+.stepper output { text-align: center; font-variant-numeric: tabular-nums; }
+.quiet[aria-disabled="true"] { opacity: 0.35; cursor: default; transform: none; }
 .reset-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--ui-muted); }
 .reset-row .quiet { border: 1px solid var(--ui-hairline); }
 .field-hint {
@@ -837,9 +855,8 @@ html:has(dialog.lightbox[open]) {
   background: var(--ui-surface);
   color: inherit;
 }
-.settings input[type="number"] { width: 5.5rem; text-align: right; }
+.settings input[type="number"] { width: 100%; text-align: right; }
 .settings input[type="url"] { width: 100%; }
-.settings select { max-width: 11rem; }
 .settings input[type="color"] {
   width: 1.75rem;
   height: 1.75rem;
@@ -873,17 +890,21 @@ html:has(dialog.lightbox[open]) {
 .theme-name { font-size: 0.72rem; opacity: 0.65; }
 .themes-heading { margin: 1rem 0 0.4rem; font-size: 0.8rem; color: var(--ui-muted); }
 .theme-save { border-style: dashed; background: transparent; color: var(--ui-muted); }
-.theme-save .theme-name { opacity: 1; } /* the dashed border says "empty slot"; the text stays readable */
+.theme-save .theme-name { opacity: 1; white-space: nowrap; } /* the dashed border says "empty slot"; the text stays readable */
 .theme-editing { cursor: default; }
 .theme-name-field input { width: 100%; min-width: 0; padding: 0.15rem 0.3rem; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; font-size: 0.75rem; }
 .theme-actions { display: flex; align-items: center; gap: 0.25rem; margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--ui-muted); }
 .theme-actions span { margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.backup { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-.backup .quiet { flex: 1; border: 1px solid var(--ui-hairline); }
+/* The rare actions, together at the end. */
+.settings-foot { display: grid; gap: 0.5rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--ui-hairline); }
+.backup { display: flex; gap: 0.5rem; }
+.backup .quiet { flex: 1; }
+.foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; }
+.foot-row .quiet { white-space: nowrap; padding-inline: 0.5rem; font-size: 0.85rem; }
+.settings .reset { margin-left: auto; }
 .themes-note { margin: 0.5rem 0 0; }
 .field-error { color: var(--color-fg); font-weight: 600; }
 
-.settings .reset { width: 100%; margin-top: 0.5rem; border: 1px solid var(--ui-hairline); }
 
 /* Outline rail: one tick per heading, titles on hover */
 
@@ -1084,6 +1105,8 @@ html:has(dialog.lightbox[open]) {
   .files-btn, .more-btn { display: inline-flex; align-items: center; justify-content: center; }
   .bar .quiet, .bar-menu .quiet, .menu-item, .row-main, .notice .quiet, .sheet-close, .empty .quiet, #settings :is(button, select, input:not([type="color"])) { min-height: 44px; }
   .bar .quiet, .notice .quiet, .sheet-close { min-width: 44px; }
+  .stepper { grid-template-columns: 44px 1fr 44px; }
+  .stepper .quiet { height: auto; }
   .bar, .notice { transition: transform 200ms var(--ease-out); }
   .bar-hidden .bar { transform: translateY(-100%); }
   .bar-hidden .notice { transform: translateY(calc(-100% - var(--bar-h))); } /* away with the bar, back with it */
@@ -1108,7 +1131,7 @@ html:has(dialog.lightbox[open]) {
 .shortcuts dl div { display: grid; grid-template-columns: 9.5rem 1fr; gap: 1rem; align-items: baseline; padding: 0.45rem 0; border-top: 1px solid var(--ui-hairline); }
 .shortcuts dd { margin: 0; color: var(--ui-muted); } /* next to its key, so the eye doesn't cross the dialog */
 .shortcuts kbd { white-space: pre; }
-.settings .shortcuts-link { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; margin-top: 0.5rem; }
+.settings .shortcuts-link { display: flex; align-items: center; gap: 0.5rem; }
 
 /* Print and Save as PDF: the document alone, on paper. */
 @page { margin: 18mm 16mm; }
