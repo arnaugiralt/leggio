@@ -761,16 +761,19 @@ export function App() {
             <p class="empty-title">{recent.length || restorable ? 'Welcome back' : touch ? 'Open a markdown file' : 'Drop a markdown file or folder here'}</p>
             {/* What was read last comes first: Recent, or the folder of an older session that kept no list. */}
             {recent.length > 0 ? (
-              <ul class="recent-list" aria-label="Recent">
-                {recent.slice(0, 3).map(entry => (
-                  <li key={entry.key ?? entry.when}>
-                    <button type="button" class="quiet recent-row" onClick={() => openRecent(entry)}>
-                      <span class="menu-name">{entry.name}</span>
-                      <span class="menu-meta">{recentWhere(entry)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <section class="empty-recent" aria-labelledby="empty-recent-heading">
+                <h2 id="empty-recent-heading" class="empty-heading">Recent</h2>
+                <ul class="recent-list">
+                  {recent.slice(0, 3).map(entry => (
+                    <li key={entry.key ?? entry.when}>
+                      <button type="button" class="quiet recent-row" onClick={() => openRecent(entry)}>
+                        <span class="menu-name">{entry.name}</span>
+                        <span class="menu-meta">{recentWhere(entry)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : restorable ? (
               <button type="button" class="quiet primary" onClick={() => restore()}>Continue in {restorable.folder.name}</button>
             ) : (

@@ -197,7 +197,11 @@ body {
 .menu-meta { flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: var(--ui-faint); }
 .menu-forget { color: var(--ui-muted); }
 /* Recent in the empty state: the same rows as the menu, as the first thing to pick. */
-.recent-list { list-style: none; margin: 0; padding: 0; width: min(24rem, 100%); }
+.empty-recent { width: min(24rem, 100%); margin: 0.5rem 0 1rem; text-align: left; }
+.empty-heading { margin: 0 0 0.35rem; padding: 0 0.75rem; font-size: 0.8rem; font-weight: 400; color: var(--ui-muted); }
+.recent-list { list-style: none; margin: 0; padding: 0; width: 100%; border-top: 1px solid var(--ui-hairline); }
+.recent-list li { border-bottom: 1px solid var(--ui-hairline); }
+.recent-list .recent-row { align-items: center; padding-block: 0.75rem; border-radius: 0; } /* centered: a 44 px touch row put the name at its top */
 .recent-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.6rem 0.75rem; text-align: left; }
 
 .quiet {
