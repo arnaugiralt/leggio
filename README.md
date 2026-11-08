@@ -15,7 +15,7 @@ Most markdown apps are editors with a preview on the side. Leggio is only the pa
 ## Features
 
 - **Files and folders.** Open or drop a file, or open a whole folder and browse its markdown files in the Files panel, by mouse or keyboard. Search the folder by file name and text. Relative links and images work, and the page reloads when the file changes on disk.
-- **Open anything, any time.** The Open menu opens a file, a folder, a link, or something from Recent. Leggio remembers where you left each document and takes you back there.
+- **Open anything, any time.** The Open menu opens a file, a folder or a link, and Recent in the Files panel lists what you read before. Leggio remembers where you left each document and takes you back there.
 - **Diagrams.** Mermaid diagrams render inline, in the colors of your theme. A click opens one full size.
 - **Real-world markdown.** Footnotes, task lists, front matter kept out of the way, and the HTML that READMEs open with (a centered logo, a table of screenshots, a details block). Print or save as PDF for a clean copy.
 - **Read aloud.** Leggio reads the page to you, highlights the sentence it's on, and with local voices the word too. Choose the voice and the speed.

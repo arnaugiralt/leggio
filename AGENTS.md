@@ -40,15 +40,15 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/useLibrary.js` | What is open: the folder, pins, the current document, restore after reload, the live-reload watchers, files opened from the operating system, session history and `followLink`. Every action that opens something lives here. |
 | `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
 | `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s (which JSON can't hold), pins, the restore record and Recent. Failures resolve to `undefined`. |
-| `src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, and the scroll position each document was left at. Pure, so it runs under node. |
+| `src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, where each one comes from (its row's muted line), and the scroll position each document was left at. Pure, so it runs under node. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
 | `src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, accepts only https addresses, and caps how much of a stream is read. Pure, so it runs under node. |
 | `src/render.js` | One markdown-it instance, the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers, footnotes, hidden front matter, and the HTML allowlist (see below). **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
 | `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background, saved themes, and the checks for an imported settings file. |
 | `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
-| `src/Sidebar.jsx` | Pins, the folder tree and search in the folder, with the tree keyboard pattern they share. |
-| `src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link, Recent) and its address field; the keyboard shortcuts list. |
+| `src/Sidebar.jsx` | Pins, Recent, the folder tree and search in the folder, with the tree keyboard pattern they share. |
+| `src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link) and its address field; the keyboard shortcuts list. |
 | `src/Outline.jsx`, `Settings.jsx`, `icons.jsx` | Heading list with the active section; the settings form with saved themes and export and import; inline SVG icons (Lucide paths). |
 | `src/styles.css` | All styles. |
 | `manifest.json`, `sw.js`, `_headers` | The installable app shell, the service worker, and the Cloudflare headers with the content security policy. |
@@ -89,7 +89,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - Phones and tablets in a narrow window (`PHONE` in `App.jsx`: a coarse pointer, and the same query in `styles.css`) get their own bar: ☰ ‹ › ⋯ as icons with accessible names, Settings in More, 44 px targets, and the bar and notice slide away while scrolling down. A narrow desktop window keeps the text bar.
 - Hide an action that can't work rather than show one that fails: "Open a folder" and ⇧⌘O only where `fs.canOpenFolders`, the Files button only where it can show something.
 - The bar: text buttons on desktop, plus the Back and Forward arrows; on phones, only ☰ ‹ › ⋯ as icons. No pills, chips or badges. Menus are text only.
-- One place for each kind of thing: opening in the Open menu (the empty state shows the same actions as buttons); keeping in pins; going back in Back, Forward and Recent; the look in Settings; messages in the notice slot.
+- One place for each kind of thing: opening in the Open menu (the empty state shows the same actions as buttons); keeping in pins; going back in Back, Forward and Recent, which lives in the Files panel (the empty state shows its first three rows, built the same way); the look in Settings; messages in the notice slot.
 - In the installed app, the bar is the window's title bar (`window-controls-overlay` in `manifest.json` and `styles.css`). Its empty parts drag the window. Anything clickable you add to the bar must be a `button`, `a`, `input`, `select` or popover, or get `app-region: no-drag`, or it won't take clicks.
 - The page has one notice slot, at the top of `.main`. It shows the first of these that applies:
   1. A web document on its way ("Opening … from …", with Cancel), over an open document. With nothing open, the main area says it instead.

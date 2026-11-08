@@ -83,16 +83,15 @@ export function menuKeys(e) {
   items[(to + items.length) % items.length]?.focus()
 }
 
-// Everything that opens something else, in one popover: a file, a folder where the browser can open one, a
-// link, and what was read recently. The bar's "Open" button and the narrow More menu both show it.
-// control.current opens it on just the address field or just Recent, for the narrow More menu, which already
-// lists the other actions.
-export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCancelLink, onLinkBusy, notify, recent, onRecent, onForget, control }) {
-  const [mode, setMode] = useState('all') // 'all' | 'link' | 'recent'
+// Everything that opens something new, in one popover: a file, a folder where the browser can open one, and a
+// link. What was read before lives in the Files panel, under Recent. control.current opens the popover on just
+// the address field, for the narrow More menu, which already lists the other actions.
+export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCancelLink, onLinkBusy, notify, control }) {
+  const [mode, setMode] = useState('all') // 'all' | 'link'
   const pop = useRef()
   const close = () => pop.current?.hidePopover()
   const show = m => (setMode(m), pop.current.showPopover())
-  if (control) control.current = { showLink: () => show('link'), showRecent: () => show('recent') }
+  if (control) control.current = { showLink: () => show('link') }
   return (
     <div
       id={id}
@@ -123,28 +122,6 @@ export function OpenMenu({ id, keys, canFolders, onFile, onFolder, onLink, onCan
           </button>
         </>
       )}
-      {mode !== 'link' && recent.length > 0 && (
-        <>
-          <p class="menu-heading">Recent</p>
-          {recent.map(entry => (
-            <button key={entry.key ?? entry.when} type="button" class="quiet menu-item" onClick={() => (close(), onRecent(entry))}>
-              <span class="menu-name">{entry.name}</span>
-              <span class="menu-meta">{recentWhere(entry)}</span>
-            </button>
-          ))}
-          <button type="button" class="quiet menu-item menu-forget" onClick={() => (close(), onForget())}>
-            Forget recent
-          </button>
-        </>
-      )}
     </div>
   )
-}
-
-// Where a recent document comes from, in the menu's one muted line: its folder, its host, or "Shared".
-export function recentWhere(entry) {
-  if (entry.kind === 'web') return new URL(entry.url).host
-  if (entry.kind === 'shared') return 'Shared'
-  // A file at a folder's root names the folder, so two README.md entries can be told apart.
-  return entry.dirPath?.length ? entry.dirPath.join(' / ') : entry.root?.name ?? ''
 }

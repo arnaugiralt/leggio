@@ -6,6 +6,14 @@
 // on the device: that is how a phone, which only reads copies, gets its document back after a reload.
 
 export const MAX_RECENT = 10
+
+// Where a recent document comes from, in its row's one muted line: its folder, its host, or "Shared".
+export function where(entry) {
+  if (entry.kind === 'web') return new URL(entry.url).host
+  if (entry.kind === 'shared') return 'Shared'
+  // A file at a folder's root names the folder, so two README.md entries can be told apart.
+  return entry.dirPath?.length ? entry.dirPath.join(' / ') : entry.root?.name ?? ''
+}
 // Characters; a bigger copy isn't kept. Under the 5 MB a shared document may decode to, even in 4-byte UTF-8.
 export const MAX_TEXT = 1_000_000
 

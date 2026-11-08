@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
 import { FileText, Folder, FolderOpen, X } from './icons.jsx'
+import { where } from './recent.js'
+
+const RECENT_ROWS = 5 // the panel is narrow; the list keeps 10
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
   if (item.handle.copy) return null // a pin reopens its file after a reload, and a copy cannot be reopened
@@ -284,9 +287,9 @@ function Search({ folder, onOpenFile, query, setQuery }) {
   )
 }
 
-// Pinned items, the open folder's markdown tree, and search in that folder. Folders start expanded; collapse
+// Pinned items, recent documents, the open folder's markdown tree, and search in that folder. Folders start expanded; collapse
 // state is keyed by path.
-export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPinned, onPickFolder, onTogglePin, query, setQuery, restorable, onRestore }) {
+export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, onOpenPinned, onOpenRecent, onForgetRecent, onPickFolder, onTogglePin, query, setQuery, restorable, onRestore }) {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const box = useRef()
   // The document keeps the folder it was opened in; its row only shows when that is the folder in the tree.
@@ -333,6 +336,25 @@ export function Sidebar({ reveal, folder, pinned, current, onOpenFile, onOpenPin
                   <span class="row-name">{item.missing ? `${item.name} is gone` : item.name}</span>
                 </button>
                 <PinButton item={item} label="Unpin" onTogglePin={onTogglePin} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>}
+      {recent.length > 0 && <section>
+        <h2>
+          <span class="row-name">Recent</span>
+          <button type="button" class="quiet small" onClick={onForgetRecent}>Forget</button>
+        </h2>
+        <ul class="tree" role="tree" aria-label="Recent" onKeyDown={onTreeKey}>
+          {recent.slice(0, RECENT_ROWS).map(entry => (
+            <li key={entry.key ?? entry.when} role="none">
+              <div class="row">
+                <button type="button" role="treeitem" class="row-main" title={entry.name} onClick={() => onOpenRecent(entry)}>
+                  <FileText size={14} class="kind" />
+                  <span class="row-name">{entry.name}</span>
+                  <span class="row-meta">{where(entry)}</span>
+                </button>
               </div>
             </li>
           ))}

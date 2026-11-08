@@ -8,8 +8,9 @@ import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, applyToRoot, applyF
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
-import { ChevronDown, ChevronLeft, ChevronRight, Ellipsis, List, Menu, X } from './icons.jsx'
-import { LinkForm, OpenMenu, menuKeys, recentWhere } from './OpenMenu.jsx'
+import { ChevronDown, ChevronLeft, ChevronRight, Ellipsis, FileText, List, Menu, X } from './icons.jsx'
+import { LinkForm, OpenMenu, menuKeys } from './OpenMenu.jsx'
+import { where } from './recent.js'
 import { Shortcuts } from './Shortcuts.jsx'
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
@@ -184,9 +185,9 @@ export function App() {
   }, [ui.sidebarOpen, pinned.length])
 
   // After the commit, so the panel is already visible: a hidden element cannot take focus.
-  // File rows are the buttons without aria-expanded; the last section is the folder tree, after the pins.
+  // File rows are the buttons without aria-expanded; the last section is the folder tree, after pins and Recent.
   const focusFiles = () =>
-    (document.querySelector('#files .row-main[aria-current]') ?? document.querySelector('#files section:last-of-type .row-main:not([aria-expanded])') ?? document.querySelector('#files button'))?.focus()
+    (document.querySelector('#files .row-main[aria-current]') ?? document.querySelector('#files section:last-of-type .row-main:not([aria-expanded])') ?? document.querySelector('#files .row-main') ?? document.querySelector('#files button'))?.focus()
   useEffect(() => {
     if (focusRows) focusFiles()
   }, [focusRows])
@@ -487,12 +488,15 @@ export function App() {
   const isOpen = e => current && e === recent[0]
   const others = recent.filter(e => !isOpen(e))
   const forgotten = useRef(null)
+  // Forget leaves the panel for the notice with Undo: the drawer would cover it, and the section it was in is gone.
   async function forget() {
     forgotten.current = await forgetRecent()
+    closeDrawer()
     setNotice({ text: 'Recent is cleared.', action: 'undoForget' })
+    requestAnimationFrame(() => document.querySelector('.notice .notice-action')?.focus())
   }
-  // After Undo, focus goes back to where Recent lives, not to the page.
-  const focusOpen = () => requestAnimationFrame(() => [...document.querySelectorAll('.open-btn, .more-btn')].find(b => b.offsetParent)?.focus())
+  // After Undo, focus goes back to where Recent lives: its first row if the panel shows, else the Files button.
+  const focusRecent = () => requestAnimationFrame(() => (document.querySelector('#files[aria-hidden="false"] [aria-label="Recent"] .row-main') ?? filesBtn.current)?.focus())
 
   // The one notice slot shows the first of these that applies.
   const shown = [
@@ -517,7 +521,7 @@ export function App() {
   const actions = {
     install: ['Install', install],
     cancel: ['Cancel', () => loading?.cancel()],
-    undoForget: ['Undo', () => (forgotten.current && restoreRecent(forgotten.current), setNotice(null), focusOpen())],
+    undoForget: ['Undo', () => (forgotten.current && restoreRecent(forgotten.current), setNotice(null), focusRecent())],
     images: ['Load images', loadImages],
     another: ['Open another file', () => (folder ? (setUi(u => ({ ...u, sidebarOpen: true })), setFocusRows(n => n + 1)) : pickFile())],
     folder: ['Open folder', () => pickFolder({ forCurrent: true })],
@@ -557,11 +561,6 @@ export function App() {
       <button type="button" class="quiet narrow-item" onClick={e => (e.stopPropagation(), e.currentTarget.closest('[popover]').hidePopover(), openControl.current.showLink())}>
         Open a link…
       </button>
-      {others.length > 0 && (
-        <button type="button" class="quiet narrow-item" onClick={e => (e.stopPropagation(), e.currentTarget.closest('[popover]').hidePopover(), openControl.current.showRecent())}>
-          Recent…
-        </button>
-      )}
       {/* A phone's bar keeps only ☰ ‹ › ⋯; Settings, used rarely, moves in here. */}
       <button type="button" class="quiet phone-item menu-sep" onClick={() => setShowSettings(true)}>
         Settings
@@ -606,8 +605,8 @@ export function App() {
       {current && <a class="skip" href="#document" onClick={e => { e.preventDefault(); article.current?.focus() }}>Skip to document</a>}
       <header class="bar">
         <div class="bar-actions">
-          {/* Hidden where it would show nothing: no folder can open (a phone) and there is none and no pin. */}
-          {(fs.canOpenFolders || folder || pinned.length > 0) && (
+          {/* Hidden where it would show nothing: no folder can open (a phone) and there is no folder, pin or recent document. */}
+          {(fs.canOpenFolders || folder || pinned.length > 0 || others.length > 0) && (
             <button ref={filesBtn} type="button" class="quiet files-btn" title={`Files (${mod}B)`} aria-label="Files" aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
               <Menu size="1.25em" class="phone-icon" />
               <span class="phone-hide">Files</span>
@@ -648,7 +647,7 @@ export function App() {
             {current ? current.name : 'Leggio'}
           </bdi>
         </span>
-        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} onCancelLink={cancelOpen} onLinkBusy={setLinkBusy} notify={text => setNotice({ text })} recent={others} onRecent={openRecent} onForget={forget} control={openControl} />
+        <OpenMenu id="open-menu" keys={KEYS} canFolders={fs.canOpenFolders} onFile={pickFile} onFolder={pickFolder} onLink={openLink} onCancelLink={cancelOpen} onLinkBusy={setLinkBusy} notify={text => setNotice({ text })} control={openControl} />
         {foreign && (
           <div id="shared-info" class="shared-pop" popover="auto">
             <p class="shared-pop-title">{web ? `Read from ${host}` : 'Shared with you'}</p>
@@ -725,7 +724,7 @@ export function App() {
         />
       )}
       <nav id="files" class="side" aria-label="Files" aria-hidden={!ui.sidebarOpen}>
-        <Sidebar reveal={reveal} folder={folder} pinned={pinned} current={current} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={q => (setQuery(q), q.trim() || setFind(null))} restorable={folder ? null : restorable} onRestore={() => restore({ folder: restorable.folder })} />
+        <Sidebar reveal={reveal} folder={folder} pinned={pinned} recent={others} current={current} onOpenRecent={entry => { readFromDrawer(); openRecent(entry) }} onForgetRecent={forget} onOpenFile={(h, dirPath, root, q) => { readFromDrawer(); setFind(q ? { q, handle: h } : null); openFile(h, { dirPath, root }) }} onOpenPinned={item => { if (item.kind !== 'directory') readFromDrawer(); openPinned(item) }} onPickFolder={pickFolder} onTogglePin={togglePin} query={query} setQuery={q => (setQuery(q), q.trim() || setFind(null))} restorable={folder ? null : restorable} onRestore={() => restore({ folder: restorable.folder })} />
       </nav>
       <main class="main">
         {shown && (
@@ -761,15 +760,19 @@ export function App() {
             <p class="empty-title">{recent.length || restorable ? 'Welcome back' : touch ? 'Open a markdown file' : 'Drop a markdown file or folder here'}</p>
             {/* What was read last comes first: Recent, or the folder of an older session that kept no list. */}
             {recent.length > 0 ? (
+              // The Files panel's Recent rows, so the two read as the same list.
               <section class="empty-recent" aria-labelledby="empty-recent-heading">
-                <h2 id="empty-recent-heading" class="empty-heading">Recent</h2>
-                <ul class="recent-list">
+                <h2 id="empty-recent-heading">Recent</h2>
+                <ul class="tree">
                   {recent.slice(0, 3).map(entry => (
                     <li key={entry.key ?? entry.when}>
-                      <button type="button" class="quiet recent-row" onClick={() => openRecent(entry)}>
-                        <span class="menu-name">{entry.name}</span>
-                        <span class="menu-meta">{recentWhere(entry)}</span>
-                      </button>
+                      <div class="row">
+                        <button type="button" class="row-main" title={entry.name} onClick={() => openRecent(entry)}>
+                          <FileText size={14} class="kind" />
+                          <span class="row-name">{entry.name}</span>
+                          <span class="row-meta">{where(entry)}</span>
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -780,10 +783,10 @@ export function App() {
               <button type="button" class="quiet primary" onClick={pickFile}>Open a file</button>
             )}
             <div class="empty-actions">
-              {(recent.length > 0 || restorable) && <button type="button" class="quiet" onClick={pickFile}>Open a file</button>}
-              {fs.canOpenFolders && <button type="button" class="quiet" onClick={pickFolder}>Open a folder</button>}
+              {(recent.length > 0 || restorable) && <button type="button" class="quiet action" onClick={pickFile}>Open a file</button>}
+              {fs.canOpenFolders && <button type="button" class="quiet action" onClick={pickFolder}>Open a folder</button>}
               {!linkField && (
-                <button type="button" class="quiet" onClick={() => setLinkField(true)}>
+                <button type="button" class="quiet action" onClick={() => setLinkField(true)}>
                   Open a link…
                 </button>
               )}

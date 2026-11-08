@@ -189,20 +189,15 @@ body {
 .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 0.55rem 0.75rem; text-align: left; }
 .menu-item kbd { font: inherit; font-size: 0.78rem; color: var(--ui-faint); border: 0; background: none; padding: 0; } /* a hint, not a key cap */
 .open-pop .link-form { width: min(24rem, calc(100vw - 2.5rem)); padding: 0.25rem; }
-.menu-heading { margin: 0.5rem 0.75rem 0.15rem; padding-top: 0.5rem; border-top: 1px solid var(--ui-hairline); font-size: 0.75rem; color: var(--ui-faint); }
-.menu-heading:first-child { margin-top: 0.25rem; padding-top: 0; border-top: 0; } /* Recent alone, from the More menu */
 .menu-item, .narrow-item { white-space: nowrap; } /* a mono interface font wrapped "Open a folder…" */
-.menu-forget { margin-top: 0.25rem; border-top: 1px solid var(--ui-hairline); border-radius: 0 0 6px 6px; } /* an action, not one more document */
-.menu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg); }
-.menu-meta { flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: var(--ui-faint); }
-.menu-forget { color: var(--ui-muted); }
-/* Recent in the empty state: the same rows as the menu, as the first thing to pick. */
-.empty-recent { width: min(24rem, 100%); margin: 0.5rem 0 1rem; text-align: left; }
-.empty-heading { margin: 0 0 0.35rem; padding: 0 0.75rem; font-size: 0.8rem; font-weight: 400; color: var(--ui-muted); }
-.recent-list { list-style: none; margin: 0; padding: 0; width: 100%; border-top: 1px solid var(--ui-hairline); }
-.recent-list li { border-bottom: 1px solid var(--ui-hairline); }
-.recent-list .recent-row { align-items: center; padding-block: 0.75rem; border-radius: 0; } /* centered: a 44 px touch row put the name at its top */
-.recent-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.6rem 0.75rem; text-align: left; }
+/* Recent in the empty state: the Files panel's heading and rows, as the first thing to pick. */
+.empty-recent { width: min(22rem, 100%); margin-bottom: 0.75rem; text-align: left; font-size: 0.9rem; }
+.empty-recent .row-main { padding-block: 0.45rem; }
+/* A filled button: an action, set apart from the documents above it. */
+.quiet.action { color: var(--color-fg); background: var(--ui-surface); padding: 0.55rem 0.9rem; font-size: 0.9rem; }
+@media (hover: hover) and (pointer: fine) {
+  .quiet.action:hover { background: var(--ui-hover); }
+}
 
 .quiet {
   cursor: pointer;
@@ -690,7 +685,7 @@ html:has(dialog.lightbox[open]) {
 .side-resize:hover, .side-resize:focus-visible, .side-resize:active { background: linear-gradient(to right, transparent 2px, var(--color-accent) 2px, var(--color-accent) 4px, transparent 4px); outline: none; }
 .sidebar { padding: 1rem 0.75rem 2rem; }
 .sidebar section + section { margin-top: 1.25rem; }
-.sidebar h2 {
+.sidebar h2, .empty-recent h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -769,6 +764,9 @@ html:has(dialog.lightbox[open]) {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Where a recent document comes from: its folder, its host, or "Shared". */
+.row-meta { flex-shrink: 0; max-width: 45%; margin-left: auto; padding-left: 0.5rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.78rem; color: var(--ui-faint); }
+.row-meta:empty { display: none; }
 .row.missing .pin { opacity: 1; } /* the only thing left to do with it */
 .img-note { display: block; margin: 0.25rem 0 1rem; font-family: var(--ui-font); font-size: 0.8rem; color: var(--ui-muted); }
 .img-placeholder { margin: 0.5rem 0 1rem; padding: 0.75rem 1rem; border: 1px dashed var(--ui-rule); border-radius: 6px; font-size: 0.85rem; }
@@ -1083,7 +1081,7 @@ html:has(dialog.lightbox[open]) {
   .phone-icon { display: block; }
   .bar-menu .phone-item { display: block; }
   .files-btn, .more-btn { display: inline-flex; align-items: center; justify-content: center; }
-  .bar .quiet, .bar-menu .quiet, .menu-item, .recent-row, .row-main, .notice .quiet, .sheet-close, .empty .quiet, #settings :is(button, select, input:not([type="color"])) { min-height: 44px; }
+  .bar .quiet, .bar-menu .quiet, .menu-item, .row-main, .notice .quiet, .sheet-close, .empty .quiet, #settings :is(button, select, input:not([type="color"])) { min-height: 44px; }
   .bar .quiet, .notice .quiet, .sheet-close { min-width: 44px; }
   .bar, .notice { transition: transform 200ms var(--ease-out); }
   .bar-hidden .bar { transform: translateY(-100%); }

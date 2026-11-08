@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { entryFor, add, MAX_RECENT, docKey, keepScroll, scrollOf } from '../src/recent.js'
+import { entryFor, add, MAX_RECENT, docKey, keepScroll, scrollOf, where } from '../src/recent.js'
 
 const file = name => ({ kind: 'file', name, isSame: other => other.name === name })
 const sameFile = async (a, b) => a.isSame(b)
@@ -72,4 +72,12 @@ test('scroll positions are kept per document, the oldest dropped past the limit'
   assert.equal(scrollOf('file:0.md', storage), null)
   keepScroll('file:204.md', 0, storage)
   assert.equal(scrollOf('file:204.md', storage), null) // the top is where every document starts anyway
+})
+
+test('a recent row says where its document comes from', () => {
+  assert.equal(where({ kind: 'web', url: 'https://gist.github.com/a/b.md' }), 'gist.github.com')
+  assert.equal(where({ kind: 'shared' }), 'Shared')
+  assert.equal(where({ kind: 'file', dirPath: ['docs', 'api'] }), 'docs / api')
+  assert.equal(where({ kind: 'file', dirPath: [], root: { name: 'notes' } }), 'notes')
+  assert.equal(where({ kind: 'copy' }), '')
 })
