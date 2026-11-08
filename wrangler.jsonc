@@ -6,7 +6,9 @@
   "name": "leggio",
   "compatibility_date": "2026-11-01",
   "assets": { "directory": "./site" },
-  "routes": [{ "pattern": "leggio.compostela.dev", "custom_domain": true }],
+  // previews_enabled serves each Preview at <name>.leggio.compostela.dev: master's is canary (the Preview command in
+  // Workers Builds names it). Production deploys apply it; a Preview build alone doesn't.
+  "routes": [{ "pattern": "leggio.compostela.dev", "custom_domain": true, "previews_enabled": true }],
   // Pushes to master and other branches build a Preview with `wrangler preview`, which needs this block, even empty.
   "previews": {},
   "observability": {
