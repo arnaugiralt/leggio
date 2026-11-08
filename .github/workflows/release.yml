@@ -1,0 +1,23 @@
+# A release is a tag. Pushing a v* tag moves the release branch to the tagged commit, and Workers Builds
+# deploys the release branch to leggio.compostela.dev. Pushes to master only build previews.
+# Only a commit already on master can be released, and only forward: the push fails unless release is behind it.
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency: release
+jobs:
+  release:
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move release to the tagged commit
+        run: |
+          sha=$(git rev-parse "$GITHUB_REF^{commit}")
+          git merge-base --is-ancestor "$sha" origin/master || { echo "::error::$GITHUB_REF_NAME is not on master"; exit 1; }
+          git push origin "$sha:refs/heads/release"
