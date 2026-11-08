@@ -54,11 +54,11 @@ export function LinkForm({ onOpen, onClose, onCancel, onBusy, notify }) {
           onBlur={e => !busy && !e.currentTarget.value && !e.relatedTarget?.closest('.link-form') && onClose()}
         />
         {busy ? (
-          <button type="button" class="quiet notice-action" onClick={() => (onCancel?.(), setBusy(false), input.current.focus())}>
+          <button type="button" class="quiet action" onClick={() => (onCancel?.(), setBusy(false), input.current.focus())}>
             Cancel
           </button>
         ) : (
-          <button type="submit" class="quiet notice-action">
+          <button type="submit" class="quiet action">
             Open
           </button>
         )}

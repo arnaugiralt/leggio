@@ -188,13 +188,13 @@ body {
 .open-pop:popover-open { display: flex; flex-direction: column; }
 .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 0.55rem 0.75rem; text-align: left; }
 .menu-item kbd { font: inherit; font-size: 0.78rem; color: var(--ui-faint); border: 0; background: none; padding: 0; } /* a hint, not a key cap */
-.open-pop .link-form { width: min(24rem, calc(100vw - 2.5rem)); padding: 0.25rem; }
+.open-pop .link-form { width: min(24rem, calc(100vw - 2.5rem)); padding: 0.25rem; font-size: inherit; }
 .menu-item, .narrow-item { white-space: nowrap; } /* a mono interface font wrapped "Open a folder…" */
 /* Recent in the empty state: the Files panel's heading and rows, as the first thing to pick. */
 .empty-recent { width: min(22rem, 100%); margin-bottom: 0.75rem; text-align: left; font-size: 0.9rem; }
 .empty-recent .row-main { padding-block: 0.45rem; }
 /* A filled button: an action, set apart from the documents above it. */
-.quiet.action { color: var(--color-fg); background: var(--ui-surface); padding: 0.55rem 0.9rem; font-size: 0.9rem; }
+.quiet.action { color: var(--color-fg); background: var(--ui-surface); padding: 0.55rem 0.9rem; }
 @media (hover: hover) and (pointer: fine) {
   .quiet.action:hover { background: var(--ui-hover); }
 }
@@ -291,11 +291,12 @@ body {
   color: var(--ui-muted);
 }
 .empty-hint { margin: 0; font-size: 0.8rem; color: var(--ui-faint); }
-.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
-.link-form { display: grid; gap: 0.35rem; width: min(26rem, 100%); text-align: left; }
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; font-size: 0.9rem; }
+/* The same width and text size as Recent above it, so the field lines up with the rows. */
+.link-form { display: grid; gap: 0.35rem; width: min(22rem, 100%); font-size: 0.9rem; text-align: left; }
 .link-label { font-size: 0.8rem; color: var(--ui-muted); }
 .link-row { display: flex; gap: 0.5rem; }
-.link-form input { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; border: 1px solid var(--ui-hairline); border-radius: 6px; background: var(--ui-surface); color: inherit; font: inherit; } /* as the settings fields */
+.link-form input { flex: 1; min-width: 0; padding: 0.4rem 0.6rem; border: 1px solid var(--ui-hairline); border-radius: 6px; background: var(--ui-surface); color: inherit; font: inherit; line-height: 1.2; } /* as the settings fields */
 .link-form input[aria-invalid="true"] { border-color: var(--color-accent); }
 .link-status, .link-error { margin: 0; font-size: 0.8rem; color: var(--ui-muted); }
 .link-error { color: var(--color-fg); }
