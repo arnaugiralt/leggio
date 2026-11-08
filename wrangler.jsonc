@@ -7,6 +7,8 @@
   "compatibility_date": "2026-11-01",
   "assets": { "directory": "./site" },
   "routes": [{ "pattern": "leggio.compostela.dev", "custom_domain": true }],
+  // Pushes to master and other branches build a Preview with `wrangler preview`, which needs this block, even empty.
+  "previews": {},
   "observability": {
     "logs": {
       "enabled": true,
