@@ -5,7 +5,7 @@
 // address and fetched again. A copy, and a shared document, have no file to go back to, so their text is kept
 // on the device: that is how a phone, which only reads copies, gets its document back after a reload.
 
-export const MAX_RECENT = 10
+export const MAX_RECENT = 6 // the Files panel shows 5, and the open document is the sixth
 
 // Where a recent document comes from, in its row's one muted line: its folder, its host, or "Shared".
 export function where(entry) {

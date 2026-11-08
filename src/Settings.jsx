@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, themeLook, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
+import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
 import * as speech from './speech.js'
 
 // Everything a theme keeps, under "Customize theme": what "Save this look" saves.
@@ -119,21 +119,19 @@ function Field({ field, value, options, onInput }) {
 
 const THEME_OPTIONS = DIAGRAM_THEMES.map(name => [name, themeLabel(name)])
 
-// A swatch is a miniature of the page it paints: its own background, "Aa" in its
-// text color, a rule in its accent. The active one is derived by comparing values,
-// so tweaking any control afterwards simply deselects — there is no stored theme.
 const GOOGLE_PRESETS = PRESETS.filter(p => p.fontUrl).map(p => p.name)
 const GOOGLE_NOTE = `${GOOGLE_PRESETS.slice(0, -1).join(', ')} and ${GOOGLE_PRESETS.at(-1)} load their fonts from Google Fonts.`
 
 const lookNow = settings => Object.fromEntries(LOOK.map(k => [k, settings[k]]))
 
-function Card({ name, look, pressed, onPick, note, saved }) {
+// A swatch is a miniature of the page it paints: its own background, "Aa" in its text color, a rule in its
+// accent. Which one is picked is derived by comparing values, so changing any setting afterwards deselects it.
+function Card({ name, look, pressed, onPick, saved }) {
   return (
     <button type="button" class="theme" data-saved={saved} aria-pressed={pressed} style={`background:${look.bg};color:${look.fg}`} onClick={onPick}>
       <span class="theme-sample">Aa</span>
       <span class="theme-accent" style={`background:${look.accent}`} />
       <span class="theme-name">{name}</span>
-      {note}
     </button>
   )
 }
@@ -147,7 +145,7 @@ function NameField({ value, onDone }) {
     done.current = true
     onDone(name)
   }
-  useEffect(() => input.current.select(), [])
+  useEffect(() => (input.current.focus(), input.current.select()), []) // focus scrolls it into view, from the end of Customize too
   return (
     <span class="theme-name-field">
       <input
@@ -170,69 +168,107 @@ function NameField({ value, onDone }) {
   )
 }
 
-function Themes({ settings, onChange, dark, themes, onThemes, picked, matchesAny }) {
+const lookOf = ({ name, ...look }) => look
+
+// Saved themes and what can happen to them: save, rename, update, delete, and switching away from a look nobody
+// has kept. Each change that loses something offers Undo on one status line, which lasts while the look it
+// describes is still on screen. Focus goes to what the change acted on, since each one replaces the control used.
+function useSavedThemes({ settings, onChange, themes, onThemes, matchesAny }) {
   const [naming, setNaming] = useState(null) // 'new' | index of the theme being renamed
-  const [removed, setRemoved] = useState(null) // { theme, index }, for Undo
-  const [focusNext, setFocusNext] = useState(null) // a saved theme's name, or 'undo': where focus goes after a change
-  const box = useRef()
-  // Saving, renaming, deleting and Undo each replace the control that had focus; focus goes to what it acted on.
+  const [basis, setBasis] = useState(null) // the saved theme the look on screen started from
+  const [status, setStatus] = useState(null) // { text, undo, keep(settings) }
+  const [focusNext, setFocusNext] = useState(null) // a saved theme's name, 'undo', 'save' or 'update'
   useEffect(() => {
     if (!focusNext) return
-    const target = focusNext === 'undo' ? box.current?.querySelector('.theme-undo') : [...(box.current?.querySelectorAll('.theme[data-saved]') ?? [])].find(b => b.dataset.saved === focusNext)
-    target?.focus()
+    const sheet = document.getElementById('settings')
+    const target = { undo: '.theme-undo', save: '.theme-save', update: '.theme-update' }[focusNext]
+    ;(target ? sheet?.querySelector(target) : [...(sheet?.querySelectorAll('.theme[data-saved]') ?? [])].find(b => b.dataset.saved === focusNext))?.focus()
     setFocusNext(null)
-  }, [focusNext, themes, removed])
-  // The offer to undo a delete lasts until the look changes: after that, putting it back would surprise.
-  useEffect(() => setRemoved(null), [settings.bg, settings.fg, settings.accent, settings.codeBg, settings.textFont])
-  const freeName = () => {
-    for (let n = themes.length + 1; ; n++) if (!themes.some(t => t.name === `My theme ${n}`)) return `My theme ${n}`
+  }, [focusNext, themes, status])
+
+  function pick(look, name, { follows = false, saved = null } = {}) {
+    if (matchesAny) setStatus(null)
+    else {
+      const before = lookNow(settings)
+      const was = basis
+      setStatus({ text: `Switched to ${name}.`, undo: () => (onChange(before), setBasis(was), setFocusNext('save')), keep: s => (follows ? s.followSystem : matchesPreset(s, look)) })
+    }
+    setBasis(saved)
+    onChange(look)
   }
   function save(name) {
     setNaming(null)
-    if (name) {
-      onThemes([...themes, { name, ...lookNow(settings) }])
-      setFocusNext(name)
-    }
+    if (!name) return
+    onThemes(ts => [...ts, { name, ...lookNow(settings) }])
+    setBasis(name)
+    setStatus(null)
+    setFocusNext(name)
   }
   function rename(i, name) {
     setNaming(null)
-    if (name) onThemes(themes.map((t, j) => (j === i ? { ...t, name } : t)))
+    if (name) {
+      if (basis === themes[i].name) setBasis(name)
+      onThemes(ts => ts.map((t, j) => (j === i ? { ...t, name } : t)))
+    }
     setFocusNext(name ?? themes[i].name)
   }
   function remove(i) {
-    setRemoved({ theme: themes[i], index: i })
-    onThemes(themes.filter((_, j) => j !== i))
+    const theme = themes[i]
+    const at = lookNow(settings)
+    onThemes(ts => ts.filter((_, j) => j !== i))
+    setStatus({ text: `Deleted ${theme.name}.`, undo: () => (onThemes(ts => [...ts.slice(0, i), theme, ...ts.slice(i)]), setFocusNext(theme.name)), keep: s => matchesPreset(s, at) })
     setFocusNext('undo')
   }
-  function undoRemove() {
-    const at = Math.min(removed.index, themes.length)
-    onThemes([...themes.slice(0, at), removed.theme, ...themes.slice(at)])
-    setFocusNext(removed.theme.name)
-    setRemoved(null)
+  function update() {
+    const old = themes.find(t => t.name === basis)
+    const now = { name: basis, ...lookNow(settings) }
+    onThemes(ts => ts.map(t => (t.name === basis ? now : t)))
+    setStatus({ text: `Updated ${basis}.`, undo: () => (onThemes(ts => ts.map(t => (t.name === old.name ? old : t))), setFocusNext('update')), keep: s => matchesPreset(s, now) })
+    setFocusNext('undo')
+  }
+  return {
+    naming,
+    setNaming,
+    basis: themes.some(t => t.name === basis) ? basis : null,
+    status: status?.keep(settings) ? status : null,
+    undo: () => (status.undo(), setStatus(null)),
+    pick,
+    save,
+    rename,
+    remove,
+    update,
+  }
+}
+
+function Themes({ settings, dark, themes, picked, matchesAny, saved }) {
+  const { naming, setNaming, basis, status } = saved
+  const freeName = () => {
+    for (let n = themes.length + 1; ; n++) if (!themes.some(t => t.name === `My theme ${n}`)) return `My theme ${n}`
   }
   return (
-    <fieldset ref={box}>
+    <fieldset>
       <legend>Theme</legend>
       <div class="themes">
         {PRESETS.map(({ name, ...look }) => {
           const follows = name === 'Default' && settings.followSystem
-          return <Card key={name} name={name} look={follows && dark ? { ...look, ...DARK } : look} pressed={name === 'Default' ? settings.followSystem : matchesPreset(settings, look)} onPick={() => onChange(look)} />
+          return <Card key={name} name={name} look={follows && dark ? { ...look, ...DARK } : look} pressed={name === 'Default' ? settings.followSystem : matchesPreset(settings, look)} onPick={() => saved.pick(look, name, { follows: name === 'Default' })} />
         })}
       </div>
       {/* Under the grid, not in the card: an extra line in one card made its row taller than the rest. */}
       {settings.followSystem && <p class="field-hint themes-note">Default follows your system's light or dark mode.</p>}
+      <p class="field-hint themes-note">{GOOGLE_NOTE}</p>
       {(themes.length > 0 || !matchesAny) && (
         <>
           <p class="themes-heading">Your themes</p>
           <div class="themes">
             {themes.map((t, i) =>
               naming === i ? (
-                <div key={i} class="theme theme-editing" style={`background:${themeLook(t, settings).bg};color:${themeLook(t, settings).fg}`}>
+                <div key={i} class="theme theme-editing" style={`background:${t.bg};color:${t.fg}`}>
                   <span class="theme-sample">Aa</span>
-                  <NameField value={t.name} onDone={name => rename(i, name)} />
+                  <NameField value={t.name} onDone={name => saved.rename(i, name)} />
                 </div>
               ) : (
-                <Card key={i} name={t.name} saved={t.name} look={themeLook(t, settings)} pressed={i === picked} onPick={() => onChange(themeLook(t, settings))} />
+                <Card key={i} name={t.name} saved={t.name} look={t} pressed={i === picked} onPick={() => saved.pick(lookOf(t), t.name, { saved: t.name })} />
               ),
             )}
             {/* Saving is offered only while the look on screen is one nobody has kept yet. */}
@@ -240,7 +276,7 @@ function Themes({ settings, onChange, dark, themes, onThemes, picked, matchesAny
               (naming === 'new' ? (
                 <div class="theme theme-editing" style={`background:${settings.bg};color:${settings.fg}`}>
                   <span class="theme-sample">Aa</span>
-                  <NameField value={freeName()} onDone={save} />
+                  <NameField value={freeName()} onDone={saved.save} />
                 </div>
               ) : (
                 <button type="button" class="theme theme-save" onClick={() => setNaming('new')}>
@@ -253,24 +289,30 @@ function Themes({ settings, onChange, dark, themes, onThemes, picked, matchesAny
             <p class="theme-actions">
               <span>{themes[picked].name}</span>
               <button type="button" class="quiet" onClick={() => setNaming(picked)}>Rename</button>
-              <button type="button" class="quiet" onClick={() => remove(picked)}>Delete</button>
+              <button type="button" class="quiet" onClick={() => saved.remove(picked)}>Delete</button>
             </p>
           )}
-          {removed && (
-            <p class="reset-row" role="status">
-              Deleted {removed.theme.name}.
-              <button type="button" class="quiet theme-undo" onClick={undoRemove}>Undo</button>
+          {!matchesAny && basis && naming === null && (
+            <p class="theme-actions">
+              <span>{basis} has changes</span>
+              <button type="button" class="quiet theme-update" onClick={saved.update}>Update {basis}</button>
             </p>
           )}
         </>
       )}
-      <p class="field-hint themes-note">{GOOGLE_NOTE}</p>
+      {status && (
+        <p class="reset-row" role="status">
+          {status.text}
+          <button type="button" class="quiet theme-undo" onClick={saved.undo}>Undo</button>
+        </p>
+      )}
     </fieldset>
   )
 }
 
 // Export as a file the browser saves; import from a file the reader picks. Both are the reader's own action.
-function Backup({ settings, themes, onImport }) {
+// onSaid: a message here replaces the reset's line in the same footer.
+function Backup({ settings, themes, onImport, onSaid }) {
   const [said, setSaid] = useState('')
   const [undo, setUndo] = useState(null) // puts back what an import replaced
   const input = useRef()
@@ -283,12 +325,14 @@ function Backup({ settings, themes, onImport }) {
     setTimeout(() => URL.revokeObjectURL(url), 60000)
     setUndo(null)
     setSaid('Settings exported.')
+    onSaid()
   }
   async function importFile(file) {
     try {
       if (file.size > 1_000_000) throw new Error('This file is too large to be Leggio settings.') // before reading it
       const read = readSettingsFile(await file.text())
       const { added, undo } = onImport(read)
+      onSaid()
       setUndo(() => undo)
       setSaid(`Settings imported.${added ? ` ${added === 1 ? '1 new theme' : `${added} new themes`} in Your themes.` : ''}`)
     } catch (err) {
@@ -368,7 +412,9 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
     if (undo && (!open || !atDefaults)) setUndo(null)
   }, [undo, open, atDefaults])
 
+  const [resets, setResets] = useState(0) // a reset remounts Backup, so its last message leaves with it
   function reset() {
+    setResets(n => n + 1)
     setUndo(settings)
     onChange({ ...DEFAULTS })
   }
@@ -380,19 +426,21 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
         ? [['', 'Browser default'], ...voiceOptions]
         : THEME_OPTIONS
 
+  // Only a real change goes through: a blur on an untouched field would otherwise count as an edit, and on a
+  // dark system that stops Default from following it.
   function update(key, type, input) {
+    let value = input.value
     if (type === 'number') {
-      const value = input.valueAsNumber
-      if (Number.isNaN(value)) return
-      onChange({ [key]: Math.min(+input.max, Math.max(+input.min, value)) })
-    } else {
-      onChange({ [key]: input.value })
+      if (Number.isNaN(input.valueAsNumber)) return
+      value = Math.min(+input.max, Math.max(+input.min, input.valueAsNumber))
     }
+    if (value !== settings[key]) onChange({ [key]: value })
   }
 
   // A theme is picked when the look on screen equals it; Default also while the look follows the system.
-  const picked = themes.findIndex(t => matchesPreset(settings, themeLook(t, settings)))
+  const picked = themes.findIndex(t => matchesPreset(settings, lookOf(t)))
   const matchesAny = PRESETS.some(({ name, ...look }) => (name === 'Default' ? settings.followSystem : matchesPreset(settings, look))) || picked >= 0
+  const saved = useSavedThemes({ settings, onChange, themes, onThemes, matchesAny })
   // Closed while a theme is picked; open when the sheet opens on a look nobody has kept, which is a theme being made.
   const [customOpen, setCustomOpen] = useState(!matchesAny)
   useEffect(() => {
@@ -412,7 +460,7 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
   return (
     <form class="settings" onSubmit={e => e.preventDefault()}>
       <TextSize value={settings.fontSize} onChange={onChange} />
-      <Themes settings={settings} onChange={onChange} dark={dark} themes={themes} onThemes={onThemes} picked={picked} matchesAny={matchesAny} />
+      <Themes settings={settings} dark={dark} themes={themes} picked={picked} matchesAny={matchesAny} saved={saved} />
       <details class="customize" open={customOpen} onToggle={e => setCustomOpen(e.currentTarget.open)}>
         <summary>Customize theme</summary>
         {CUSTOMIZE.map(group => (
@@ -427,13 +475,20 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
             )}
           </fieldset>
         ))}
+        {/* Where the editing happens, so keeping the result needs no trip back up to the cards. */}
+        {!matchesAny && (
+          <p class="customize-save">
+            <button type="button" class="quiet action" onClick={() => saved.setNaming('new')}>Save this look</button>
+            {saved.basis && <button type="button" class="quiet action" onClick={saved.update}>Update {saved.basis}</button>}
+          </p>
+        )}
       </details>
       <fieldset>
         <legend>Reading aloud</legend>
         {READING.map(field)}
       </fieldset>
       <div class="settings-foot">
-        <Backup settings={settings} themes={themes} onImport={onImport} />
+        <Backup key={resets} settings={settings} themes={themes} onImport={onImport} onSaid={() => setUndo(null)} />
         <div class="foot-row">
           {onShortcuts && (
             <button type="button" class="quiet shortcuts-link" onClick={onShortcuts}>

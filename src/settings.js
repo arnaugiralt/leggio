@@ -40,8 +40,9 @@ const MEASURE = { fontWeight: DEFAULTS.fontWeight, codeFontSize: DEFAULTS.codeFo
 // merges edits onto the effective look, so a changed color starts from what was on screen.
 export const DARK = { bg: '#16181d', fg: '#e3e5e8', accent: '#6ea8fe', codeBg: '#1f2228' }
 
-// A saved theme's look. A key it lacks (saved before themes held widths, or imported) keeps the current value.
-export const themeLook = ({ name, ...look }, current) => ({ ...Object.fromEntries(LOOK.map(k => [k, current[k]])), ...look })
+// A theme that lacks a key (saved before themes held widths, or imported) takes the reader's value for it, once,
+// when it is loaded or imported. Left open, the key would match any value, and the theme every look.
+export const completeTheme = (theme, current) => ({ ...Object.fromEntries(LOOK.map(k => [k, current[k]])), ...theme })
 
 export const isDefaultLook = s => LOOK.every(key => s[key] === DEFAULTS[key])
 
@@ -302,7 +303,9 @@ function readTheme(t) {
   if (!t || typeof t !== 'object' || typeof t.name !== 'string') return []
   const name = t.name.trim()
   if (!name || name.length > 60) return []
-  return [{ name, ...passing(t, LOOK) }]
+  const look = passing(t, LOOK)
+  // A theme with no color left after the checks would match every look, so it isn't a theme.
+  return ['bg', 'fg', 'accent', 'codeBg'].some(k => k in look) ? [{ name, ...look }] : []
 }
 
 export const THEMES_KEY = 'leggio.themes'

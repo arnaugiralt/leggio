@@ -104,7 +104,10 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   useEffect(() => {
     // Pins saved before ids existed get one for this session; the next pin change stores it.
     idb.get('pinned').then(items => items && setPinned(items.map(item => ({ ...item, id: item.id ?? crypto.randomUUID() }))))
-    Promise.all([idb.get('recent'), idb.get('last')]).then(async ([items = [], last]) => {
+    // First in the Recent queue, so a link opened at load adds to the stored list after it has been read.
+    const loaded = Promise.all([idb.get('recent'), idb.get('last')])
+    remembering.current = loaded
+    loaded.then(async ([items = [], last]) => {
       recentRef.current = items
       setRecent(items)
       // What was read last was a copy or a shared document: it has no handle to restore, but Recent kept its
@@ -393,17 +396,18 @@ export function useLibrary({ onFolderOpen, onReveal }) {
   }
 
   // One at a time: two opens close together (a folder's README, then a click) would otherwise both start from the
-  // same list, and the second would drop the first.
+  // same list, and the second would drop the first. Each step starts from the stored list, not the one in memory:
+  // a link opened at load arrives before the stored list has loaded, and another tab may have added to it.
   const remembering = useRef(Promise.resolve())
   function remember(doc) {
     const entry = recents.entryFor(doc)
     if (!entry) return
     remembering.current = remembering.current.then(async () => {
-      const next = await recents.add(recentRef.current, entry, fs.isSame)
+      const next = await recents.add((await idb.get('recent')) ?? recentRef.current, entry, fs.isSame)
       recentRef.current = next
       setRecent(next)
-      idb.set('recent', next)
-    })
+      await idb.set('recent', next)
+    }).catch(() => {}) // a failed step must not stop the ones queued after it
   }
 
   function setRecentList(list) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { themeLabel, DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap, effective, isDefaultLook, DARK, themeLook } from '../src/settings.js'
+import { themeLabel, DEFAULTS, STORAGE_KEY, DIAGRAM_THEMES, LOOK, PRESETS, load, save, applyToRoot, families, fontName, fontStack, fontOptions, matchesPreset, withSwap, effective, isDefaultLook, DARK, completeTheme } from '../src/settings.js'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -236,12 +236,13 @@ test('a theme keeps the page widths, weight and code size, but not the text size
   for (const preset of PRESETS) assert.equal(preset.contentWidth, DEFAULTS.contentWidth, preset.name)
 })
 
-test('a theme saved before it held widths leaves the current ones', () => {
+test('a theme saved before it held widths takes the current ones, once, and then matches only them', () => {
   const current = { ...DEFAULTS, contentWidth: 900, fontSize: 22 }
-  const old = { name: 'Old', bg: '#000000', fg: '#ffffff' }
-  const look = themeLook(old, current)
+  const { name, ...look } = completeTheme({ name: 'Old', bg: '#000000', fg: '#ffffff' }, current)
+  assert.equal(name, 'Old')
   assert.equal(look.contentWidth, 900)
   assert.equal(look.bg, '#000000')
   assert.ok(!('fontSize' in look))
   assert.ok(matchesPreset({ ...current, ...look }, look))
+  assert.ok(!matchesPreset({ ...current, ...look, contentWidth: 700 }, look), 'a different width is a different look')
 })

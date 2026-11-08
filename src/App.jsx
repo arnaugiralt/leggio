@@ -4,7 +4,7 @@ import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
 import { Sidebar, findIn } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
-import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
+import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, completeTheme, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
@@ -74,7 +74,7 @@ function loadUi() {
 
 export function App() {
   const [settings, setSettings] = useState(load)
-  const [themes, setThemes] = useState(loadThemes) // the reader's saved looks, beside the presets
+  const [themes, setThemes] = useState(() => loadThemes().map(t => completeTheme(t, load()))) // the reader's saved looks, beside the presets
   const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
   const [showSettings, setShowSettings] = useState(false)
   const [ui, setUi] = useState(loadUi)
@@ -494,7 +494,7 @@ export function App() {
     forgotten.current = await forgetRecent()
     closeDrawer()
     setNotice({ text: 'Recent is cleared.', action: 'undoForget' })
-    requestAnimationFrame(() => document.querySelector('.notice .notice-action')?.focus())
+    requestAnimationFrame(() => ([...document.querySelectorAll('.notice .notice-action')].find(b => b.textContent === 'Undo') ?? filesBtn.current)?.focus())
   }
   // After Undo, focus goes back to where Recent lives: its first row if the panel shows, else the Files button.
   const focusRecent = () => requestAnimationFrame(() => (document.querySelector('#files[aria-hidden="false"] [aria-label="Recent"] .row-main') ?? filesBtn.current)?.focus())
@@ -606,8 +606,9 @@ export function App() {
       {current && <a class="skip" href="#document" onClick={e => { e.preventDefault(); article.current?.focus() }}>Skip to document</a>}
       <header class="bar">
         <div class="bar-actions">
-          {/* Hidden where it would show nothing: no folder can open (a phone) and there is no folder, pin or recent document. */}
-          {(fs.canOpenFolders || folder || pinned.length > 0 || others.length > 0) && (
+          {/* Hidden where it would show nothing: no folder can open (a phone) and there is no folder, pin or recent document.
+              Kept while the panel is open, even emptied by Forget: in a wide window it is the only way to close it. */}
+          {(fs.canOpenFolders || folder || pinned.length > 0 || others.length > 0 || ui.sidebarOpen) && (
             <button ref={filesBtn} type="button" class="quiet files-btn" title={`Files (${mod}B)`} aria-label="Files" aria-expanded={ui.sidebarOpen} aria-controls="files" onClick={toggleSidebar}>
               <Menu size="1.25em" class="phone-icon" />
               <span class="phone-hide">Files</span>
@@ -817,7 +818,7 @@ export function App() {
           onImport={read => {
             // Imported themes join the saved ones; a name already there keeps the one on this device.
             const before = { settings, themes }
-            const added = read.themes.filter(n => !themes.some(o => o.name === n.name))
+            const added = read.themes.filter(n => !themes.some(o => o.name === n.name)).map(t => completeTheme(t, { ...lookShown, ...read.settings }))
             change(read.settings)
             setThemes([...themes, ...added])
             return { added: added.length, undo: () => (setSettings(before.settings), setThemes(before.themes)) }

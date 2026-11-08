@@ -81,7 +81,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - Never define root variables named `--bg`, `--fg`, `--line`, `--accent`, `--muted`, `--surface` or `--border`. beautiful-mermaid reads those names inside its SVG, and a root variable with the same name breaks every diagram color.
 - Diagrams read `--diagram-*`, which `settings.js` sets.
 - `.main` is a CSS size container, so its children can size themselves from its width. Width caps inside it use `cqw` (1% of that container's width), so they respect the open panels.
-- A theme is the `LOOK` keys in `settings.js`: colors, the diagram theme, fonts, weight, line height, code size and the two widths. Settings shows exactly these under "Customize theme", and "Save this look" saves exactly these. Text size, the voice and its speed are personal and stay out. A saved theme that lacks a key leaves the current value.
+- A theme is the `LOOK` keys in `settings.js`: colors, the diagram theme, fonts, weight, line height, code size and the two widths. Settings shows exactly these under "Customize theme", and "Save this look" saves exactly these. Text size, the voice and its speed are personal and stay out. A saved or imported theme that lacks a key takes the reader's value for it once, when it is loaded or imported; a theme with no color is dropped. A key left open would match every look.
 - While the look is Default, it follows the system light or dark setting (`followSystem` and `effective` in `settings.js`). Saved settings keep the light values, and the dark palette is applied on top.
 
 ### Layout

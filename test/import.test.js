@@ -57,3 +57,8 @@ test('saved themes load only when they are valid', () => {
   assert.deepEqual(loadThemes(storage('{"a":1}')), [])
   assert.deepEqual(loadThemes(storage(JSON.stringify([{ name: 'Ok', bg: '#000000' }, { bg: '#ffffff' }, 'x']))), [{ name: 'Ok', bg: '#000000' }])
 })
+
+test('a theme with no color left after the checks is not imported: it would match every look', () => {
+  const file = JSON.stringify({ app: 'leggio', version: 1, settings: {}, themes: [{ name: 'Sepia', bg: '#fed', fg: '#321' }, { name: 'Ink', bg: '#000000' }] })
+  assert.deepEqual(readSettingsFile(file).themes.map(t => t.name), ['Ink'])
+})

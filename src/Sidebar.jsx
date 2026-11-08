@@ -344,7 +344,7 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
       {recent.length > 0 && <section>
         <h2>
           <span class="row-name">Recent</span>
-          <button type="button" class="quiet small" onClick={onForgetRecent}>Forget</button>
+          <button type="button" class="quiet small" aria-label="Forget recent documents" onClick={onForgetRecent}>Forget</button>
         </h2>
         <ul class="tree" role="tree" aria-label="Recent" onKeyDown={onTreeKey}>
           {recent.slice(0, RECENT_ROWS).map(entry => (
