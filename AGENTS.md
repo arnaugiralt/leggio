@@ -137,9 +137,9 @@ The table runs from the entry point to the build, in layers. Each row says what 
 ### The `@leggio/core` package
 
 - `packages/core` is published to npm as `@leggio/core`, and the app uses it as a workspace package. The hard limits, the HTML allowlist rules, the `--bg` and `--fg` variable rule and the privacy rules apply to the package as they do to the app: it fetches nothing itself, and `applyFontUrl` is its only helper that adds a network request.
-- The package is published by hand from `packages/core`, never by a `v*` tag. That tag releases the site.
+- A `core-vX.Y.Z` tag on a commit that is on `master` publishes the package, with the same version already bumped in `packages/core/package.json`. `.github/workflows/release-core.yml` runs the checks, publishes to npm with trusted publishing (OIDC, no npm token), and creates a GitHub release. Its notes are the `feat:` and `fix:` subjects of the commits that touched `packages/core` since the previous `core-v` tag. A `v*` tag releases the site and never the package, and the two tag shapes don't match each other's workflow.
 - Its dependencies are pinned in `packages/core/package.json`. A new one needs the maintainer's approval, like any other.
-- Keep `index.d.ts` in step with `index.js`. Nothing checks it, and `pnpm test` doesn't.
+- Keep `index.d.ts` in step with `index.js`. `pnpm test` checks the exported names. When the package's surface changes, also run `bash scripts/check-core-types.sh` (the declarations compile for a consumer) and `node scripts/check-core-pack.mjs` (the packed tarball works on its own). CI runs both.
 
 ### Build and deploy
 
@@ -151,7 +151,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ## Check your change
 
-`pnpm test` covers only the modules with no user interface: `render`, `settings` (presets' contrast, import checks), `share`, `recent`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them.
+`pnpm test` covers only the modules with no user interface: `render`, `settings` (presets' contrast, import checks), `share`, `recent`, the speech queue, voice choice and sentence splitting in `speech`, and the path helpers in `fs`. Add or update a test when you change one of them. If you change the surface of `@leggio/core`, also run `bash scripts/check-core-types.sh` and `node scripts/check-core-pack.mjs`.
 
 Check everything else in a real browser, in a wide window and at about 390 px wide. Browser automation can't drive the native file pickers, so the app exposes `window.leggio = { openFolder, openFile, openFolderFor }`. Use a folder in the origin private file system (storage the browser keeps for the page, with no picker). Run this in the page:
 
