@@ -81,6 +81,6 @@ jobs:
           tag=$GITHUB_REF_NAME
           if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already has a release"; exit 0; fi
           version=${tag#core-v}
-          bash scripts/core-release-notes.sh "$tag" > "$RUNNER_TEMP/notes.md"
+          bash scripts/release-notes.sh "$tag" core-v packages/core > "$RUNNER_TEMP/notes.md"
           # Pre-release while the version is 0.x (alpha).
           gh release create "$tag" --verify-tag --title "@leggio/core $version" --notes-file "$RUNNER_TEMP/notes.md" $([[ $tag == core-v0.* ]] && echo --prerelease)

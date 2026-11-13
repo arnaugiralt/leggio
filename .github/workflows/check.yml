@@ -21,3 +21,6 @@ jobs:
       - run: pnpm build
       - run: bash scripts/check-core-types.sh
       - run: node scripts/check-core-pack.mjs
+      - run: pnpm --filter leggio build
+      # Catches manifest errors on every push.
+      - run: cd packages/vscode && pnpm dlx @vscode/vsce@4.1.0 package --no-dependencies --out "$RUNNER_TEMP/leggio.vsix"

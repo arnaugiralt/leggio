@@ -48,6 +48,8 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `packages/core/src/links.js` | `isLocal` and `isRelative`: which links are followable from the reader. |
 | `packages/core/prose.css` | The reading styles under `.leggio` and `.prose`. Its header comment holds the size-container contract. |
 | `packages/core/index.js`, `index.d.ts`, `README.md` | The public surface of `@leggio/core`. The types are written by hand, so change `index.d.ts` when `index.js` exports change. |
+| `packages/vscode/src/extension.js`, `src/look.js` | The VS Code extension's entry (a markdown-it plugin, and the `markdown.preview.refresh` call on a settings change) and the `leggio.*` settings turned into CSS variables, checked like an imported settings file. |
+| `packages/vscode/reset.css`, `preview.js` | `reset.css` cancels VS Code's own preview styles; `preview.js` runs in the preview and copies the look onto `<body>`. |
 | `src/settings.js` | `DEFAULTS`, load and save to localStorage, and the checks for an imported settings file. The look itself (presets, font roles, light or dark, saved-theme completion) comes from `@leggio/core`; this file re-exports it for the app. |
 | `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
@@ -140,6 +142,15 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - A `core-vX.Y.Z` tag on a commit that is on `master` publishes the package, with the same version already bumped in `packages/core/package.json`. `.github/workflows/release-core.yml` runs the checks, publishes to npm with trusted publishing (OIDC, no npm token), and creates a GitHub release. Its notes are the `feat:` and `fix:` subjects of the commits that touched `packages/core` since the previous `core-v` tag. A `v*` tag releases the site and never the package, and the two tag shapes don't match each other's workflow.
 - Its dependencies are pinned in `packages/core/package.json`. A new one needs the maintainer's approval, like any other.
 - Keep `index.d.ts` in step with `index.js`. `pnpm test` checks the exported names. When the package's surface changes, also run `bash scripts/check-core-types.sh` (the declarations compile for a consumer) and `node scripts/check-core-pack.mjs` (the packed tarball works on its own). CI runs both.
+
+### The VS Code extension
+
+- `packages/vscode` is "Leggio for VS Code" (package `leggio`, publisher `arnaugiralt`, `private`, so never on npm). It restyles VS Code's built-in markdown preview: it contributes `@leggio/core`'s markdown-it plugin, `prose.css`, a reset sheet and a small preview script. It has no preview of its own and no on/off setting.
+- The look comes from `leggio.*` settings. VS Code's `previewStyles` are static files, so the look travels in the rendered HTML: the plugin prepends one hidden element with the light and dark CSS variables as `data-` attributes, and `preview.js` copies them onto `<body>`, picking light or dark from VS Code's body class. A settings change runs `markdown.preview.refresh`. A setting that fails the app's import checks is ignored and the preset's value is used.
+- `reset.css` is a reset sheet for VS Code's leaking styles (heading borders, highlight colors, the blockquote background, list spacing). It lives in the extension, not in `prose.css`.
+- It makes no request of its own. The only one is the Google Fonts stylesheet for a `leggio.fontUrl` the reader sets.
+- To try it: `pnpm --filter leggio build && code --extensionDevelopmentPath="$PWD/packages/vscode" <folder>`. Open a markdown file, then the preview. This is not covered by `pnpm test`, so check it by eye.
+- A `vscode-vX.Y.Z` tag on a commit that is on `master` publishes it to the VS Code Marketplace and Open VSX, with the same version already bumped in `packages/vscode/package.json`. `.github/workflows/release-vscode.yml` runs the checks, publishes with `VSCE_PAT` and `OVSX_PAT` (only the publish job sees them), and creates a GitHub release with the `.vsix` attached. Its notes are the `feat:` and `fix:` subjects of the commits that touched `packages/vscode` since the previous `vscode-v` tag, so use `chore(vscode):` for work that isn't for readers. `vsce` and `ovsx` run through `pnpm dlx` at pinned versions and are never dependencies. CI packages the extension on every push.
 
 ### Build and deploy
 
