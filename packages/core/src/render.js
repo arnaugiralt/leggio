@@ -10,7 +10,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import markdown from 'highlight.js/lib/languages/markdown'
 import { renderMermaidSVG } from 'beautiful-mermaid'
-import { isLocal } from './fs.js'
+import { isLocal } from './links.js'
 
 // Each definition declares its own aliases (js, ts, sh, py, yml, html, md), so
 // registering the canonical name is enough for hljs.getLanguage('js') to resolve.

@@ -1,0 +1,22 @@
+{
+  "name": "@leggio/core",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./prose.css": "./prose.css"
+  },
+  "sideEffects": ["*.css"],
+  "files": ["index.js", "index.d.ts", "src", "prose.css", "README.md", "LICENSE"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnaugiralt/leggio.git",
+    "directory": "packages/core"
+  },
+  "dependencies": {
+    "beautiful-mermaid": "1.1.3",
+    "highlight.js": "11.12.0",
+    "markdown-it": "15.0.1"
+  }
+}

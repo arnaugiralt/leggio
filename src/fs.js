@@ -1,6 +1,9 @@
 // The only module that touches the File System Access API. A Tauri backend would replace this file.
 // Every function here also takes a copy (see "Copies" below), so other modules never call handle methods.
 
+import { isLocal, isRelative } from '@leggio/core'
+export { isLocal, isRelative }
+
 export const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 // Whether a folder can be opened at all: the picker, or a folder input. Phones and tablets report the folder input
 // too (iOS does), but its picker offers no folders there, so a touch-only device gets no folder action.
@@ -9,13 +12,6 @@ export const canOpenFolders =
 
 const MARKDOWN = /\.(md|markdown|txt)$/i
 export const isMarkdownName = name => MARKDOWN.test(name)
-
-// A leading "word:" reads as a scheme, as in a real href; write ./notes:draft.md to force a relative path.
-// Relative means: no fragment, not root-relative, not protocol-relative, no scheme.
-export const isRelative = url => !/^(#|\/|[a-z][a-z0-9+.-]*:)/i.test(url)
-
-// Followable from the reader: relative, or root-relative (/x), which resolves from the open folder's root.
-export const isLocal = url => isRelative(url) || /^\/(?!\/)/.test(url)
 
 // startIn may be a file handle: the picker then opens in that file's folder, so granting it is one click.
 export async function pickDirectory({ startIn } = {}) {

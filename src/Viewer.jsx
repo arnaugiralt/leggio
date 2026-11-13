@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { render } from './render.js'
+import { render } from '@leggio/core'
 import { isLocal, resolvePath, getFileByPath, getFile } from './fs.js'
 import { X } from './icons.jsx'
 
