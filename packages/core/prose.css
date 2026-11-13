@@ -36,6 +36,8 @@
   --ui-surface: color-mix(in oklab, var(--color-fg) 5%, var(--color-bg));
   --ui-hover: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
   --rail-space: 0px; /* the host sets how much room a wide block keeps clear on each side for a heading rail */
+  background-color: var(--color-bg);
+  color: var(--color-fg);
 }
 
 /* Prose (unchanged) */
@@ -45,6 +47,12 @@
   margin: 0 auto;
   padding: 2.5rem 1.5rem 8rem;
   overflow-wrap: anywhere;
+  /* The text itself, so a host page's body font doesn't leak in. Not on .leggio: the app puts that class on <html>,
+     where a font size would change what every rem means. */
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  font-weight: var(--font-weight);
+  line-height: var(--line-height);
 }
 .prose h1, .prose h2, .prose h3, .prose h4 { line-height: 1.25; margin: 1.8em 0 0.5em; }
 .prose h1 { margin-top: 1.2em; } /* 2em type already carries the space a smaller heading needs from its margin */
