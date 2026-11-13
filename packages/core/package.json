@@ -9,6 +9,7 @@
   },
   "sideEffects": ["*.css"],
   "files": ["index.js", "index.d.ts", "src", "prose.css", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arnaugiralt/leggio.git",

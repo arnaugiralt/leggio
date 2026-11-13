@@ -1,4 +1,4 @@
-import type MarkdownIt from 'markdown-it'
+import type { MarkdownIt } from 'markdown-it'
 
 export type LocalImages = 'defer' | 'keep'
 export type WebImages = 'load' | 'defer'
