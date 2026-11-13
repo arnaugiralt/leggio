@@ -1,30 +1,6 @@
-:root {
-  --font-family: ui-serif, Georgia, serif;
-  --font-size: 1.125rem;
-  --font-weight: 400;
-  --line-height: 1.6;
-  --content-width: 700px;
-  --wide-width: 1200px;
-  --code-font-family: ui-monospace, monospace;
-  --code-font-size: 0.875rem;
-  --color-bg: #ffffff;
-  --color-fg: #1a1a1a;
-  --color-accent: #2563eb;
-  --color-code-bg: #f5f5f5;
-  /* Code surfaces: the page palette until settings.js points them at a theme. */
-  --code-bg: var(--color-code-bg);
-  --code-fg: var(--color-fg);
-  --code-accent: var(--color-accent);
+@import '@leggio/core/prose.css';
 
-  /* UI tokens, all derived from the palette. Prefixed so they never leak into beautiful-mermaid's SVG variables. */
-  --ui-font: system-ui, -apple-system, sans-serif;
-  --ui-hairline: color-mix(in oklab, var(--color-fg) 12%, var(--color-bg));
-  --ui-muted: color-mix(in oklab, var(--color-fg) 76%, var(--color-bg));
-  --ui-strong: color-mix(in oklab, var(--color-fg) 86%, var(--color-bg)); /* dimmed, but still reads as text rather than as a label */
-  --ui-rule: color-mix(in oklab, var(--color-fg) 18%, var(--color-bg)); /* a rule across the content column: an hr, the foot of a table */
-  --ui-faint: color-mix(in oklab, var(--color-fg) 70%, var(--color-bg));
-  --ui-surface: color-mix(in oklab, var(--color-fg) 5%, var(--color-bg));
-  --ui-hover: color-mix(in oklab, var(--color-fg) 8%, var(--color-bg));
+:root {
   --bar-h: 2.75rem;
   --sheet-w: 344px; /* SHEET_W in App.jsx */
   --side-w: 260px;
@@ -382,101 +358,6 @@ kbd {
 }
 .app.dragging::after { opacity: 1; }
 
-/* Prose (unchanged) */
-
-.prose {
-  max-width: var(--content-width);
-  margin: 0 auto;
-  padding: 2.5rem 1.5rem 8rem;
-  overflow-wrap: anywhere;
-}
-.prose h1, .prose h2, .prose h3, .prose h4 { line-height: 1.25; margin: 1.8em 0 0.5em; }
-.prose h1 { margin-top: 1.2em; } /* 2em type already carries the space a smaller heading needs from its margin */
-.prose > :first-child { margin-top: 0; }
-.prose h1 { font-size: 2em; }
-.prose h2 { font-size: 1.5em; }
-.prose h3 { font-size: 1.25em; }
-.prose p, .prose li { text-wrap: pretty; }
-.prose h1, .prose h2, .prose h3, .prose h4 { text-wrap: balance; }
-/* 600 carries emphasis without the stamp of 700. Variable faces (ui-serif is New York on macOS) hit it
-   exactly; families that only ship 400 and 700 round up to 700, which is where this started. */
-.prose :is(h1, h2, h3, h4, h5, h6), .prose :is(strong, b) { font-weight: 600; }
-.prose a { color: var(--color-accent); }
-.footnote-ref a { padding: 0 0.1em; text-decoration: none; } /* a number, not a word: no underline, a little room to hit */
-.footnotes { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--ui-rule); font-size: 0.9em; }
-.footnotes ol { padding-left: 1.5em; }
-.footnote-back { text-decoration: none; }
-.footnotes li:focus { outline: none; background: color-mix(in oklab, var(--color-accent) 10%, var(--color-bg)); border-radius: 4px; } /* where a jump landed */
-.footnotes li:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.prose img { max-width: 100%; }
-.prose blockquote {
-  margin: 1em 0;
-  padding: 0 1em;
-  border-left: 3px solid var(--color-accent);
-  opacity: 0.85;
-}
-/* Tables and diagrams break out of the text column, centered on it, up to --wide-width or the visible width; wider still scrolls. */
-.prose .table-wrap, .diagram {
-  position: relative;
-  left: 50%;
-  width: max-content;
-  min-width: 100%;
-  max-width: min(var(--wide-width), 100cqw - 2 * var(--rail-space));
-  transform: translateX(-50%);
-  overflow-x: auto;
-}
-.prose .table-wrap {
-  margin: 1.5em 0 2em;
-  /* A soft fade on each edge that has more content, driven by the wrapper's own scroll position (no JS).
-     With nothing to scroll the timeline is inactive and both stay 0. */
-  mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
-  animation: table-fade linear both;
-  animation-timeline: scroll(self inline);
-}
-@property --fade-start { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@property --fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@keyframes table-fade {
-  0% { --fade-start: 0px; --fade-end: 2.5rem; }
-  4% { --fade-start: 2.5rem; }
-  96% { --fade-end: 2.5rem; }
-  100% { --fade-start: 2.5rem; --fade-end: 0px; }
-} /* the header's own leading stands in for the top rule the table no longer has */
-/* Set like a book table, not a spreadsheet: no vertical rules, no fill. The header is a different
-   class of type rather than just bolder data - small caps, tracked out - and the accent rule under
-   it is the only colour a table spends. */
-.prose table {
-  border-collapse: collapse;
-  width: 100%;
-  border-bottom: 1px solid var(--ui-rule);
-  line-height: 1.45; /* tighter than the prose measure: a table is scanned, not read */
-  font-variant-numeric: tabular-nums; /* digits line up down a column, at any measure */
-}
-.prose th, .prose td {
-  padding: 0.55em 1.25em;
-  vertical-align: top;
-  overflow-wrap: break-word; /* never below the longest word; `anywhere` on .prose would let columns squeeze to single characters */
-}
-/* Only in a narrow column: a wide table scrolls there, and its columns must not squeeze to a few characters. Wide windows lay tables out freely. */
-@container (width < 48rem) {
-  .prose :is(th, td) { min-width: 10ch; }
-}
-.prose td { padding: 0.75em 1.25em; color: var(--ui-strong); }
-.prose tbody td { font-size: 0.9em; } /* data reads smaller than the prose it sits in; the em paddings follow it down */
-/* Flush with the text column, so the rules span the measure instead of floating inside it. */
-.prose :is(th, td):first-child { padding-inline-start: 0; }
-.prose :is(th, td):last-child { padding-inline-end: 0; }
-.prose th {
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  color: var(--ui-strong);
-  text-align: left; /* markdown's own :--: alignment arrives as an inline style and still wins */
-  border-bottom: 2px solid var(--color-accent);
-  padding-bottom: 0.45em;
-}
-.prose td:first-child { color: var(--color-fg); font-weight: 500; } /* the first cell is the row's subject, not data */
-.prose tbody tr + tr td { border-top: 1px solid color-mix(in oklab, var(--color-fg) 8%, var(--color-bg)); } /* lighter than --ui-rule: inside the table, not the edge of it */
-
 /* The sentence being read aloud. ::highlight paints over a Range, so the rendered markdown is
    never wrapped, split or otherwise touched. */
 /* A search match in a document opened from search. */
@@ -498,33 +379,6 @@ kbd {
   background-color: color-mix(in oklab, var(--color-accent) 35%, var(--color-bg));
   color: var(--color-fg);
 }
-
-.prose hr { border: 0; border-top: 1px solid var(--ui-rule); margin: 2em 0; }
-
-.prose code {
-  font-family: var(--code-font-family);
-  font-size: var(--code-font-size);
-  background: var(--color-code-bg); /* inline code stays on the page palette; a dark theme chip mid-sentence is a shout */
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-  font-variant-ligatures: none;
-}
-.prose pre {
-  margin: 1.5em 0;
-  background: var(--code-bg);
-  padding: 1em;
-  border-radius: 6px;
-  overflow-x: auto;
-}
-.prose pre code { padding: 0; background: none; color: var(--code-fg); }
-
-.diagram {
-  margin: 2em 0;
-  text-align: center;
-}
-.diagram svg { max-width: 100%; height: auto; }
-.diagram { cursor: zoom-in; }
-.diagram:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
 
 .lightbox {
   max-width: 100vw;
@@ -568,59 +422,6 @@ html:has(dialog.lightbox[open]) {
   overflow: hidden;
   scrollbar-gutter: stable;
 }
-.diagram-error {
-  margin: -0.5em 0 1.5em;
-  font-size: 0.85em;
-  color: color-mix(in oklab, var(--color-fg) 60%, var(--color-bg));
-}
-
-/* Task lists keep the list's own padding so plain items, nested lists and checked items share one
-   gutter; the checkbox is pulled into the marker's place. Drawn by hand because Chrome's disabled
-   checkbox is pale grey and a done item barely reads as done. */
-.prose li.task-item { list-style: none; }
-.prose li.task-item input[type=checkbox] {
-  appearance: none;
-  box-sizing: border-box;
-  width: 1em;
-  height: 1em;
-  margin: 0 0.5em 0 -1.5em;
-  border: 1.5px solid var(--ui-muted);
-  border-radius: 0.2em;
-  vertical-align: -0.12em;
-  cursor: default;
-}
-.prose li.task-item input[type=checkbox]:checked {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-/* A mask, not a background image, so the tick takes the page color in every preset. */
-.prose li.task-item input[type=checkbox]:checked::before {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--color-bg);
-  mask: center / 80% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
-}
-
-/* highlight.js tokens, no theme file: hues rotate off the code accent in oklch so a
-   block reads as syntax rather than one tint. Chroma is floored, or a grey accent
-   would collapse every token back to the text color. */
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--code-accent); }
-.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-selector-attr {
-  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 145));
-}
-.hljs-number, .hljs-literal, .hljs-regexp, .hljs-deletion, .hljs-selector-pseudo {
-  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h - 75));
-}
-.hljs-title, .hljs-section, .hljs-name, .hljs-class, .hljs-function {
-  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 65));
-  font-weight: 600;
-}
-.hljs-variable, .hljs-template-variable, .hljs-property, .hljs-params { color: var(--code-fg); }
-.hljs-comment, .hljs-quote, .hljs-meta { color: color-mix(in oklab, var(--code-fg) 55%, var(--code-bg)); font-style: italic; }
-.hljs-deletion { text-decoration: line-through; }
-
 /* Settings sheet */
 
 .sheet {
