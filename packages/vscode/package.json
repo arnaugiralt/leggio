@@ -29,6 +29,15 @@
   "activationEvents": [
     "onLanguage:markdown"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode the Google Fonts address setting is ignored.",
+      "restrictedConfigurations": [
+        "leggio.fontUrl"
+      ]
+    }
+  },
   "contributes": {
     "markdown.markdownItPlugins": true,
     "markdown.previewStyles": [

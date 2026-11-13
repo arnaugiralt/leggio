@@ -40,6 +40,7 @@ jobs:
       # Actions are pinned to commits: this job can publish to both registries.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false # dlx code in this job must not find the token in .git/config
           fetch-depth: 0 # all history and tags: the master check needs them
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -48,13 +49,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The tag reaches the script only as $GITHUB_REF_NAME, never pasted into it, so its characters can't run.
-      # Both tools read their token from the environment (VSCE_PAT, OVSX_PAT), so it never appears in a command line.
-      - name: Publish to the Marketplace and Open VSX
+      - name: Check the tag, build and package
+        id: package
         shell: bash
-        # Only this step sees the tokens: install and build run without them.
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           tag=$GITHUB_REF_NAME
           [[ $tag =~ ^vscode-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$tag is not a VS Code release tag (vscode-vX.Y.Z)"; exit 1; }
@@ -65,10 +62,21 @@ jobs:
           pnpm --filter leggio build
           vsix="$RUNNER_TEMP/leggio-$version.vsix"
           (cd packages/vscode && pnpm dlx @vscode/vsce@4.1.0 package --no-dependencies --out "$vsix")
-          # --skip-duplicate makes a re-run after a partial publish pass: whichever registry already has this
-          # version is skipped, and the other one still gets it.
-          (cd packages/vscode && pnpm dlx @vscode/vsce@4.1.0 publish --no-dependencies --skip-duplicate --packagePath "$vsix")
-          pnpm dlx ovsx@1.3.0 publish "$vsix" --skip-duplicate
+          echo "vsix=$vsix" >> "$GITHUB_OUTPUT"
+      # Each token is in the environment only for the step whose tool needs it: pnpm dlx fetches vsce and ovsx with
+      # dependencies the lockfile doesn't cover. Both tools read the token from the environment, never a flag.
+      # --skip-duplicate lets a re-run after a partial publish pass: a registry that has this version is skipped.
+      - name: Publish to the Marketplace
+        working-directory: packages/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSIX: ${{ steps.package.outputs.vsix }}
+        run: pnpm dlx @vscode/vsce@4.1.0 publish --no-dependencies --skip-duplicate --packagePath "$VSIX"
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VSIX: ${{ steps.package.outputs.vsix }}
+        run: pnpm dlx ovsx@1.3.0 publish "$VSIX" --skip-duplicate
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: vsix
