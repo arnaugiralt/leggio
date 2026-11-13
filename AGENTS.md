@@ -43,14 +43,18 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, where each one comes from (its row's muted line), and the scroll position each document was left at. Pure, so it runs under node. |
 | `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
 | `src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, accepts only https addresses, and caps how much of a stream is read. Pure, so it runs under node. |
-| `src/render.js` | One markdown-it instance, the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, table wrappers, footnotes, hidden front matter, and the HTML allowlist (see below). **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
-| `src/settings.js` | `DEFAULTS`, load and save to localStorage, CSS variables on `<html>`, the theme presets, font roles, the diagram theme, light or dark from the background, saved themes, and the checks for an imported settings file. |
+| `packages/core/src/render.js` | The renderer, as a markdown-it plugin (`leggio`) plus `render`. One markdown-it instance, the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, task lists, table wrappers, footnotes, hidden front matter, and the HTML allowlist (see below). The image rules are the options `localImages` and `webImages`, which a render can override through its env. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
+| `packages/core/src/look.js` | The look: `LOOK` and its defaults, the theme presets, font roles, the diagram theme, light or dark from the background, `lookVars`, `lookCss` (for a host with no DOM), `applyLook` and `applyFontUrl`. |
+| `packages/core/src/links.js` | `isLocal` and `isRelative`: which links are followable from the reader. |
+| `packages/core/prose.css` | The reading styles under `.leggio` and `.prose`. Its header comment holds the size-container contract. |
+| `packages/core/index.js`, `index.d.ts`, `README.md` | The public surface of `@leggio/core`. The types are written by hand, so change `index.d.ts` when `index.js` exports change. |
+| `src/settings.js` | `DEFAULTS`, load and save to localStorage, and the checks for an imported settings file. The look itself (presets, font roles, light or dark, saved-theme completion) comes from `@leggio/core`; this file re-exports it for the app. |
 | `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
 | `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
 | `src/Sidebar.jsx` | Pins, Recent, the folder tree and search in the folder, with the tree keyboard pattern they share. |
 | `src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link) and its address field; the keyboard shortcuts list. |
 | `src/Outline.jsx`, `Settings.jsx`, `icons.jsx` | Heading list with the active section; the settings form with saved themes and export and import; inline SVG icons (Lucide paths). |
-| `src/styles.css` | All styles. |
+| `src/styles.css` | The app's styles. It imports `@leggio/core/prose.css` first, which holds the reading styles. |
 | `manifest.json`, `sw.js`, `_headers` | The installable app shell, the service worker, and the Cloudflare headers with the content security policy. |
 | `build.mjs` | The dev server, and the production build into `site/`. |
 
@@ -79,10 +83,10 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - Palette variables are `--color-bg`, `--color-fg`, `--color-accent` and `--color-code-bg`.
 - Interface tokens are `--ui-*`, derived from the palette with `color-mix`.
 - Never define root variables named `--bg`, `--fg`, `--line`, `--accent`, `--muted`, `--surface` or `--border`. beautiful-mermaid reads those names inside its SVG, and a root variable with the same name breaks every diagram color.
-- Diagrams read `--diagram-*`, which `settings.js` sets.
+- Diagrams read `--diagram-*`, which `lookVars` in `packages/core/src/look.js` sets.
 - `.main` is a CSS size container, so its children can size themselves from its width. Width caps inside it use `cqw` (1% of that container's width), so they respect the open panels.
-- A theme is the `LOOK` keys in `settings.js`: colors, the diagram theme, fonts, weight, line height, code size and the two widths. Settings shows exactly these under "Customize theme", and "Save this look" saves exactly these. Text size, the voice and its speed are personal and stay out. A saved or imported theme that lacks a key takes the reader's value for it once, when it is loaded or imported; a theme with no color is dropped. A key left open would match every look.
-- While the look is Default, it follows the system light or dark setting (`followSystem` and `effective` in `settings.js`). Saved settings keep the light values, and the dark palette is applied on top.
+- A theme is the `LOOK` keys in `packages/core/src/look.js`: colors, the diagram theme, fonts, weight, line height, code size and the two widths. Settings shows exactly these under "Customize theme", and "Save this look" saves exactly these. Text size, the voice and its speed are personal and stay out. A saved or imported theme that lacks a key takes the reader's value for it once, when it is loaded or imported; a theme with no color is dropped. A key left open would match every look.
+- While the look is Default, it follows the system light or dark setting (`followSystem` in `settings.js` and `effective` in `packages/core/src/look.js`). Saved settings keep the light values, and the dark palette is applied on top.
 
 ### Layout
 
@@ -109,7 +113,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 
 ### HTML in documents
 
-- markdown-it runs with `html: true` only so HTML reaches the allowlist in `render.js`, which rebuilds each allowed tag from its name and listed attributes and turns everything else back into text. Never let HTML through as written.
+- markdown-it runs with `html: true` only so HTML reaches the allowlist in `packages/core/src/render.js`, which rebuilds each allowed tag from its name and listed attributes and turns everything else back into text. Never let HTML through as written.
 - `href` and `src` go through markdown-it's `validateLink`. An HTML `<img>` follows the markdown image rule: local, or any non-data one in a shared or web document, becomes `data-src`.
 - Add a tag only if it can carry no script and no address beyond `href` and `src`, and add an attack case to `render.test.js`.
 - Allowed tags are balanced: a paragraph or HTML block closes the inline tags it opened, block tags (`details`, `table`, …) are closed at the end of the document, and a stray closing tag is dropped. Keep the tag pattern from crossing `<`: it backtracked quadratically once.
@@ -129,6 +133,13 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - A web document's relative links resolve against its address: markdown opens as another web document, anything else in a new tab. Its images from the same host load at once; images from other hosts wait, as in a shared document.
 - Only `https:` addresses open. `connect-src` in `_headers` allows `https:` for that fetch.
 - A shared document comes from someone else. Its web images render as `data-src` (`render(text, { share: true })`) and load only when the reader asks, because loading them tells the image host who opened the document.
+
+### The `@leggio/core` package
+
+- `packages/core` is published to npm as `@leggio/core`, and the app uses it as a workspace package. The hard limits, the HTML allowlist rules, the `--bg` and `--fg` variable rule and the privacy rules apply to the package as they do to the app: it fetches nothing itself, and `applyFontUrl` is its only helper that adds a network request.
+- The package is published by hand from `packages/core`, never by a `v*` tag. That tag releases the site.
+- Its dependencies are pinned in `packages/core/package.json`. A new one needs the maintainer's approval, like any other.
+- Keep `index.d.ts` in step with `index.js`. Nothing checks it, and `pnpm test` doesn't.
 
 ### Build and deploy
 
