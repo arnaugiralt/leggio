@@ -4,7 +4,8 @@ import { Outline } from './Outline.jsx'
 import { Settings } from './Settings.jsx'
 import { Sidebar, findIn } from './Sidebar.jsx'
 import { Speech } from './Speech.jsx'
-import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, completeTheme, applyToRoot, applyFontUrl, effective, isDefaultLook } from './settings.js'
+import { DEFAULTS, LOOK, load, save, loadThemes, saveThemes, completeTheme, applyFontUrl, effective, isDefaultLook } from './settings.js'
+import { applyLook } from '@leggio/core'
 import * as fs from './fs.js'
 import * as share from './share.js'
 import { useLibrary, FOLDER_NOTICE } from './useLibrary.js'
@@ -136,7 +137,7 @@ export function App() {
   // Saved settings keep Default's light palette; the dark one is applied on top while followSystem holds.
   const lookShown = effective(settings, dark)
   useEffect(() => {
-    applyToRoot(lookShown)
+    applyLook(lookShown)
     applyFontUrl(settings.fontUrl)
   }, [settings, dark])
   useEffect(() => save(settings), [settings])

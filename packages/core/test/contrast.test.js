@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PRESETS, DARK } from '../src/settings.js'
+import { PRESETS, DARK } from '../src/look.js'
 
 // Every preset must keep its text readable: body, links, interface text and the faintest label at 4.5:1 or
 // more. The interface colors are mixes of fg into bg in oklab (the --ui-* tokens in styles.css), so this mixes
