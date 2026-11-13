@@ -14,7 +14,7 @@ try {
   run('pnpm', ['pack', '--pack-destination', packDir], join(root, 'packages/core'))
   const tarball = join(packDir, readdirSync(packDir).find(f => f.endsWith('.tgz')))
   writeFileSync(join(appDir, 'package.json'), '{"name":"pack-check","private":true,"type":"module"}')
-  run('npm', ['install', tarball, '--ignore-scripts', '--no-audit', '--no-fund'], appDir)
+  run('pnpm', ['add', tarball, '--ignore-scripts'], appDir)
   writeFileSync(join(appDir, 'check.mjs'), `
     import assert from 'node:assert/strict'
     import { existsSync } from 'node:fs'

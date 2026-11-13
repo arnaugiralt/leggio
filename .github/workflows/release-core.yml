@@ -53,18 +53,18 @@ jobs:
           git merge-base --is-ancestor "$sha" origin/master || { echo "::error::$tag is not on master"; exit 1; }
           version=$(node -p "require('./packages/core/package.json').version")
           [ "core-v$version" = "$tag" ] || { echo "::error::$tag does not match version $version in packages/core/package.json"; exit 1; }
-          # A re-run after a publish that worked must not fail on npm's "already published" error. npm view
+          # A re-run after a publish that worked must not fail on npm's "already published" error. pnpm view
           # exits non-zero for a missing version, but for other failures too (network, registry down), so a
           # failure here counts as "not published" and the publish below reports the real error.
-          if npm view "@leggio/core@$version" version >/dev/null 2>&1; then
+          if pnpm view "@leggio/core@$version" version >/dev/null 2>&1; then
             echo "::notice::@leggio/core@$version is already on npm, skipping the publish"
             exit 0
           fi
-          # Trusted publishing needs npm 11.5.1 or later, and node 24 ships an older one. Pinned: this job can publish.
-          npm install -g npm@11.21.1
           cd packages/core
           tarball=$(pnpm pack --pack-destination "$RUNNER_TEMP" | tail -n 1)
-          npm publish "$tarball" --access public --provenance
+          # The repo's pnpm 10 has no trusted publishing (OIDC); pnpm 11 does, and adds provenance on its own.
+          # Pinned: this job can publish.
+          pnpm dlx pnpm@11.28.9 publish "$tarball" --access public --no-git-checks
   github-release:
     needs: publish
     runs-on: ubuntu-latest
