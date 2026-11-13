@@ -9,7 +9,7 @@ import { X } from './icons.jsx'
 // onWebImages reports how many wait and from which hosts.
 export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRelative, shared = false, base = null, imagesOn = false, onWebImages }) {
   const foreign = shared || !!base
-  const html = useMemo(() => render(text, { share: foreign }), [text, foreign])
+  const html = useMemo(() => render(text, { webImages: foreign ? 'defer' : 'load' }), [text, foreign])
   const urls = useRef([])
   const [zoomed, setZoomed] = useState(null)
 

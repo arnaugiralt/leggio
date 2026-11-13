@@ -41,17 +41,6 @@ function diagram(code) {
     .replace(MONO_FONT_RULE, '.mono { font-family: ui-monospace, monospace; }')
 }
 
-// html: true only so HTML reaches the allowlist below, which rebuilds the few tags it allows and turns every
-// other tag back into text. Nothing a document says in HTML is put on the page as it was written.
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  highlight(code, lang) {
-    if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value
-    return ''
-  },
-})
-
 // Mermaid types beautiful-mermaid has no renderer for; anything else that throws is a syntax problem.
 const UNSUPPORTED = new Map([
   ['gantt', 'Gantt charts'], ['pie', 'Pie charts'], ['mindmap', 'Mind maps'], ['gitGraph', 'Git graphs'],
@@ -62,92 +51,10 @@ const UNSUPPORTED = new Map([
   ...['C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment'].map(t => [t, 'C4 diagrams']),
 ])
 
-const defaultFence = md.renderer.rules.fence
-
-md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-  const token = tokens[idx]
-  if (token.info.trim() !== 'mermaid') return defaultFence(tokens, idx, options, env, self)
-  try {
-    const svg = diagram(token.content)
-    // A style such as fill:url(https://…) would be fetched as soon as the SVG is on the page. In a shared
-    // document that request tells the host who opened it, so only same-document references (#id) stay.
-    return `<figure class="diagram">${env?.share ? svg.replace(/url\((?!\s*['"]?#)[^)]*\)/gi, 'none') : svg}</figure>\n`
-  } catch (err) {
-    const code = md.utils.escapeHtml(token.content)
-    const type = token.content.trim().split(/\s+/)[0]
-    const note = UNSUPPORTED.has(type)
-      ? `${UNSUPPORTED.get(type)} can't be drawn yet. The source is shown above.`
-      : "This diagram couldn't be drawn. Check its syntax."
-    // The parser message stays reachable as a tooltip; it is too technical to show as text.
-    const title = UNSUPPORTED.has(type) ? '' : ` title="${md.utils.escapeHtml(err.message)}"`
-    return `<pre><code class="language-mermaid">${code}</code></pre>\n<p class="diagram-error"${title}>${note}</p>\n`
-  }
-}
-
-// Heading ids for the outline rail. Duplicate slugs get a numeric suffix.
-md.core.ruler.push('heading_ids', state => {
-  const seen = new Map()
-  for (let i = 0; i < state.tokens.length; i++) {
-    const token = state.tokens[i]
-    if (token.type !== 'heading_open') continue
-    const text = state.tokens[i + 1].children
-      .filter(t => t.type === 'text' || t.type === 'code_inline')
-      .map(t => t.content)
-      .join('')
-    let slug = text.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'section'
-    const count = seen.get(slug) ?? 0
-    seen.set(slug, count + 1)
-    if (count) slug = `${slug}-${count}`
-    token.attrSet('id', slug)
-  }
-})
-
-// GFM task lists. Only a marker at the very start of an item's first paragraph counts.
-// html is off, so the checkbox is an html_inline token we build ourselves (rendered verbatim).
-md.core.ruler.push('task_lists', state => {
-  const tokens = state.tokens
-  for (let i = 2; i < tokens.length; i++) {
-    const inline = tokens[i]
-    if (inline.type !== 'inline' || tokens[i - 1].type !== 'paragraph_open' || tokens[i - 2].type !== 'list_item_open') continue
-    const first = inline.children[0]
-    const m = first?.type === 'text' && /^\[([ xX])\] /.exec(first.content)
-    if (!m) continue
-    const li = tokens[i - 2]
-    li.attrJoin('class', 'task-item')
-    for (let j = i - 3; j >= 0; j--) {
-      if (tokens[j].level === li.level - 1 && /^(bullet|ordered)_list_open$/.test(tokens[j].type)) {
-        tokens[j].attrJoin('class', 'task-list')
-        break
-      }
-    }
-    first.content = first.content.slice(m[0].length)
-    const box = new state.Token('html_inline', '', 0)
-    box.content = `<input type="checkbox" disabled${m[1] === ' ' ? '' : ' checked'}>`
-    box.meta = { ours: true } // built here, not written by the document: the HTML allowlist leaves it
-    inline.children.unshift(box)
-  }
-})
-
-// A local image must never reach the network: served from a host, its file name would be sent to that
-// host, and it cannot exist there anyway. Viewer resolves data-src from the open folder. In a shared
-// document a web image waits too: loading it would tell its host who opened the document, and when.
-md.core.ruler.push('local_images', state => {
-  for (const block of state.tokens) {
-    for (const t of block.children ?? []) {
-      if (t.type !== 'image') continue
-      const src = t.attrGet('src')
-      if (!isLocal(src) && !(state.env.share && !src.startsWith('data:'))) continue
-      t.attrs = t.attrs.filter(a => a[0] !== 'src')
-      t.attrSet('data-src', src)
-    }
-  }
-})
-
 // Most READMEs open with HTML (a centered logo, badges in links, a <details>). These tags are rebuilt from their
 // name and the attributes listed for them; any other tag, and any other attribute, is dropped or shown as text.
 // Links and image sources go through markdown-it's own link check (no javascript:, vbscript:, file:, or data:
-// except images), and images follow the same rule as markdown images: local or, in a shared document, every
-// non-data one, as data-src.
+// except images), and images follow the same rule as markdown images: a held image (see `holds`) becomes data-src.
 const ALLOWED = {
   img: ['src', 'alt', 'title', 'width', 'height'],
   a: ['href', 'title'],
@@ -182,111 +89,10 @@ const BLOCK = new Set(['p', 'div', 'details', 'summary', 'table', 'thead', 'tbod
 const TAG = /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^<>"']|"[^<"]*"|'[^<']*')*)>/g
 const ATTR = /([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
 
-function attrValue(tag, name, raw, share) {
-  const value = md.utils.unescapeAll(raw ?? '').trim()
-  if (name === 'width' || name === 'height') return /^\d{1,4}%?$/.test(value) ? ['', value] : null
-  if (name === 'colspan' || name === 'rowspan') return /^\d{1,3}$/.test(value) ? ['', value] : null
-  if (name === 'align') return /^(left|center|right)$/i.test(value) ? ['', value.toLowerCase()] : null
-  if (name === 'open') return ['', null]
-  if (name === 'href' || name === 'src') {
-    const url = md.normalizeLink(value)
-    if (!md.validateLink(url)) return null
-    // A held image keeps the address as written: Viewer resolves it against the folder or the document's address.
-    if (name === 'src' && (isLocal(value) || (share && !/^data:/i.test(value)))) return ['data-', value]
-    return ['', url]
-  }
-  return ['', value]
-}
-
-function openTag(tag, attrs, share) {
-  let out = `<${tag}`
-  for (const [, key, a, b, c] of attrs.matchAll(ATTR)) {
-    const attr = key.toLowerCase()
-    const raw = a ?? b ?? c ?? null
-    if (!ALLOWED[tag].includes(attr) || (raw === null && attr !== 'open')) continue
-    const kept = attrValue(tag, attr, raw, share)
-    if (!kept) continue
-    const [prefix, value] = kept
-    out += value === null ? ` ${attr}` : ` ${prefix}${attr}="${md.utils.escapeHtml(value)}"`
-  }
-  return `${out}>`
-}
-
 const closing = stack => stack.splice(0).reverse().map(t => `</${t}>`).join('')
 // No document nests a hundred tags deep; past that a tag shows as text. Without a limit, every closing tag searched
 // an ever longer stack, and a 2 KB share link froze the tab again.
 const MAX_DEPTH = 100
-
-// Rebuilds allowed tags and escapes everything else. open.inline and open.block are the tags still open: a
-// closing tag only closes one of these (anything left open inside it is closed first), and a stray one is dropped.
-function allowHtml(html, share, open) {
-  let out = ''
-  let last = 0
-  let kept = 0
-  for (const m of html.matchAll(TAG)) {
-    out += md.utils.escapeHtml(html.slice(last, m.index))
-    last = m.index + m[0].length
-    if (m[0].startsWith('<!--')) continue // a comment is the author's note to themselves
-    const tag = m[2].toLowerCase()
-    if (!Object.hasOwn(ALLOWED, tag)) {
-      out += md.utils.escapeHtml(m[0])
-      continue
-    }
-    kept++
-    if (VOID.has(tag)) {
-      if (m[1] !== '/') out += openTag(tag, m[3], share)
-      continue
-    }
-    const stack = BLOCK.has(tag) ? open.block : open.inline
-    if (m[1] !== '/') {
-      if (stack.length >= MAX_DEPTH) {
-        out += md.utils.escapeHtml(m[0])
-        continue
-      }
-      // An inline tag left open around a block one (an <a> around a <table>) is reopened by the browser after the
-      // block and runs on into the next paragraph; close it here instead.
-      if (stack === open.block) out += closing(open.inline)
-      out += openTag(tag, m[3], share)
-      stack.push(tag)
-    } else if (stack.includes(tag)) {
-      if (stack === open.block) out += closing(open.inline)
-      const at = stack.lastIndexOf(tag)
-      out += closing(stack.splice(at))
-    }
-  }
-  return { html: out + md.utils.escapeHtml(html.slice(last)), kept }
-}
-
-md.core.ruler.push('html_allowlist', state => {
-  const open = { block: [], inline: [] }
-  for (const token of state.tokens) {
-    if (token.type === 'html_block' && !token.meta?.ours) {
-      const { html, kept } = allowHtml(token.content, state.env.share, open)
-      // Nothing in it was allowed: it was never really HTML to us, so it reads as a paragraph, markdown and all.
-      // A block of comments only (a README's "<!-- badges -->") is nothing at all. The fallback shares this
-      // document's env, so footnote citations in it still find their notes.
-      const text = token.content.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim()
-      token.content = kept ? html + closing(open.inline) : text ? `<p>${md.renderInline(text, state.env)}</p>\n` : ''
-    }
-    const children = token.children ?? []
-    for (const child of children) {
-      if (child.type === 'html_inline' && !child.meta?.ours) child.content = allowHtml(child.content, state.env.share, open).html
-    }
-    // A paragraph closes what it opened, so one unclosed <a> can't turn the rest of the page into a link.
-    if (open.inline.length && token.type === 'inline') {
-      const close = new state.Token('html_inline', '', 0)
-      close.content = closing(open.inline)
-      close.meta = { ours: true }
-      children.push(close)
-    }
-  }
-  if (open.block.length && !state.inlineMode) {
-    const close = new state.Token('html_block', '', 0)
-    close.content = `${closing(open.block)}\n`
-    close.meta = { ours: true }
-    state.tokens.push(close)
-  }
-})
 
 // Footnotes: [^label] in the text, "[^label]: note" on a line of its own (lazy continuation lines join it).
 // Notes are numbered in the order they are first cited and listed at the end, each with a way back; a citation
@@ -296,69 +102,277 @@ const NOTE_DEF = /^\[\^([^\]\s]{1,100})\]:[ \t]?(.*)$/
 // A line that starts another block ends a note, as it ends a paragraph.
 const BLOCK_START = /^(?:#{1,6}(?:\s|$)|```|~~~|>|[-*+][ \t]|\d{1,9}[.)][ \t]|(?:[-*_][ \t]*){3,}$)/
 
-md.block.ruler.before(
-  'reference',
-  'footnote_def',
-  (state, startLine, endLine, silent) => {
-    if (state.sCount[startLine] - state.blkIndent >= 4) return false // indented: a code block
-    const line = n => state.src.slice(state.bMarks[n] + state.tShift[n], state.eMarks[n])
-    const m = NOTE_DEF.exec(line(startLine))
-    if (!m) return false
-    if (silent) return true
-    let text = m[2]
-    let next = startLine + 1
-    while (next < endLine && !state.isEmpty(next) && !NOTE_DEF.test(line(next)) && !BLOCK_START.test(line(next))) text += `\n${line(next++)}`
-    const notes = (state.env.notes ??= { text: {}, order: [], cited: {} })
-    notes.text[m[1]] ??= text
-    state.line = next
-    return true
-  },
-  { alt: ['paragraph', 'reference'] },
-)
+// A markdown-it plugin. Options: headingIds, taskLists, footnotes, diagrams (all on by default), and the image
+// rules localImages ('defer' | 'keep') and webImages ('load' | 'defer'). A render can override the image rules
+// through its env: md.render(text, { localImages, webImages }).
+export function leggio(md, options = {}) {
+  const { headingIds = true, taskLists = true, footnotes = true, diagrams = true } = options
+  const image = (env, name, fallback) => env?.[name] ?? options[name] ?? fallback
 
-md.inline.ruler.after('image', 'footnote_ref', (state, silent) => {
-  const src = state.src
-  if (src.charCodeAt(state.pos) !== 0x5b /* [ */ || src.charCodeAt(state.pos + 1) !== 0x5e /* ^ */) return false
-  const end = src.slice(state.pos + 2, Math.min(state.posMax, state.pos + 103)).indexOf(']') + state.pos + 2
-  const label = end > state.pos + 2 && src.slice(state.pos + 2, end)
-  const notes = state.env.notes
-  if (!label || /\s/.test(label) || notes?.text[label] === undefined) return false
-  if (!silent) {
-    if (!notes.order.includes(label)) notes.order.push(label)
-    notes.cited[label] = (notes.cited[label] ?? 0) + 1
-    const token = state.push('footnote_ref', '', 0)
-    token.meta = { label, n: notes.order.indexOf(label) + 1, nth: notes.cited[label] }
+  // A local image must never reach the network: served from a host, its file name would be sent to that
+  // host, and it cannot exist there anyway. Viewer resolves data-src from the open folder. With webImages
+  // 'defer' (a shared document) a web image waits too: loading it would tell its host who opened the document,
+  // and when.
+  const holds = (env, src) => isLocal(src)
+    ? image(env, 'localImages', 'defer') === 'defer'
+    : image(env, 'webImages', 'load') === 'defer' && !/^data:/i.test(src)
+
+  // html: true only so HTML reaches the allowlist below, which rebuilds the few tags it allows and turns every
+  // other tag back into text. Nothing a document says in HTML is put on the page as it was written.
+  md.options.html = true
+  md.options.highlight = (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value
+    return ''
   }
-  state.pos = end + 1
-  return true
-})
 
-// Ids by number, with an underscore: heading ids are letters, digits and hyphens, so they can never meet.
-md.renderer.rules.footnote_ref = (tokens, idx) => {
-  const { n, nth } = tokens[idx].meta
-  return `<sup class="footnote-ref"><a href="#fn_${n}" id="fnref_${n}${nth > 1 ? `_${nth}` : ''}">${n}</a></sup>`
-}
+  if (diagrams) {
+    const defaultFence = md.renderer.rules.fence
 
-md.core.ruler.push('footnote_tail', state => {
-  const notes = state.env.notes
-  if (state.inlineMode || !notes?.order.length) return
-  const token = new state.Token('footnote_block', '', 0)
-  token.meta = notes
-  state.tokens.push(token)
-})
+    md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
+      const token = tokens[idx]
+      if (token.info.trim() !== 'mermaid') return defaultFence(tokens, idx, opts, env, self)
+      try {
+        const svg = diagram(token.content)
+        // A style such as fill:url(https://…) would be fetched as soon as the SVG is on the page. In a shared
+        // document that request tells the host who opened it, so only same-document references (#id) stay.
+        const held = image(env, 'webImages', 'load') === 'defer'
+        return `<figure class="diagram">${held ? svg.replace(/url\((?!\s*['"]?#)[^)]*\)/gi, 'none') : svg}</figure>\n`
+      } catch (err) {
+        const code = md.utils.escapeHtml(token.content)
+        const type = token.content.trim().split(/\s+/)[0]
+        const note = UNSUPPORTED.has(type)
+          ? `${UNSUPPORTED.get(type)} can't be drawn yet. The source is shown above.`
+          : "This diagram couldn't be drawn. Check its syntax."
+        // The parser message stays reachable as a tooltip; it is too technical to show as text.
+        const title = UNSUPPORTED.has(type) ? '' : ` title="${md.utils.escapeHtml(err.message)}"`
+        return `<pre><code class="language-mermaid">${code}</code></pre>\n<p class="diagram-error"${title}>${note}</p>\n`
+      }
+    }
+  }
 
-md.renderer.rules.footnote_block = (tokens, idx, options, env) => {
-  const notes = tokens[idx].meta
-  const items = notes.order.map((label, i) => {
-    const text = md.renderInline(notes.text[label], { share: env.share })
-    return `<li id="fn_${i + 1}" tabindex="-1">${text} <a href="#fnref_${i + 1}" class="footnote-back" aria-label="Back to the text">↩</a></li>`
+  // Heading ids for the outline rail. Duplicate slugs get a numeric suffix.
+  if (headingIds) md.core.ruler.push('heading_ids', state => {
+    const seen = new Map()
+    for (let i = 0; i < state.tokens.length; i++) {
+      const token = state.tokens[i]
+      if (token.type !== 'heading_open') continue
+      const text = state.tokens[i + 1].children
+        .filter(t => t.type === 'text' || t.type === 'code_inline')
+        .map(t => t.content)
+        .join('')
+      let slug = text.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'section'
+      const count = seen.get(slug) ?? 0
+      seen.set(slug, count + 1)
+      if (count) slug = `${slug}-${count}`
+      token.attrSet('id', slug)
+    }
   })
-  return `<section class="footnotes" aria-label="Notes">\n<ol>\n${items.join('\n')}\n</ol>\n</section>\n`
-}
 
-// Tables get a wrapper so they can be wider than the text column and scroll when wider than the window.
-md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
-md.renderer.rules.table_close = () => '</table>\n</div>\n'
+  // GFM task lists. Only a marker at the very start of an item's first paragraph counts.
+  // The checkbox is an html_inline token we build ourselves (rendered verbatim).
+  if (taskLists) md.core.ruler.push('task_lists', state => {
+    const tokens = state.tokens
+    for (let i = 2; i < tokens.length; i++) {
+      const inline = tokens[i]
+      if (inline.type !== 'inline' || tokens[i - 1].type !== 'paragraph_open' || tokens[i - 2].type !== 'list_item_open') continue
+      const first = inline.children[0]
+      const m = first?.type === 'text' && /^\[([ xX])\] /.exec(first.content)
+      if (!m) continue
+      const li = tokens[i - 2]
+      li.attrJoin('class', 'task-item')
+      for (let j = i - 3; j >= 0; j--) {
+        if (tokens[j].level === li.level - 1 && /^(bullet|ordered)_list_open$/.test(tokens[j].type)) {
+          tokens[j].attrJoin('class', 'task-list')
+          break
+        }
+      }
+      first.content = first.content.slice(m[0].length)
+      const box = new state.Token('html_inline', '', 0)
+      box.content = `<input type="checkbox" disabled${m[1] === ' ' ? '' : ' checked'}>`
+      box.meta = { ours: true } // built here, not written by the document: the HTML allowlist leaves it
+      inline.children.unshift(box)
+    }
+  })
+
+  md.core.ruler.push('local_images', state => {
+    for (const block of state.tokens) {
+      for (const t of block.children ?? []) {
+        if (t.type !== 'image') continue
+        const src = t.attrGet('src')
+        if (!holds(state.env, src)) continue
+        t.attrs = t.attrs.filter(a => a[0] !== 'src')
+        t.attrSet('data-src', src)
+      }
+    }
+  })
+
+  function attrValue(name, raw, env) {
+    const value = md.utils.unescapeAll(raw ?? '').trim()
+    if (name === 'width' || name === 'height') return /^\d{1,4}%?$/.test(value) ? ['', value] : null
+    if (name === 'colspan' || name === 'rowspan') return /^\d{1,3}$/.test(value) ? ['', value] : null
+    if (name === 'align') return /^(left|center|right)$/i.test(value) ? ['', value.toLowerCase()] : null
+    if (name === 'open') return ['', null]
+    if (name === 'href' || name === 'src') {
+      const url = md.normalizeLink(value)
+      if (!md.validateLink(url)) return null
+      // A held image keeps the address as written: Viewer resolves it against the folder or the document's address.
+      if (name === 'src' && holds(env, value)) return ['data-', value]
+      return ['', url]
+    }
+    return ['', value]
+  }
+
+  function openTag(tag, attrs, env) {
+    let out = `<${tag}`
+    for (const [, key, a, b, c] of attrs.matchAll(ATTR)) {
+      const attr = key.toLowerCase()
+      const raw = a ?? b ?? c ?? null
+      if (!ALLOWED[tag].includes(attr) || (raw === null && attr !== 'open')) continue
+      const kept = attrValue(attr, raw, env)
+      if (!kept) continue
+      const [prefix, value] = kept
+      out += value === null ? ` ${attr}` : ` ${prefix}${attr}="${md.utils.escapeHtml(value)}"`
+    }
+    return `${out}>`
+  }
+
+  // Rebuilds allowed tags and escapes everything else. open.inline and open.block are the tags still open: a
+  // closing tag only closes one of these (anything left open inside it is closed first), and a stray one is dropped.
+  function allowHtml(html, env, open) {
+    let out = ''
+    let last = 0
+    let kept = 0
+    for (const m of html.matchAll(TAG)) {
+      out += md.utils.escapeHtml(html.slice(last, m.index))
+      last = m.index + m[0].length
+      if (m[0].startsWith('<!--')) continue // a comment is the author's note to themselves
+      const tag = m[2].toLowerCase()
+      if (!Object.hasOwn(ALLOWED, tag)) {
+        out += md.utils.escapeHtml(m[0])
+        continue
+      }
+      kept++
+      if (VOID.has(tag)) {
+        if (m[1] !== '/') out += openTag(tag, m[3], env)
+        continue
+      }
+      const stack = BLOCK.has(tag) ? open.block : open.inline
+      if (m[1] !== '/') {
+        if (stack.length >= MAX_DEPTH) {
+          out += md.utils.escapeHtml(m[0])
+          continue
+        }
+        // An inline tag left open around a block one (an <a> around a <table>) is reopened by the browser after the
+        // block and runs on into the next paragraph; close it here instead.
+        if (stack === open.block) out += closing(open.inline)
+        out += openTag(tag, m[3], env)
+        stack.push(tag)
+      } else if (stack.includes(tag)) {
+        if (stack === open.block) out += closing(open.inline)
+        const at = stack.lastIndexOf(tag)
+        out += closing(stack.splice(at))
+      }
+    }
+    return { html: out + md.utils.escapeHtml(html.slice(last)), kept }
+  }
+
+  md.core.ruler.push('html_allowlist', state => {
+    const open = { block: [], inline: [] }
+    for (const token of state.tokens) {
+      if (token.type === 'html_block' && !token.meta?.ours) {
+        const { html, kept } = allowHtml(token.content, state.env, open)
+        // Nothing in it was allowed: it was never really HTML to us, so it reads as a paragraph, markdown and all.
+        // A block of comments only (a README's "<!-- badges -->") is nothing at all. The fallback shares this
+        // document's env, so footnote citations in it still find their notes.
+        const text = token.content.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim()
+        token.content = kept ? html + closing(open.inline) : text ? `<p>${md.renderInline(text, state.env)}</p>\n` : ''
+      }
+      const children = token.children ?? []
+      for (const child of children) {
+        if (child.type === 'html_inline' && !child.meta?.ours) child.content = allowHtml(child.content, state.env, open).html
+      }
+      // A paragraph closes what it opened, so one unclosed <a> can't turn the rest of the page into a link.
+      if (open.inline.length && token.type === 'inline') {
+        const close = new state.Token('html_inline', '', 0)
+        close.content = closing(open.inline)
+        close.meta = { ours: true }
+        children.push(close)
+      }
+    }
+    if (open.block.length && !state.inlineMode) {
+      const close = new state.Token('html_block', '', 0)
+      close.content = `${closing(open.block)}\n`
+      close.meta = { ours: true }
+      state.tokens.push(close)
+    }
+  })
+
+  if (footnotes) {
+    md.block.ruler.before(
+      'reference',
+      'footnote_def',
+      (state, startLine, endLine, silent) => {
+        if (state.sCount[startLine] - state.blkIndent >= 4) return false // indented: a code block
+        const line = n => state.src.slice(state.bMarks[n] + state.tShift[n], state.eMarks[n])
+        const m = NOTE_DEF.exec(line(startLine))
+        if (!m) return false
+        if (silent) return true
+        let text = m[2]
+        let next = startLine + 1
+        while (next < endLine && !state.isEmpty(next) && !NOTE_DEF.test(line(next)) && !BLOCK_START.test(line(next))) text += `\n${line(next++)}`
+        const notes = (state.env.notes ??= { text: {}, order: [], cited: {} })
+        notes.text[m[1]] ??= text
+        state.line = next
+        return true
+      },
+      { alt: ['paragraph', 'reference'] },
+    )
+
+    md.inline.ruler.after('image', 'footnote_ref', (state, silent) => {
+      const src = state.src
+      if (src.charCodeAt(state.pos) !== 0x5b /* [ */ || src.charCodeAt(state.pos + 1) !== 0x5e /* ^ */) return false
+      const end = src.slice(state.pos + 2, Math.min(state.posMax, state.pos + 103)).indexOf(']') + state.pos + 2
+      const label = end > state.pos + 2 && src.slice(state.pos + 2, end)
+      const notes = state.env.notes
+      if (!label || /\s/.test(label) || notes?.text[label] === undefined) return false
+      if (!silent) {
+        if (!notes.order.includes(label)) notes.order.push(label)
+        notes.cited[label] = (notes.cited[label] ?? 0) + 1
+        const token = state.push('footnote_ref', '', 0)
+        token.meta = { label, n: notes.order.indexOf(label) + 1, nth: notes.cited[label] }
+      }
+      state.pos = end + 1
+      return true
+    })
+
+    // Ids by number, with an underscore: heading ids are letters, digits and hyphens, so they can never meet.
+    md.renderer.rules.footnote_ref = (tokens, idx) => {
+      const { n, nth } = tokens[idx].meta
+      return `<sup class="footnote-ref"><a href="#fn_${n}" id="fnref_${n}${nth > 1 ? `_${nth}` : ''}">${n}</a></sup>`
+    }
+
+    md.core.ruler.push('footnote_tail', state => {
+      const notes = state.env.notes
+      if (state.inlineMode || !notes?.order.length) return
+      const token = new state.Token('footnote_block', '', 0)
+      token.meta = notes
+      state.tokens.push(token)
+    })
+
+    md.renderer.rules.footnote_block = (tokens, idx, opts, env) => {
+      const notes = tokens[idx].meta
+      const items = notes.order.map((label, i) => {
+        const text = md.renderInline(notes.text[label], { localImages: env.localImages, webImages: env.webImages })
+        return `<li id="fn_${i + 1}" tabindex="-1">${text} <a href="#fnref_${i + 1}" class="footnote-back" aria-label="Back to the text">↩</a></li>`
+      })
+      return `<section class="footnotes" aria-label="Notes">\n<ol>\n${items.join('\n')}\n</ol>\n</section>\n`
+    }
+  }
+
+  // Tables get a wrapper so they can be wider than the text column and scroll when wider than the window.
+  md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n'
+  md.renderer.rules.table_close = () => '</table>\n</div>\n'
+}
 
 // YAML front matter (Obsidian, Jekyll, Hugo) is data about the file, not part of the text: without this it
 // renders as a rule and a heading, and the heading lands in Contents. Only a closed block at the very start, and
@@ -366,6 +380,8 @@ md.renderer.rules.table_close = () => '</table>\n</div>\n'
 const FRONT_MATTER = /^\uFEFF?---\r?\n(?:[\w-]+[ \t]*:[\s\S]*?\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
 export const withoutFrontMatter = text => text.replace(FRONT_MATTER, '')
 
-export function render(text, { share = false } = {}) {
-  return md.render(withoutFrontMatter(text), { share })
+const md = new MarkdownIt({ linkify: true }).use(leggio)
+
+export function render(text, { localImages, webImages } = {}) {
+  return md.render(withoutFrontMatter(text), { localImages, webImages })
 }

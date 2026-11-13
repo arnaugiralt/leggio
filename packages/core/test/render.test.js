@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { render } from '../src/render.js'
+import MarkdownIt from 'markdown-it'
+import { render, leggio } from '../src/render.js'
 
 const fixture = `# Title
 
@@ -118,14 +119,14 @@ test('local images carry data-src and no src; external ones keep src', () => {
 
 test('share mode never emits a web src', () => {
   for (const url of ['https://x.test/a.png', '//x.test/a.png']) {
-    const out = render(`![a](${url})`, { share: true })
+    const out = render(`![a](${url})`, { webImages: 'defer' })
     assert.ok(out.includes(`data-src="${url}"`), out)
     assert.doesNotMatch(out, /\ssrc=/)
   }
 })
 
 test('share mode keeps data images', () => {
-  assert.match(render('![a](data:image/png;base64,iVBORw0KGgo=)', { share: true }), /\ssrc="data:image\/png;base64,iVBORw0KGgo="/)
+  assert.match(render('![a](data:image/png;base64,iVBORw0KGgo=)', { webImages: 'defer' }), /\ssrc="data:image\/png;base64,iVBORw0KGgo="/)
 })
 
 test('normal mode keeps web src', () => {
@@ -143,7 +144,7 @@ test('mermaid labels are escaped', () => {
 test('share mode drops web urls from diagrams', () => {
   const src = '```mermaid\nflowchart LR\n  A --> B\n  style A fill:url(https://x.test/a.png)\n```'
   assert.match(render(src), /x\.test/) // not a share: the reader's own file keeps its style
-  assert.doesNotMatch(render(src, { share: true }), /x\.test/)
+  assert.doesNotMatch(render(src, { webImages: 'defer' }), /x\.test/)
 })
 
 // Obsidian, Jekyll and Hugo put YAML front matter at the top of every file; it is data, not text.
@@ -209,7 +210,7 @@ test('tags and attributes outside the list never become markup', () => {
 })
 
 test('an HTML image in a shared document waits like a markdown one', () => {
-  const out = render('<img src="https://x.test/a.png" alt="a">\n', { share: true })
+  const out = render('<img src="https://x.test/a.png" alt="a">\n', { webImages: 'defer' })
   assert.match(out, /data-src="https:\/\/x.test\/a.png"/)
   assert.doesNotMatch(out, /\ssrc=/)
 })
@@ -309,4 +310,66 @@ test('an inline tag never wraps a block tag', () => {
   const out = render('<a href="https://x.test"><table><tr><td>cell</td></tr></table></a>\n\nAfter.\n')
   assert.match(out, /<a href="https:\/\/x.test"><\/a><table>/)
   assert.doesNotMatch(out.slice(out.indexOf('<table>')), /<a\b/)
+})
+
+const hostDoc = '## Title\n\n```js\nconst a = 1\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\nText[^1]\n\n[^1]: note\n\n```mermaid\ngraph TD; A-->B\n```\n'
+
+test('the plugin renders on a host instance like render does', () => {
+  assert.equal(new MarkdownIt({ linkify: true }).use(leggio).render(hostDoc), render(hostDoc))
+})
+
+test('each feature can be switched off', () => {
+  const on = opts => new MarkdownIt().use(leggio, opts)
+  assert.doesNotMatch(on({ headingIds: false }).render('## Title'), /<h2 id/)
+  assert.doesNotMatch(on({ taskLists: false }).render('- [x] done'), /<input type="checkbox"/)
+  assert.doesNotMatch(on({ footnotes: false }).render("Text[^1]\n\n[^1]: note"), /footnote/)
+  const d = on({ diagrams: false }).render('```mermaid\ngraph TD; A-->B\n```')
+  assert.match(d, /<pre><code class="language-mermaid">/)
+  assert.doesNotMatch(d, /<svg/)
+})
+
+test('localImages keep leaves src on local images, markdown and HTML', () => {
+  for (const src of ['![a](x.png)', '<img src="x.png">']) {
+    const out = render(src, { localImages: 'keep' })
+    assert.match(out, /src="x\.png"/)
+    assert.doesNotMatch(out, /data-src/)
+  }
+})
+
+test('webImages defer holds back web images and diagram urls', () => {
+  for (const src of ['![a](https://e.com/a.png)', '<img src="https://e.com/a.png">']) {
+    const out = render(src, { webImages: 'defer' })
+    assert.match(out, /data-src="https:\/\/e\.com\/a\.png"/)
+    assert.doesNotMatch(out, /\ssrc=/)
+  }
+  const d = render('```mermaid\nflowchart LR\n  A --> B\n  style A fill:url(https://e.com/x)\n```', { webImages: 'defer' })
+  assert.match(d, /<svg/)
+  assert.doesNotMatch(d, /https:\/\/e\.com/)
+})
+
+test('local images defer by default in render and in the plugin', () => {
+  const host = new MarkdownIt().use(leggio)
+  for (const out of [render('![a](x.png)'), host.render('![a](x.png)'), render('<img src="x.png">'), host.render('<img src="x.png">')]) {
+    assert.match(out, /data-src="x\.png"/)
+    assert.doesNotMatch(out, /\ssrc=/)
+  }
+})
+
+test('a host with html on still gets the allowlist', () => {
+  const out = new MarkdownIt({ html: true }).use(leggio).render('<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>')
+  assert.doesNotMatch(out, /<script/)
+  assert.doesNotMatch(out, /onerror/)
+})
+
+test('one host instance options do not leak into render', () => {
+  new MarkdownIt().use(leggio, { localImages: 'keep', webImages: 'defer' })
+  const out = render('![a](x.png) ![b](https://e.com/b.png)')
+  assert.match(out, /data-src="x\.png"/)
+  assert.match(out, /\ssrc="https:\/\/e\.com\/b\.png"/)
+})
+
+test('env overrides the plugin options per render', () => {
+  const host = new MarkdownIt().use(leggio)
+  assert.match(host.render('![b](https://e.com/b.png)', { webImages: 'defer' }), /data-src="https:\/\/e\.com\/b\.png"/)
+  assert.match(host.render('![b](https://e.com/b.png)', {}), /\ssrc="https:\/\/e\.com\/b\.png"/)
 })
