@@ -1,0 +1,39 @@
+/* Cancels what VS Code's markdown.css and highlight.css set and prose.css doesn't, so the preview reads as Leggio.
+   Every rule starts with body.leggio so it outranks VS Code's own .vscode-dark and .vscode-light rules. */
+
+body.leggio :is(h1, h2) { border: 0; padding-bottom: 0; }
+body.leggio :is(h5, h6) { margin: 1.8em 0 0.5em; line-height: 1.25; }
+body.leggio p { margin: 1em 0; }
+body.leggio :is(ul, ol) { margin: 1em 0; }
+body.leggio :is(ul, ol) :is(ul, ol) { margin: 0; }
+body.leggio li p { margin: 0.5em 0; }
+
+body.leggio a { text-decoration: underline; }
+body.leggio a:hover { color: var(--color-accent); }
+body.leggio .footnote-ref a, body.leggio .footnote-back { text-decoration: none; }
+
+body.leggio blockquote { background: none; border-radius: 0; }
+body.leggio hr { height: auto; border: 0; border-top: 1px solid var(--ui-rule); }
+
+body.leggio code { line-height: inherit; }
+/* VS Code boxes a block with its own border, padding and inline-block code; Leggio's pre owns all three. */
+body.leggio pre { border: 0; padding: 1em; border-radius: 6px; }
+body.leggio pre code { display: inline; }
+body.leggio pre.hljs code > div { padding: 0; border-radius: 0; }
+
+/* highlight.css colors about forty token classes, light and dark. Blank them all, then give Leggio's back.
+   The attribute selector and the class selectors below tie on specificity, so this rule has to come first. */
+body.leggio [class*="hljs-"] { color: var(--code-fg); background: none; display: inline; width: auto; font-style: normal; font-weight: inherit; text-decoration: none; }
+body.leggio :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag) { color: var(--code-accent); }
+body.leggio :is(.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-selector-attr) {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 145));
+}
+body.leggio :is(.hljs-number, .hljs-literal, .hljs-regexp, .hljs-deletion, .hljs-selector-pseudo) {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h - 75));
+}
+body.leggio :is(.hljs-title, .hljs-section, .hljs-name, .hljs-class, .hljs-function) {
+  color: oklch(from var(--code-accent) l max(c, 0.12) calc(h + 65));
+  font-weight: 600;
+}
+body.leggio :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: color-mix(in oklab, var(--code-fg) 55%, var(--code-bg)); font-style: italic; }
+body.leggio .hljs-deletion { text-decoration: line-through; }

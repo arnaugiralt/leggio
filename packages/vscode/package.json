@@ -1,0 +1,199 @@
+{
+  "name": "leggio",
+  "displayName": "Leggio",
+  "description": "Reads markdown the way Leggio does: a calm look for the built-in preview, with diagrams, task lists, and your own fonts and colors.",
+  "version": "0.1.0",
+  "publisher": "arnaugiralt",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnaugiralt/leggio.git",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "preview",
+    "reader",
+    "theme"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./prose.css",
+      "./reset.css"
+    ],
+    "markdown.previewScripts": [
+      "./preview.js"
+    ],
+    "configuration": {
+      "title": "Leggio",
+      "properties": {
+        "leggio.theme": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Quiet",
+            "Cobalt",
+            "Teletype",
+            "Terminal",
+            "Ember"
+          ],
+          "default": "Default",
+          "markdownDescription": "The look of the markdown preview. `Default` follows VS Code's light or dark theme; the other themes keep their own colors. The settings below override the theme. Empty or null means \"from the theme\"."
+        },
+        "leggio.bg": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(#[0-9a-fA-F]{6})?$",
+          "format": "color-hex",
+          "description": "Page background, as #rrggbb. Empty or null means \"from the theme\"."
+        },
+        "leggio.fg": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(#[0-9a-fA-F]{6})?$",
+          "format": "color-hex",
+          "description": "Text color, as #rrggbb. Empty or null means \"from the theme\"."
+        },
+        "leggio.accent": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(#[0-9a-fA-F]{6})?$",
+          "format": "color-hex",
+          "description": "Link and accent color, as #rrggbb. Empty or null means \"from the theme\"."
+        },
+        "leggio.codeBg": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(#[0-9a-fA-F]{6})?$",
+          "format": "color-hex",
+          "description": "Background of inline code, as #rrggbb. Empty or null means \"from the theme\"."
+        },
+        "leggio.diagramTheme": {
+          "type": "string",
+          "enum": [
+            "",
+            "page",
+            "zinc-light",
+            "zinc-dark",
+            "tokyo-night",
+            "tokyo-night-storm",
+            "tokyo-night-light",
+            "catppuccin-mocha",
+            "catppuccin-latte",
+            "nord",
+            "nord-light",
+            "dracula",
+            "github-light",
+            "github-dark",
+            "solarized-light",
+            "solarized-dark",
+            "one-dark"
+          ],
+          "default": "",
+          "description": "Color theme of Mermaid diagrams. `page` follows the page colors. Empty or null means \"from the theme\"."
+        },
+        "leggio.fontUrl": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(https://fonts\\.googleapis\\.com/.*)?$",
+          "description": "A Google Fonts stylesheet address. It is the only network request the extension makes. Empty or null means \"from the theme\"."
+        },
+        "leggio.textFont": {
+          "type": "string",
+          "default": "",
+          "description": "Font family for the text, as named in the Google Fonts address. Empty or null means \"from the theme\"."
+        },
+        "leggio.codeFont": {
+          "type": "string",
+          "default": "",
+          "description": "Font family for code. Empty or null means \"from the theme\"."
+        },
+        "leggio.uiFont": {
+          "type": "string",
+          "default": "",
+          "description": "Font family for table headers and other interface parts. Empty or null means \"from the theme\"."
+        },
+        "leggio.fontSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Text size in px. Empty or null means \"from the theme\".",
+          "minimum": 10,
+          "maximum": 40
+        },
+        "leggio.lineHeight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Line height, as a multiple of the text size. Empty or null means \"from the theme\".",
+          "minimum": 1,
+          "maximum": 2.5
+        },
+        "leggio.fontWeight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Text weight, from 100 to 900. Empty or null means \"from the theme\".",
+          "minimum": 100,
+          "maximum": 900
+        },
+        "leggio.codeFontSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Code size in px. Empty or null means \"from the theme\".",
+          "minimum": 8,
+          "maximum": 32
+        },
+        "leggio.contentWidth": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Width of the text column in px. Empty or null means \"from the theme\".",
+          "minimum": 400,
+          "maximum": 1400
+        },
+        "leggio.wideWidth": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Largest width of tables and diagrams in px. Empty or null means \"from the theme\".",
+          "minimum": 400,
+          "maximum": 2400
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@leggio/core": "workspace:*"
+  }
+}

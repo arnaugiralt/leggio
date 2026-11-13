@@ -1,0 +1,5 @@
+src/
+test/
+build.mjs
+node_modules/
+.gitignore
