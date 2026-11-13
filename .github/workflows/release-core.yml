@@ -62,9 +62,8 @@ jobs:
           fi
           cd packages/core
           tarball=$(pnpm pack --pack-destination "$RUNNER_TEMP" | tail -n 1)
-          # The repo's pnpm 10 has no trusted publishing (OIDC); pnpm 11 does, and adds provenance on its own.
-          # Pinned: this job can publish.
-          pnpm dlx pnpm@11.28.9 publish "$tarball" --access public --no-git-checks
+          # pnpm 11 publishes through trusted publishing (OIDC) and adds provenance on its own.
+          pnpm publish "$tarball" --access public --no-git-checks
   github-release:
     needs: publish
     runs-on: ubuntu-latest

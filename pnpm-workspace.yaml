@@ -1,2 +1,4 @@
 packages:
   - 'packages/*'
+# No dependency runs install scripts. pnpm 11 reads only auth and registry settings from .npmrc, so this lives here.
+ignoreScripts: true

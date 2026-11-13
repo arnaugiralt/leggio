@@ -9,7 +9,7 @@ Leggio is a read-only markdown reader for Chromium browsers. It is a Preact app 
 ## Commands
 
 ```sh
-pnpm install                                # exact versions, install scripts disabled (.npmrc)
+pnpm install                                # exact versions, install scripts disabled (pnpm-workspace.yaml)
 pnpm dev                                    # serves the repo on :8000, rebuilds dist/ on change, no hot reload (reload the page yourself)
 pnpm test                                   # node --test, no browser
 node --test test/render.test.js             # one file
