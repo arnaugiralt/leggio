@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { DEFAULTS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
+import { DEFAULTS, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
 import * as speech from './speech.js'
+
+// The same limits an imported settings file is checked against.
+const bounds = key => ({ min: LOOK_BOUNDS[key][0], max: LOOK_BOUNDS[key][1] })
 
 // Everything a theme keeps, under "Customize theme": what "Save this look" saves.
 const CUSTOMIZE = [
@@ -20,16 +23,16 @@ const CUSTOMIZE = [
       { key: 'textFont', label: 'Text', type: 'font', role: 'text' },
       { key: 'codeFont', label: 'Code', type: 'font', role: 'code' },
       { key: 'uiFont', label: 'Interface', type: 'font', role: 'ui' },
-      { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, min: 100, max: 900 },
-      { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, min: 1, max: 2.5 },
-      { key: 'codeFontSize', label: 'Code size', type: 'number', unit: 'px', step: 1, min: 8, max: 32 },
+      { key: 'fontWeight', label: 'Weight', type: 'number', step: 100, ...bounds('fontWeight') },
+      { key: 'lineHeight', label: 'Line height', type: 'number', step: 0.05, ...bounds('lineHeight') },
+      { key: 'codeFontSize', label: 'Code size', type: 'number', unit: 'px', step: 1, ...bounds('codeFontSize') },
     ],
   },
   {
     title: 'Width',
     fields: [
-      { key: 'contentWidth', label: 'Text', type: 'number', unit: 'px', step: 10, min: 400, max: 1400 },
-      { key: 'wideWidth', label: 'Tables and diagrams', type: 'number', unit: 'px', step: 50, min: 400, max: 2400 },
+      { key: 'contentWidth', label: 'Text', type: 'number', unit: 'px', step: 10, ...bounds('contentWidth') },
+      { key: 'wideWidth', label: 'Tables and diagrams', type: 'number', unit: 'px', step: 50, ...bounds('wideWidth') },
     ],
   },
 ]
@@ -39,7 +42,7 @@ const READING = [
   { key: 'speechRate', label: 'Speed', type: 'number', unit: '×', step: 0.05, min: 0.5, max: 2 },
 ]
 
-const TEXT_SIZE = { min: 10, max: 40 }
+const TEXT_SIZE = bounds('fontSize')
 
 const FONT_URL = {
   key: 'fontUrl',

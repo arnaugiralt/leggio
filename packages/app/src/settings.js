@@ -1,6 +1,6 @@
-import { LOOK, LOOK_DEFAULTS, DIAGRAM_THEMES, isDefaultLook } from '@leggio/core'
+import { LOOK, LOOK_DEFAULTS, LOOK_CHECKS, isDefaultLook } from '@leggio/core'
 
-export { LOOK, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective, completeTheme, applyFontUrl, isDefaultLook } from '@leggio/core'
+export { LOOK, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective, completeTheme, applyFontUrl, isDefaultLook } from '@leggio/core'
 
 export const STORAGE_KEY = 'leggio.settings'
 
@@ -27,29 +27,11 @@ export function save(settings, storage) {
 }
 
 // Import, export and saved themes. A settings file comes from outside, so every value passes the same kind of
-// check a control in Settings would give it, and anything that fails is left out rather than guessed at. The
-// font address matters most: it becomes a stylesheet link, so only Google Fonts stylesheets pass (the content
-// security policy allows nothing else either).
-const COLOR = /^#[0-9a-f]{6}$/i
-const FONT_NAME = /^[\p{L}\p{N} _-]{0,60}$/u
+// check a control in Settings would give it, and anything that fails is left out rather than guessed at. The look
+// keys use core's LOOK_CHECKS; the personal ones are checked here.
 const range = (min, max) => v => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
-// The same bounds as the fields in Settings.jsx.
 const CHECKS = {
-  fontUrl: v => v === '' || (typeof v === 'string' && v.length < 2000 && v.startsWith('https://fonts.googleapis.com/')),
-  textFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  codeFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  uiFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  fontSize: range(10, 40),
-  fontWeight: range(100, 900),
-  lineHeight: range(1, 2.5),
-  contentWidth: range(400, 1400),
-  wideWidth: range(400, 2400),
-  codeFontSize: range(8, 32),
-  bg: v => COLOR.test(v),
-  fg: v => COLOR.test(v),
-  accent: v => COLOR.test(v),
-  codeBg: v => COLOR.test(v),
-  diagramTheme: v => DIAGRAM_THEMES.includes(v),
+  ...LOOK_CHECKS,
   followSystem: v => typeof v === 'boolean',
   voice: v => typeof v === 'string' && v.length <= 200,
   speechRate: range(0.5, 2),

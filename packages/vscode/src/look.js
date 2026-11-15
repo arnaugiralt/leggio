@@ -1,31 +1,4 @@
-import { LOOK, PRESETS, DARK, DIAGRAM_THEMES, effective, lookVars } from '@leggio/core'
-
-// The same bounds as CHECKS in packages/app/src/settings.js. package.json repeats them as minimum and maximum.
-export const BOUNDS = {
-  fontSize: [10, 40],
-  fontWeight: [100, 900],
-  lineHeight: [1, 2.5],
-  contentWidth: [400, 1400],
-  wideWidth: [400, 2400],
-  codeFontSize: [8, 32],
-}
-
-const COLOR = /^#[0-9a-f]{6}$/i
-const FONT_NAME = /^[\p{L}\p{N} _-]{0,60}$/u
-const number = key => v => typeof v === 'number' && Number.isFinite(v) && v >= BOUNDS[key][0] && v <= BOUNDS[key][1]
-
-const CHECKS = {
-  fontUrl: v => typeof v === 'string' && v.length < 2000 && v.startsWith('https://fonts.googleapis.com/'),
-  textFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  codeFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  uiFont: v => typeof v === 'string' && FONT_NAME.test(v),
-  bg: v => COLOR.test(v),
-  fg: v => COLOR.test(v),
-  accent: v => COLOR.test(v),
-  codeBg: v => COLOR.test(v),
-  diagramTheme: v => DIAGRAM_THEMES.includes(v),
-  ...Object.fromEntries(Object.keys(BOUNDS).map(key => [key, number(key)])),
-}
+import { LOOK, LOOK_CHECKS, PRESETS, effective, lookVars } from '@leggio/core'
 
 const COLORS = ['bg', 'fg', 'accent', 'codeBg']
 const withoutNulls = vars => Object.fromEntries(Object.entries(vars).filter(([, v]) => v !== null))
@@ -37,7 +10,7 @@ export function lookFromSettings(get) {
   let colored = false
   for (const key of [...LOOK, 'fontSize']) {
     const value = get(key)
-    if (value === undefined || value === null || value === '' || !CHECKS[key]?.(value)) continue
+    if (value === undefined || value === null || value === '' || !LOOK_CHECKS[key](value)) continue
     look[key] = value
     colored ||= COLORS.includes(key)
   }
