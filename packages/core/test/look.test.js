@@ -243,3 +243,19 @@ test('lookCss leaves out hostile values', () => {
   // An unclosed comment would swallow whatever CSS the host puts after this block.
   assert.ok(!lookCss({ ...LOOK_DEFAULTS, codeFont: 'Mono /* x' }).includes('/*'))
 })
+
+test('LOOK_CHECKS covers every look key and fontSize, and passes the defaults and presets', async () => {
+  const { LOOK_CHECKS, LOOK_BOUNDS } = await import('../src/look.js')
+  assert.deepEqual(new Set(Object.keys(LOOK_CHECKS)), new Set([...LOOK, 'fontSize']))
+  for (const key of Object.keys(LOOK_BOUNDS)) assert.ok(LOOK_CHECKS[key], key)
+  for (const look of [LOOK_DEFAULTS, ...PRESETS]) for (const key of LOOK) assert.ok(LOOK_CHECKS[key](look[key]), `${look.name ?? 'default'} ${key}`)
+})
+
+test('LOOK_CHECKS rejects what could escape into CSS or a request', async () => {
+  const { LOOK_CHECKS } = await import('../src/look.js')
+  for (const [key, bad] of [
+    ['bg', 'red'], ['bg', '#fff'], ['fg', '#ffffff;x'], ['fontUrl', 'https://evil.example/x.css'], ['fontUrl', 'http://fonts.googleapis.com/css'],
+    ['textFont', "Inter'; } body { x"], ['fontSize', 9], ['fontSize', '18'], ['lineHeight', NaN], ['wideWidth', Infinity], ['diagramTheme', 'nope'],
+  ]) assert.equal(LOOK_CHECKS[key](bad), false, `${key} ${bad}`)
+  assert.ok(LOOK_CHECKS.fontUrl(''))
+})

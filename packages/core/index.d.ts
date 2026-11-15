@@ -65,6 +65,11 @@ export interface Preset extends Theme {
 
 export const LOOK: LookKey[]
 export const LOOK_DEFAULTS: Theme
+export type BoundedKey = 'fontSize' | 'fontWeight' | 'lineHeight' | 'contentWidth' | 'wideWidth' | 'codeFontSize'
+/** Inclusive [min, max] for each numeric look value. */
+export const LOOK_BOUNDS: Record<BoundedKey, [min: number, max: number]>
+/** One check per LOOK key plus fontSize, for a value from outside (a file, a host's settings). Failing values are dropped. */
+export const LOOK_CHECKS: Record<LookKey | 'fontSize', (value: unknown) => boolean>
 export const DARK: Pick<Look, 'bg' | 'fg' | 'accent' | 'codeBg'>
 export const PRESETS: Preset[]
 export const DIAGRAM_THEMES: string[]

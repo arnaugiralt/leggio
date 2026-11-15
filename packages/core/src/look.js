@@ -27,6 +27,29 @@ export const LOOK_DEFAULTS = {
 // The keys a theme owns: the whole design of the page. Text size, the voice and its speed are personal and
 // survive a theme change. Every one of these stays editable afterwards: picking a theme is a one-shot write, not a mode.
 export const LOOK = ['bg', 'fg', 'accent', 'codeBg', 'diagramTheme', 'fontUrl', 'textFont', 'codeFont', 'uiFont', 'lineHeight', 'fontWeight', 'codeFontSize', 'contentWidth', 'wideWidth']
+
+// A look value from outside (an imported file, a host's own settings) passes these or is left out, never guessed at.
+// They cover the LOOK keys plus fontSize, in the order a settings file lists them. The font address matters most:
+// it becomes a stylesheet link, so only Google Fonts stylesheets pass ('' means no font).
+export const LOOK_BOUNDS = { fontSize: [10, 40], fontWeight: [100, 900], lineHeight: [1, 2.5], contentWidth: [400, 1400], wideWidth: [400, 2400], codeFontSize: [8, 32] }
+const COLOR = /^#[0-9a-f]{6}$/i
+const FONT_NAME = /^[\p{L}\p{N} _-]{0,60}$/u
+const color = v => typeof v === 'string' && COLOR.test(v)
+const family = v => typeof v === 'string' && FONT_NAME.test(v)
+const bounded = key => v => typeof v === 'number' && Number.isFinite(v) && v >= LOOK_BOUNDS[key][0] && v <= LOOK_BOUNDS[key][1]
+export const LOOK_CHECKS = {
+  fontUrl: v => v === '' || (typeof v === 'string' && v.length < 2000 && v.startsWith('https://fonts.googleapis.com/')),
+  textFont: family,
+  codeFont: family,
+  uiFont: family,
+  ...Object.fromEntries(Object.keys(LOOK_BOUNDS).map(key => [key, bounded(key)])),
+  bg: color,
+  fg: color,
+  accent: color,
+  codeBg: color,
+  diagramTheme: v => DIAGRAM_THEMES.includes(v),
+}
+
 // The proportions every built-in theme shares; a theme may set its own.
 const MEASURE = { fontWeight: LOOK_DEFAULTS.fontWeight, codeFontSize: LOOK_DEFAULTS.codeFontSize, contentWidth: LOOK_DEFAULTS.contentWidth, wideWidth: LOOK_DEFAULTS.wideWidth }
 

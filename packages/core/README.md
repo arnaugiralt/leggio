@@ -41,6 +41,14 @@ import { lookCss, LOOK_DEFAULTS } from '@leggio/core'
 const css = lookCss(LOOK_DEFAULTS, '.leggio') // a stylesheet string
 ```
 
+Check a look that comes from outside, such as a file or your own settings, before you apply it. `LOOK_CHECKS` has one check per look key (and `fontSize`); keep the values that pass. `LOOK_BOUNDS` holds the numeric limits, for your own inputs.
+
+```js
+import { LOOK_CHECKS, LOOK_DEFAULTS } from '@leggio/core'
+
+const look = { ...LOOK_DEFAULTS, ...Object.fromEntries(Object.entries(input).filter(([k, v]) => LOOK_CHECKS[k]?.(v))) }
+```
+
 ## Size container
 
 `prose.css` does not set `container-type`, because only your page knows which element is wide enough. Tables and diagrams use `cqw` units to grow past the text column, up to `--wide-width`. Set `container-type: inline-size` on the `.leggio` element, or on a wider ancestor. Without a container, `cqw` falls back to the viewport width.
