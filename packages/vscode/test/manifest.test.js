@@ -25,3 +25,11 @@ test('numeric settings carry the bounds the code validates with', () => {
     assert.equal(props[`leggio.${key}`].maximum, max, key)
   }
 })
+
+test('a setting can be cleared in the Settings editor', () => {
+  // format: color-hex rejects an empty string there, so clearing a color never reached settings.json.
+  for (const [key, prop] of Object.entries(props)) {
+    assert.equal(prop.format, undefined, key)
+    if (prop.pattern) assert.match('', new RegExp(prop.pattern), key)
+  }
+})
