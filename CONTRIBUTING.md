@@ -37,8 +37,8 @@ You need Node.js 24 or newer and pnpm 10.
 pnpm install   # exact versions, install scripts disabled
 pnpm dev       # http://localhost:8000, rebuilds on change
 pnpm test      # node --test, no browser needed
-pnpm build     # writes site/, the folder that gets deployed
-pnpm serve     # builds, then serves site/ on http://localhost:8765
+pnpm build     # writes packages/app/site/, the folder that gets deployed
+pnpm serve     # builds, then serves packages/app/site/ on http://localhost:8765
 ```
 
 `pnpm dev` doesn't update the page by itself, so reload it after each change.
@@ -48,7 +48,7 @@ pnpm serve     # builds, then serves site/ on http://localhost:8765
 - Match the style of the code around your change. The project has no linter and no formatter.
 - Write comments that explain why: a browser behavior that isn't obvious, or an alternative you rejected. Don't comment on what a line does.
 - Keep each pull request to one change, and don't reformat code you didn't touch.
-- Read [AGENTS.md](AGENTS.md) before a larger change. It lists the rules that are easy to break by accident, such as keeping `src/render.js` pure and never letting a click on a link inside a document navigate the app window to another page.
+- Read [AGENTS.md](AGENTS.md) before a larger change. It lists the rules that are easy to break by accident, such as keeping `packages/core/src/render.js` pure and never letting a click on a link inside a document navigate the app window to another page.
 
 ## Check your change
 

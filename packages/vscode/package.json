@@ -200,5 +200,8 @@
   },
   "dependencies": {
     "@leggio/core": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

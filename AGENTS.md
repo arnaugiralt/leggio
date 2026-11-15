@@ -10,12 +10,12 @@ Leggio is a read-only markdown reader for Chromium browsers. It is a Preact app 
 
 ```sh
 pnpm install                                # exact versions, install scripts disabled (pnpm-workspace.yaml)
-pnpm dev                                    # serves the repo on :8000, rebuilds dist/ on change, no hot reload (reload the page yourself)
-pnpm test                                   # node --test, no browser
-node --test test/render.test.js             # one file
+pnpm dev                                    # serves packages/app on :8000, rebuilds its dist/ on change, no hot reload (reload the page yourself)
+pnpm test                                   # node --test over every package, no browser
+node --test packages/core/test/render.test.js   # one file
 node --test --test-name-pattern="mermaid"   # one test
-pnpm build                                  # writes site/, the deployable folder
-pnpm serve                                  # builds, then serves site/ on :8765
+pnpm build                                  # writes packages/app/site/, the deployable folder
+pnpm serve                                  # builds, then serves packages/app/site/ on :8765
 ```
 
 The project has no linter, no formatter and no typechecker.
@@ -31,18 +31,20 @@ To stop a dev server that was left running, use `lsof -ti tcp:8000 -sTCP:LISTEN 
 
 ## Architecture
 
+The repo is a pnpm workspace. `packages/app` is the app (package `leggio-app`, deployed as the site), `packages/core` is `@leggio/core` and `packages/vscode` is the VS Code extension. The root holds only the workspace: `pnpm dev`, `pnpm build` and `pnpm serve` run the app's scripts, `pnpm test` runs every package's tests, and `wrangler.jsonc` stays at the root so the Workers Builds commands run from there.
+
 The table runs from the entry point to the build, in layers. Each row says what the file owns.
 
 | File | What it owns |
 | --- | --- |
-| `src/main.jsx` | The entry point. Renders `App` and registers `sw.js`. |
-| `src/App.jsx` | Layout, settings, drop and keyboard handling, the top bar and the notice slot. |
-| `src/useLibrary.js` | What is open: the folder, pins, the current document, restore after reload, the live-reload watchers, files opened from the operating system, session history and `followLink`. Every action that opens something lives here. |
-| `src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
-| `src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s (which JSON can't hold), pins, the restore record and Recent. Failures resolve to `undefined`. |
-| `src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, where each one comes from (its row's muted line), and the scroll position each document was left at. Pure, so it runs under node. |
-| `src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
-| `src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, accepts only https addresses, and caps how much of a stream is read. Pure, so it runs under node. |
+| `packages/app/src/main.jsx` | The entry point. Renders `App` and registers `sw.js`. |
+| `packages/app/src/App.jsx` | Layout, settings, drop and keyboard handling, the top bar and the notice slot. |
+| `packages/app/src/useLibrary.js` | What is open: the folder, pins, the current document, restore after reload, the live-reload watchers, files opened from the operating system, session history and `followLink`. Every action that opens something lives here. |
+| `packages/app/src/fs.js` | The File System Access API: pickers, permission, the markdown tree, `watch` and path helpers. It also builds copies (see below). Other files never call methods on a handle; they use `fs.getFile`, `fs.isSame` and `fs.resolve`, which take both kinds. `useLibrary.js` holds the `launchQueue` handler. |
+| `packages/app/src/idb.js` | `get` and `set` on one IndexedDB store, for `FileSystemHandle`s (which JSON can't hold), pins, the restore record and Recent. Failures resolve to `undefined`. |
+| `packages/app/src/recent.js` | Recent documents: what is kept of each (a handle, a web address, or a copy's text), the list's order, where each one comes from (its row's muted line), and the scroll position each document was left at. Pure, so it runs under node. |
+| `packages/app/src/speech.js` | Speaking: sentence splitting with `Intl.Segmenter`, the utterance queue and the voice list. It doesn't use the DOM, so it runs under node. `Settings.jsx` only listens for `voiceschanged` to refresh its voice picker. |
+| `packages/app/src/share.js` | Links: encodes a document into the `#share=` fragment and decodes it back, reads a pasted link, accepts only https addresses, and caps how much of a stream is read. Pure, so it runs under node. |
 | `packages/core/src/render.js` | The renderer, as a markdown-it plugin (`leggio`) plus `render`. One markdown-it instance, the highlight.js hook (9 languages), ```` ```mermaid ```` fences turned into inline SVG, heading ids, task lists, table wrappers, footnotes, hidden front matter, and the HTML allowlist (see below). The image rules are the options `localImages` and `webImages`, which a render can override through its env. **Pure and synchronous: a string in, an HTML string out.** Anything that needs the DOM, a file handle or async work happens in `Viewer.jsx` after render. |
 | `packages/core/src/look.js` | The look: `LOOK` and its defaults, the theme presets, font roles, the diagram theme, light or dark from the background, `lookVars`, `lookCss` (for a host with no DOM), `applyLook` and `applyFontUrl`. |
 | `packages/core/src/links.js` | `isLocal` and `isRelative`: which links are followable from the reader. |
@@ -50,15 +52,15 @@ The table runs from the entry point to the build, in layers. Each row says what 
 | `packages/core/index.js`, `index.d.ts`, `README.md` | The public surface of `@leggio/core`. The types are written by hand, so change `index.d.ts` when `index.js` exports change. |
 | `packages/vscode/src/extension.js`, `src/look.js` | The VS Code extension's entry (a markdown-it plugin, and the `markdown.preview.refresh` call on a settings change) and the `leggio.*` settings turned into CSS variables, checked like an imported settings file. |
 | `packages/vscode/reset.css`, `preview.js` | `reset.css` cancels VS Code's own preview styles; `preview.js` runs in the preview and copies the look onto `<body>`. |
-| `src/settings.js` | `DEFAULTS`, load and save to localStorage, and the checks for an imported settings file. The look itself (presets, font roles, light or dark, saved-theme completion) comes from `@leggio/core`; this file re-exports it for the app. |
-| `src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
-| `src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
-| `src/Sidebar.jsx` | Pins, Recent, the folder tree and search in the folder, with the tree keyboard pattern they share. |
-| `src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link) and its address field; the keyboard shortcuts list. |
-| `src/Outline.jsx`, `Settings.jsx`, `icons.jsx` | Heading list with the active section; the settings form with saved themes and export and import; inline SVG icons (Lucide paths). |
-| `src/styles.css` | The app's styles. It imports `@leggio/core/prose.css` first, which holds the reading styles. |
-| `manifest.json`, `sw.js`, `_headers` | The installable app shell, the service worker, and the Cloudflare headers with the content security policy. |
-| `build.mjs` | The dev server, and the production build into `site/`. |
+| `packages/app/src/settings.js` | `DEFAULTS`, load and save to localStorage, and the checks for an imported settings file. The look itself (presets, font roles, light or dark, saved-theme completion) comes from `@leggio/core`; this file re-exports it for the app. |
+| `packages/app/src/Viewer.jsx` | Puts the rendered HTML on the page, then resolves local images to blob URLs and marks internal links. In a shared or web document it shows placeholders for images and loads web images only after the reader asks, except a web document's images from its own host. |
+| `packages/app/src/Speech.jsx` | Everything on screen for read-aloud: walking the blocks, Ranges (browser objects that mark a span of text), the sentence and word highlights. |
+| `packages/app/src/Sidebar.jsx` | Pins, Recent, the folder tree and search in the folder, with the tree keyboard pattern they share. |
+| `packages/app/src/OpenMenu.jsx`, `Shortcuts.jsx` | The Open menu (file, folder, link) and its address field; the keyboard shortcuts list. |
+| `packages/app/src/Outline.jsx`, `Settings.jsx`, `icons.jsx` | Heading list with the active section; the settings form with saved themes and export and import; inline SVG icons (Lucide paths). |
+| `packages/app/src/styles.css` | The app's styles. It imports `@leggio/core/prose.css` first, which holds the reading styles. |
+| `packages/app/manifest.json`, `sw.js`, `_headers` | The installable app shell, the service worker, and the Cloudflare headers with the content security policy. |
+| `packages/app/build.mjs` | The dev server, and the production build into `packages/app/site/`. |
 
 ## Rules that are easy to break
 
@@ -157,7 +159,7 @@ The table runs from the entry point to the build, in layers. Each row says what 
 - The content security policy in `_headers` allows no inline scripts. Don't add an inline `<script>` to `index.html`. Put the code in a module under `src/`. `index.html` loads the bundle with an external script.
 - `SHELL` in `sw.js` lists the files the app needs offline. The dev server uses `sw.js` as it is. The production build rewrites its `CACHE` line and swaps the `dist/` paths in `SHELL` for the hashed bundle names. If you add a file the app needs offline, add it in two places: `SHELL` in `sw.js`, and the copy list in `build.mjs` (the `for` loop that calls `fs.copyFileSync`).
 - The service worker keeps Google Fonts files in their own cache, `leggio-fonts`, which survives new builds, so a theme used once online looks the same offline. The worker's own requests follow the content security policy it was served with, not the page's, so `connect-src` in `_headers` must cover both Google Fonts origins. Its `https:` (for web documents) does.
-- The site runs at leggio.compostela.dev as a Cloudflare Worker with static assets only (`wrangler.jsonc`, a custom domain), deployed by Workers Builds from the `release` branch. The build command is `pnpm install --frozen-lockfile && pnpm test && pnpm build`, and the deploy command is `pnpm dlx wrangler deploy`.
+- The site runs at leggio.compostela.dev as a Cloudflare Worker with static assets only (`wrangler.jsonc` at the root, whose assets are `packages/app/site`, a custom domain), deployed by Workers Builds from the `release` branch. The build command is `pnpm install --frozen-lockfile && pnpm test && pnpm build`, and the deploy command is `pnpm dlx wrangler deploy`.
 - A release is a `vX.Y.Z` tag on a commit that is on `master`. `.github/workflows/release.yml` runs the checks, moves `release` to the tagged commit (forward only, and Workers Builds deploys it), and publishes a GitHub release whose notes are the `feat:` and `fix:` commit subjects since the previous tag. Write those subjects for readers of the changelog. Pushes to `master` and to other branches only build previews (`wrangler preview`), so merging is not releasing. `master`'s preview is canary.leggio.compostela.dev, and another branch's is `<branch>.leggio.compostela.dev`. The Preview command in Workers Builds sets that name; `wrangler.jsonc` enables the hostnames. Wrangler is not a project dependency. Never change the domain: an installed app is tied to its exact origin.
 
 ## Check your change

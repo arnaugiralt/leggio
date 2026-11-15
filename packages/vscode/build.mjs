@@ -14,4 +14,4 @@ await esbuild.build({
 })
 // The stylesheet and icon have one source each; the copies are git-ignored.
 fs.copyFileSync('../core/prose.css', 'prose.css')
-fs.copyFileSync('../../icon-192.png', 'icon.png')
+fs.copyFileSync('../app/icon-192.png', 'icon.png')

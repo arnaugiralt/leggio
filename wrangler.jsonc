@@ -5,7 +5,7 @@
 {
   "name": "leggio",
   "compatibility_date": "2026-11-01",
-  "assets": { "directory": "./site" },
+  "assets": { "directory": "./packages/app/site" },
   // previews_enabled serves each Preview at <name>.leggio.compostela.dev: master's is canary (the Preview command in
   // Workers Builds names it). Production deploys apply it; a Preview build alone doesn't.
   "routes": [{ "pattern": "leggio.compostela.dev", "custom_domain": true, "previews_enabled": true }],
