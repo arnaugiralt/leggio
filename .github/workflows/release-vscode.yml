@@ -4,7 +4,9 @@
 # release.yml owns the vX.Y.Z tags and release-core.yml the core-vX.Y.Z tags, and no filter matches another's.
 # Both registries use trusted publishing (GitHub OIDC, no stored token). Each needs a trusted publisher for repo
 # arnaugiralt/leggio and workflow release-vscode.yml: on the Marketplace for publisher arnaugiralt, and on Open VSX
-# for namespace arnaugiralt. An OVSX_PAT secret, if set, makes ovsx use it instead of OIDC. Push one tag at a time: GitHub sends no event
+# for namespace arnaugiralt. An OVSX_PAT secret, if set, makes ovsx use it instead of OIDC.
+# Open VSX runs only when the repository variable OPEN_VSX is "on". To publish a version that skipped it, set the
+# variable and re-run the tag's workflow: the Marketplace skips a version it has and the GitHub release is kept. Push one tag at a time: GitHub sends no event
 # for more than three tags in one push.
 name: release-vscode
 on:
@@ -70,6 +72,7 @@ jobs:
         run: pnpm dlx @vscode/vsce@4.1.0 publish --oidc --no-dependencies --skip-duplicate --packagePath "$VSIX"
       # With no OVSX_PAT, ovsx exchanges the job's OIDC token. The secret stays only as a fallback, in this step alone.
       - name: Publish to Open VSX
+        if: ${{ vars.OPEN_VSX == 'on' }}
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
           VSIX: ${{ steps.package.outputs.vsix }}
