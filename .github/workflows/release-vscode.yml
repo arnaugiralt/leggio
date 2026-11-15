@@ -2,11 +2,9 @@
 # packages/vscode/package.json. The tag runs the checks, publishes the extension to the VS Code Marketplace and
 # to Open VSX, then publishes a GitHub release with the .vsix attached. It never touches the site or npm:
 # release.yml owns the vX.Y.Z tags and release-core.yml the core-vX.Y.Z tags, and no filter matches another's.
-# Two secrets are needed, and only the publish job sees them:
-#   VSCE_PAT: an Azure DevOps personal access token with the Marketplace "Manage" scope (all accessible
-#             organizations), for the publisher arnaugiralt.
-#   OVSX_PAT: an Open VSX access token, with the namespace arnaugiralt created (ovsx create-namespace).
-# The first publish can come from this workflow once both exist. Push one tag at a time: GitHub sends no event
+# Both registries use trusted publishing (GitHub OIDC, no stored token). Each needs a trusted publisher for repo
+# arnaugiralt/leggio and workflow release-vscode.yml: on the Marketplace for publisher arnaugiralt, and on Open VSX
+# for namespace arnaugiralt. An OVSX_PAT secret, if set, makes ovsx use it instead of OIDC. Push one tag at a time: GitHub sends no event
 # for more than three tags in one push.
 name: release-vscode
 on:
@@ -36,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write # trusted publishing to both registries
     steps:
       # Actions are pinned to commits: this job can publish to both registries.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -63,15 +62,13 @@ jobs:
           vsix="$RUNNER_TEMP/leggio-$version.vsix"
           (cd packages/vscode && pnpm dlx @vscode/vsce@4.1.0 package --no-dependencies --out "$vsix")
           echo "vsix=$vsix" >> "$GITHUB_OUTPUT"
-      # Each token is in the environment only for the step whose tool needs it: pnpm dlx fetches vsce and ovsx with
-      # dependencies the lockfile doesn't cover. Both tools read the token from the environment, never a flag.
       # --skip-duplicate lets a re-run after a partial publish pass: a registry that has this version is skipped.
       - name: Publish to the Marketplace
         working-directory: packages/vscode
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
           VSIX: ${{ steps.package.outputs.vsix }}
-        run: pnpm dlx @vscode/vsce@4.1.0 publish --no-dependencies --skip-duplicate --packagePath "$VSIX"
+        run: pnpm dlx @vscode/vsce@4.1.0 publish --oidc --no-dependencies --skip-duplicate --packagePath "$VSIX"
+      # With no OVSX_PAT, ovsx exchanges the job's OIDC token. The secret stays only as a fallback, in this step alone.
       - name: Publish to Open VSX
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
