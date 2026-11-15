@@ -31,4 +31,6 @@ function apply() {
 
 apply()
 window.addEventListener('vscode.markdown.updateContent', apply)
-new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['class'] })
+// childList: VS Code appends the first render to <body> on DOMContentLoaded with no updateContent event, and this async script
+// can run before that. A settings change reloads the whole preview, so it is a first render too.
+new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true })

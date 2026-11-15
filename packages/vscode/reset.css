@@ -1,6 +1,9 @@
 /* Cancels what VS Code's markdown.css and highlight.css set and prose.css doesn't, so the preview reads as Leggio.
    Every rule starts with body.leggio so it outranks VS Code's own .vscode-dark and .vscode-light rules. */
 
+/* markdown.css sets the root to markdown.preview.fontSize (14px), and the look sizes text in rem from a 16px root. */
+html:has(> body.leggio) { font-size: 100%; }
+
 body.leggio :is(h1, h2) { border: 0; padding-bottom: 0; }
 body.leggio :is(h5, h6) { margin: 1.8em 0 0.5em; line-height: 1.25; }
 body.leggio p { margin: 1em 0; }
