@@ -1,6 +1,6 @@
 import { LOOK, PRESETS, DARK, DIAGRAM_THEMES, effective, lookVars } from '@leggio/core'
 
-// The same bounds as CHECKS in the app's src/settings.js. package.json repeats them as minimum and maximum.
+// The same bounds as CHECKS in packages/app/src/settings.js. package.json repeats them as minimum and maximum.
 export const BOUNDS = {
   fontSize: [10, 40],
   fontWeight: [100, 900],

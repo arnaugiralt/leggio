@@ -12,6 +12,11 @@ A markdown reader built for reading. Calm, customizable, offline, private.
 
 Most markdown apps are editors with a preview on the side. Leggio is only the page, and it tries to be a very good page: a calm layout, type you choose, diagrams drawn in place, and a voice that reads it to you. Notes, documentation and the README of a project you just cloned get the layout and type of a book, not of a source file.
 
+The same page is also in two other places:
+
+- **[Leggio for VS Code](https://marketplace.visualstudio.com/items?itemName=arnaugiralt.leggio)** gives VS Code's markdown preview Leggio's look, set in VS Code's settings.
+- **[@leggio/core](https://www.npmjs.com/package/@leggio/core)** is the renderer and the reading styles as an npm package, for your own app.
+
 ## Features
 
 - **Files and folders.** Open or drop a file, or open a whole folder and browse its markdown files in the Files panel, by mouse or keyboard. Search the folder by file name and text. Relative links and images work, and the page reloads when the file changes on disk.
@@ -54,20 +59,20 @@ A recent browser, on a computer or a phone. Chrome or Edge on a computer works b
 
 ## Develop
 
-You need Node.js 24 or newer and pnpm 10.
+You need Node.js 24 or newer and pnpm 11. The repo is a pnpm workspace: the app is in `packages/app`, `@leggio/core` in `packages/core` and the VS Code extension in `packages/vscode`.
 
 ```sh
 pnpm install
 pnpm dev      # http://localhost:8000, rebuilds on change
-pnpm test
-pnpm build    # writes site/, the folder to deploy
-pnpm serve    # build, then serve site/ on http://localhost:8765
+pnpm test     # every package
+pnpm build    # writes packages/app/site/, the folder to deploy
+pnpm serve    # build, then serve packages/app/site/ on http://localhost:8765
 ```
 
-`site/` is a static site. Upload it to any static host, or see [AGENTS.md](AGENTS.md) for how this one deploys. To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md).
+`packages/app/site/` is a static site. Upload it to any static host, or see [AGENTS.md](AGENTS.md) for how this one deploys. To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Built with Preact, markdown-it, highlight.js, beautiful-mermaid and esbuild: thirteen packages in total, at exact versions, with install scripts disabled. The icons are paths copied from [Lucide](https://lucide.dev) (ISC), not a dependency.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Bundled third-party licenses are listed in `site/THIRD_PARTY_NOTICES.txt` after a build. The layout engine elkjs is EPL-2.0; its source is at https://github.com/kieler/elkjs.
+MIT, see [LICENSE](LICENSE). Bundled third-party licenses are listed in `packages/app/site/THIRD_PARTY_NOTICES.txt` after a build. The layout engine elkjs is EPL-2.0; its source is at https://github.com/kieler/elkjs.

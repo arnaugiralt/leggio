@@ -31,7 +31,7 @@ Open an [issue](https://github.com/arnaugiralt/leggio/issues) with the steps to 
 
 ## Set up
 
-You need Node.js 24 or newer and pnpm 10.
+You need Node.js 24 or newer and pnpm 11.
 
 ```sh
 pnpm install   # exact versions, install scripts disabled
