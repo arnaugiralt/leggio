@@ -2,7 +2,7 @@
   "name": "leggio",
   "displayName": "Leggio",
   "description": "Reads markdown the way Leggio does: a calm look for the built-in preview, with diagrams, task lists, and your own fonts and colors.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "arnaugiralt",
   "private": true,
   "type": "module",
