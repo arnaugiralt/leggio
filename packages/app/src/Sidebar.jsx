@@ -306,6 +306,20 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
   }, [current?.root, folder?.handle])
   const activePath = sameRoot && current.dirPath ? [...current.dirPath, current.name].join('/') : null
 
+  // Is the open folder itself pinned? Only its subfolders have a row with a pin.
+  const [folderPinned, setFolderPinned] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      let found = false
+      if (folder) for (const item of pinned) if (item.kind === 'directory' && (await fs.isSame(item.handle, folder.handle))) found = true
+      if (!cancelled) setFolderPinned(found)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [folder?.handle, pinned])
+
   useEffect(() => rove(box.current))
 
   // A link to a folder: expand it and its parents, then bring its row into view once they are rendered.
@@ -362,7 +376,16 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
       </section>}
       {(folder || fs.canOpenFolders) && <section>
         <h2>
-          <span class="row-name">{folder ? folder.name : 'Folder'}</span>
+          <span class="heading-name">
+            <span class="row-name">{folder ? folder.name : 'Folder'}</span>
+            {/* Over the end of the name and shown on hover or focus, like a row's pin, so it takes no room from the name.
+                A copy can't be reopened after a reload, so it can't be pinned. */}
+            {folder && !folder.handle.copy && (
+              <button type="button" class="pin" aria-label={`${folderPinned ? 'Unpin' : 'Pin'} ${folder.name}`} onClick={() => onTogglePin({ kind: 'directory', name: folder.name, handle: folder.handle })}>
+                {folderPinned ? 'Unpin' : 'Pin'}
+              </button>
+            )}
+          </span>
           {/* The last folder can come back with one click (its permission is asked from that click). */}
           {restorable ? (
             <button type="button" class="quiet small" onClick={onRestore}>
