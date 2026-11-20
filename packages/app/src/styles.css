@@ -500,6 +500,8 @@ html:has(dialog.lightbox[open]) {
   color: var(--ui-muted);
 }
 .sidebar h2 .quiet { white-space: nowrap; flex-shrink: 0; }
+.section-toggle { display: flex; align-items: center; gap: 0.25rem; min-width: 0; min-height: 24px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.section-toggle:hover { color: var(--color-fg); }
 .quiet.small { padding: 0.25rem 0.5rem; font-size: 0.75rem; min-height: 24px; } /* WCAG 2.2 target size */
 .side-hint { margin: 0 0.5rem; font-size: 0.78rem; color: var(--ui-faint); }
 .side-hint:empty { display: none; }
@@ -918,7 +920,7 @@ html:has(dialog.lightbox[open]) {
   .bar .quiet, .bar-menu .quiet, .menu-item, .row-main, .notice .quiet, .sheet-close, .empty .quiet, #settings :is(button, select, input:not([type="color"])) { min-height: 44px; }
   .bar .quiet, .notice .quiet, .sheet-close { min-width: 44px; }
   .stepper { grid-template-columns: 44px 1fr 44px; }
-  #settings summary, #files h2 .quiet { min-height: 44px; }
+  #settings summary, #files h2 .quiet, #files .section-toggle { min-height: 44px; }
   .stepper .quiet { height: auto; }
   .bar, .notice { transition: transform 200ms var(--ease-out); }
   .bar-hidden .bar { transform: translateY(-100%); }
