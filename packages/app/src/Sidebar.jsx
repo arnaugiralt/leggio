@@ -16,6 +16,30 @@ function loadFolded() {
   }
 }
 
+// Which subfolders are folded in the tree, by folder name, then by path inside it. A handle has no stable id to key
+// on, so two folders with the same name share their folds; a path that isn't in the tree is simply ignored.
+const TREE_KEY = 'leggio.tree-folded'
+const TREE_FOLDERS = 20 // folders remembered, most recent last
+
+function loadTree(name) {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(TREE_KEY) ?? '{}')[name] ?? [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveTree(name, keys) {
+  try {
+    const all = JSON.parse(localStorage.getItem(TREE_KEY) ?? '{}')
+    delete all[name]
+    if (keys.size) all[name] = [...keys]
+    const names = Object.keys(all)
+    for (const old of names.slice(0, Math.max(0, names.length - TREE_FOLDERS))) delete all[old]
+    localStorage.setItem(TREE_KEY, JSON.stringify(all))
+  } catch {}
+}
+
 // A section's heading: its name folds and unfolds it; the actions after it stay visible while it is folded.
 // Without an id there is nothing to fold (the folder section before a folder is open).
 // `pin` floats over the end of the name (see the folder heading), so it sits with the name, outside the toggle button.
@@ -324,7 +348,16 @@ function Search({ folder, onOpenFile, query, setQuery }) {
 // Pinned items, recent documents, the open folder's markdown tree, and search in that folder. Folders start expanded; collapse
 // state is keyed by path.
 export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, onOpenPinned, onOpenRecent, onForgetRecent, onPickFolder, onTogglePin, query, setQuery, restorable, onRestore }) {
-  const [collapsed, setCollapsed] = useState(() => new Set())
+  const [collapsed, setCollapsed] = useState(() => (folder ? loadTree(folder.name) : new Set()))
+  // The folder `collapsed` was loaded for, so a fold of one folder is never saved under the next one's name.
+  const treeOf = useRef(folder?.name)
+  useEffect(() => {
+    treeOf.current = folder?.name
+    setCollapsed(folder ? loadTree(folder.name) : new Set())
+  }, [folder?.handle])
+  useEffect(() => {
+    if (folder && treeOf.current === folder.name) saveTree(folder.name, collapsed)
+  }, [collapsed])
   const [folded, setFolded] = useState(loadFolded)
   const fold = id =>
     setFolded(prev => {
