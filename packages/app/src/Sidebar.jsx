@@ -1,9 +1,43 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import * as fs from './fs.js'
-import { FileText, Folder, FolderOpen, X } from './icons.jsx'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, X } from './icons.jsx'
 import { where } from './recent.js'
 
 const RECENT_ROWS = 5 // the panel is narrow; the list keeps 10
+const FOLDED_KEY = 'leggio.folded'
+
+// Which sections of the panel are folded, by id. Stored here and not with the UI state in App.jsx, which isn't saved
+// at narrow width, so a fold made on a phone would never stick.
+function loadFolded() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
+// A section's heading: its name folds and unfolds it; the actions after it stay visible while it is folded.
+// Without an id there is nothing to fold (the folder section before a folder is open).
+// `pin` floats over the end of the name (see the folder heading), so it sits with the name, outside the toggle button.
+function SectionHead({ id, label, folded, onFold, pin, children }) {
+  const isFolded = folded.has(id)
+  return (
+    <h2>
+      <span class="heading-name">
+        {id ? (
+          <button type="button" class="section-toggle" aria-expanded={!isFolded} onClick={() => onFold(id)}>
+            {isFolded ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            <span class="row-name">{label}</span>
+          </button>
+        ) : (
+          <span class="row-name">{label}</span>
+        )}
+        {pin}
+      </span>
+      {children}
+    </h2>
+  )
+}
 
 function PinButton({ item, label = 'Pin', onTogglePin }) {
   if (item.handle.copy) return null // a pin reopens its file after a reload, and a copy cannot be reopened
@@ -291,6 +325,16 @@ function Search({ folder, onOpenFile, query, setQuery }) {
 // state is keyed by path.
 export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, onOpenPinned, onOpenRecent, onForgetRecent, onPickFolder, onTogglePin, query, setQuery, restorable, onRestore }) {
   const [collapsed, setCollapsed] = useState(() => new Set())
+  const [folded, setFolded] = useState(loadFolded)
+  const fold = id =>
+    setFolded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      try {
+        localStorage.setItem(FOLDED_KEY, JSON.stringify([...next]))
+      } catch {}
+      return next
+    })
   const box = useRef()
   // The document keeps the folder it was opened in; its row only shows when that is the folder in the tree.
   const [sameRoot, setSameRoot] = useState(false)
@@ -325,6 +369,7 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
   // A link to a folder: expand it and its parents, then bring its row into view once they are rendered.
   useEffect(() => {
     if (!reveal) return
+    if (folded.has('folder')) fold('folder') // the link asked for this folder, so its section can't stay folded
     const keys = reveal.path.map((_, i) => reveal.path.slice(0, i + 1).join('/'))
     setCollapsed(prev => new Set([...prev].filter(k => !keys.includes(k))))
     requestAnimationFrame(() => document.querySelector(`#files [data-path="${CSS.escape(keys[keys.length - 1])}"]`)?.scrollIntoView({ block: 'nearest' }))
@@ -340,8 +385,8 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
   return (
     <div class="sidebar" ref={box}>
       {pinned.length > 0 && <section>
-        <h2>Pinned</h2>
-        <ul class="tree" role="tree" aria-label="Pinned" onKeyDown={onTreeKey}>
+        <SectionHead id="pinned" label="Pinned" folded={folded} onFold={fold} />
+        {!folded.has('pinned') && <ul class="tree" role="tree" aria-label="Pinned" onKeyDown={onTreeKey}>
           {pinned.map(item => (
             <li key={item.id} role="none">
               <div class={`row${item.missing ? ' missing' : ''}`}>
@@ -353,14 +398,13 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
               </div>
             </li>
           ))}
-        </ul>
+        </ul>}
       </section>}
       {recent.length > 0 && <section>
-        <h2>
-          <span class="row-name">Recent</span>
+        <SectionHead id="recent" label="Recent" folded={folded} onFold={fold}>
           <button type="button" class="quiet small" aria-label="Forget recent documents" onClick={onForgetRecent}>Forget</button>
-        </h2>
-        <ul class="tree" role="tree" aria-label="Recent" onKeyDown={onTreeKey}>
+        </SectionHead>
+        {!folded.has('recent') && <ul class="tree" role="tree" aria-label="Recent" onKeyDown={onTreeKey}>
           {recent.slice(0, RECENT_ROWS).map(entry => (
             <li key={entry.key ?? entry.when} role="none">
               <div class="row">
@@ -372,20 +416,24 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
               </div>
             </li>
           ))}
-        </ul>
+        </ul>}
       </section>}
       {(folder || fs.canOpenFolders) && <section>
-        <h2>
-          <span class="heading-name">
-            <span class="row-name">{folder ? folder.name : 'Folder'}</span>
-            {/* Over the end of the name and shown on hover or focus, like a row's pin, so it takes no room from the name.
-                A copy can't be reopened after a reload, so it can't be pinned. */}
-            {folder && !folder.handle.copy && (
+        <SectionHead
+          id={folder ? 'folder' : null}
+          label={folder ? folder.name : 'Folder'}
+          folded={folded}
+          onFold={fold}
+          pin={
+            // Over the end of the name and shown on hover or focus, like a row's pin, so it takes no room from the name.
+            // A copy can't be reopened after a reload, so it can't be pinned.
+            folder && !folder.handle.copy && (
               <button type="button" class="pin" aria-label={`${folderPinned ? 'Unpin' : 'Pin'} ${folder.name}`} onClick={() => onTogglePin({ kind: 'directory', name: folder.name, handle: folder.handle })}>
                 {folderPinned ? 'Unpin' : 'Pin'}
               </button>
-            )}
-          </span>
+            )
+          }
+        >
           {/* The last folder can come back with one click (its permission is asked from that click). */}
           {restorable ? (
             <button type="button" class="quiet small" onClick={onRestore}>
@@ -398,10 +446,10 @@ export function Sidebar({ reveal, folder, pinned, recent, current, onOpenFile, o
               </button>
             )
           )}
-        </h2>
-        {folder && folder.tree.children.length > 0 && <Search folder={folder} onOpenFile={onOpenFile} query={query} setQuery={setQuery} />}
-        {folder && !folder.tree.children.length && <p class="side-hint">No markdown files in {folder.name}.</p>}
-        {folder && !query.trim() && <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} label={folder.name} />}
+        </SectionHead>
+        {folder && !folded.has('folder') && folder.tree.children.length > 0 && <Search folder={folder} onOpenFile={onOpenFile} query={query} setQuery={setQuery} />}
+        {folder && !folded.has('folder') && !folder.tree.children.length && <p class="side-hint">No markdown files in {folder.name}.</p>}
+        {folder && !folded.has('folder') && !query.trim() && <Tree node={folder.tree} root={folder.handle} path={[]} collapsed={collapsed} toggle={toggle} activePath={activePath} onOpenFile={onOpenFile} onTogglePin={onTogglePin} label={folder.name} />}
       </section>}
     </div>
   )
