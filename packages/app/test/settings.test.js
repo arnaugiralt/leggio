@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULTS, STORAGE_KEY, load, save, isDefaultLook } from '../src/settings.js'
+import { DEFAULTS, STORAGE_KEY, load, save, isDefaultLook, withFamily, withoutFamily, fontSpecs } from '../src/settings.js'
+import { LOOK_CHECKS } from '@leggio/core'
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -65,4 +66,22 @@ test('settings saved before followSystem follow only if the look is still Defaul
   assert.equal(stored({ bg: '#000000', followSystem: true }).followSystem, true)
   assert.equal(isDefaultLook({ ...DEFAULTS, fontSize: 20 }), true)
   assert.equal(isDefaultLook({ ...DEFAULTS, accent: '#000000' }), false)
+})
+
+test('fonts are added and removed by name, keeping the other families as written', () => {
+  const literata = 'https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&display=swap'
+  const both = withFamily(literata, 'Bricolage+Grotesque:wght@200..800')
+  assert.equal(both, 'https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Bricolage+Grotesque:wght@200..800&display=swap')
+  assert.equal(withoutFamily(both, 'Bricolage Grotesque'), literata)
+  assert.equal(withoutFamily(literata, 'Literata'), '')
+  assert.equal(withFamily('', 'Lora'), 'https://fonts.googleapis.com/css2?family=Lora&display=swap')
+})
+
+test('a font name becomes Google Fonts specs, widest first, and nothing that could change the address', () => {
+  const specs = fontSpecs('IBM Plex Mono')
+  assert.equal(specs[0], 'IBM+Plex+Mono:ital,wght@0,100..900;1,100..900')
+  assert.ok(specs.includes('IBM+Plex+Mono:ital,wght@0,400;0,600;1,400;1,600'))
+  assert.equal(specs.at(-1), 'IBM+Plex+Mono')
+  assert.ok(specs.every(s => LOOK_CHECKS.fontUrl(withFamily('', s))))
+  for (const bad of ['', 'Lora&family=Evil', 'Lora:wght@400', 'x;y', 'a'.repeat(61)]) assert.deepEqual(fontSpecs(bad), [])
 })

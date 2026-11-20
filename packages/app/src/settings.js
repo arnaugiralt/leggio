@@ -1,6 +1,6 @@
 import { LOOK, LOOK_DEFAULTS, LOOK_CHECKS, isDefaultLook } from '@leggio/core'
 
-export { LOOK, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective, completeTheme, applyFontUrl, isDefaultLook } from '@leggio/core'
+export { LOOK, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, themeLabel, fontName, fontOptions, matchesPreset, effective, completeTheme, applyFontUrl, isDefaultLook, families } from '@leggio/core'
 
 export const STORAGE_KEY = 'leggio.settings'
 
@@ -83,3 +83,33 @@ export function readSettingsFile(text) {
   const themes = Array.isArray(data.themes) ? data.themes : Array.isArray(s.themes) ? s.themes : []
   return { settings: passing(s, Object.keys(CHECKS)), themes: themes.flatMap(readTheme).slice(0, 50) }
 }
+
+// Fonts are added by family name; the look still keeps one Google Fonts address, so themes, settings files and
+// the extension read it as before. A family's spec is kept as written ("Literata:ital,wght@…") when the address is rebuilt.
+const FONTS_API = 'https://fonts.googleapis.com/css2?'
+const specsOf = url => {
+  try {
+    return new URL(url).searchParams.getAll('family')
+  } catch {
+    return []
+  }
+}
+const urlOf = specs => (specs.length ? `${FONTS_API}${specs.map(s => `family=${s.replace(/ /g, '+')}`).join('&')}&display=swap` : '')
+export const withFamily = (url, spec) => urlOf([...specsOf(url), spec])
+export const withoutFamily = (url, name) => urlOf(specsOf(url).filter(s => s.split(':')[0].trim() !== name))
+
+// Google Fonts refuses an axis range a family doesn't have, so the widest is asked first, italics before none.
+// 400 and 600 are what the text and bold use; a bare name gets 400 alone.
+const WEIGHTS = ['100..900', '200..900', '100..800', '200..800', '300..800', '300..700', '400..700', '400;600', '400;700']
+export function fontSpecs(name) {
+  if (!name || !LOOK_CHECKS.textFont(name)) return [] // the name goes into an address: no & : or ;
+  const family = name.replace(/ /g, '+')
+  return [
+    ...WEIGHTS.flatMap(w => {
+      const list = w.split(';')
+      return [`${family}:ital,wght@${[0, 1].flatMap(i => list.map(x => `${i},${x}`)).join(';')}`, `${family}:wght@${w}`]
+    }),
+    family,
+  ]
+}
+export const fontProbeUrl = spec => urlOf([spec])

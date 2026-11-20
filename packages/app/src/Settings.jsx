@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { DEFAULTS, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile } from './settings.js'
+import { DEFAULTS, LOOK_BOUNDS, DIAGRAM_THEMES, PRESETS, DARK, LOOK, themeLabel, fontName, fontOptions, matchesPreset, effective, exportSettings, readSettingsFile, families, fontSpecs, fontProbeUrl, withFamily, withoutFamily } from './settings.js'
 import * as speech from './speech.js'
 
 // The same limits an imported settings file is checked against.
@@ -44,24 +44,10 @@ const READING = [
 
 const TEXT_SIZE = bounds('fontSize')
 
-const FONT_URL = {
-  key: 'fontUrl',
-  label: 'Google Fonts link',
-  type: 'url',
-  placeholder: 'https://fonts.googleapis.com/css2?family=…',
-  hint: 'Every family in the link is offered to the three fonts above. Ask for 400 and 600; bold text and headings use 600.',
-}
-
-const FONT_URL_PREFIX = 'https://fonts.googleapis.com/'
-const FONT_URL_ERROR = 'Use a link that starts with https://fonts.googleapis.com/css2'
-
 // Numbers commit on Enter, on blur and on the stepper arrows, so "18" never passes through 1px.
-// The URL applies as it is typed, but only once it is valid. Until then the text is a draft
-// here, and the settings keep the last good value.
 function Field({ field, value, options, onInput }) {
   const { key, label, type, hint, role, unit, ...attrs } = field
   const [draft, setDraft] = useState(null)
-  const [error, setError] = useState(false)
   useEffect(() => setDraft(null), [value]) // an outside change (preset, reset, undo) wins over a stale draft
   const commit = input => {
     setDraft(null)
@@ -71,13 +57,6 @@ function Field({ field, value, options, onInput }) {
     // Typing is an InputEvent; the stepper arrows and ArrowUp/Down fire a plain Event.
     if (e instanceof InputEvent) setDraft(e.currentTarget.value)
     else commit(e.currentTarget)
-  }
-  const onUrlInput = e => {
-    const input = e.currentTarget
-    const ok = !input.value || input.value.startsWith(FONT_URL_PREFIX)
-    setError(!ok)
-    if (ok) onInput(key, type, input)
-    else setDraft(input.value)
   }
   // options: [value, text] pairs, or [group label, [[value, text], …]] for an optgroup.
   const control =
@@ -105,8 +84,6 @@ function Field({ field, value, options, onInput }) {
         />
         <span class="unit">{unit}</span>
       </span>
-    ) : type === 'url' ? (
-      <input type={type} {...attrs} value={draft ?? value} aria-invalid={error} onInput={onUrlInput} />
     ) : (
       <input type={type} {...attrs} value={value} onInput={e => onInput(key, type, e.currentTarget)} />
     )
@@ -115,8 +92,66 @@ function Field({ field, value, options, onInput }) {
       <span class="field-label">{label}</span>
       {control}
       {hint && <span class="field-hint">{hint}</span>}
-      {error && <span class="field-hint field-error" role="alert">{FONT_URL_ERROR}</span>}
     </label>
+  )
+}
+
+// Fonts are loaded by name, and a name is tried against Google Fonts before it is kept, so a typo is caught
+// here instead of leaving a font that quietly falls back to the system one. This sits inside the settings
+// form, so it has no form of its own: Enter is caught on the field.
+function GoogleFonts({ url, onChange }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const loaded = families(url)
+  async function load() {
+    const family = name.trim().replace(/\s+/g, ' ')
+    setError('')
+    if (!family || busy) return
+    if (loaded.includes(family)) return setName('')
+    setBusy(true)
+    // All at once, then the first that works in the ladder's order: one round trip instead of up to nineteen.
+    const tries = fontSpecs(family).map(spec => fetch(fontProbeUrl(spec)).then(r => r.ok && spec, () => false))
+    let found = false
+    for (const t of tries) if ((found = await t)) break
+    setBusy(false)
+    if (found) {
+      onChange(withFamily(url, found))
+      setName('')
+    } else {
+      setError(navigator.onLine ? `${family} isn't on Google Fonts. Check the exact name, such as Bricolage Grotesque.` : 'Loading a font needs a connection.')
+    }
+  }
+  return (
+    <div class="font-load">
+      <label class="field field-font-name">
+        <span class="field-label">Load a font by name</span>
+        <span class="font-load-row">
+          <input
+            value={name}
+            placeholder="Bricolage Grotesque"
+            spellcheck={false}
+            autocomplete="off"
+            aria-invalid={!!error}
+            onInput={e => setName(e.currentTarget.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), load())}
+          />
+          <button type="button" class="quiet" disabled={busy} onClick={load}>{busy ? 'Loading…' : 'Load'}</button>
+        </span>
+        {error && <span class="field-hint field-error" role="alert">{error}</span>}
+        <span class="field-hint">Every font loaded here is offered to the three fonts above.</span>
+      </label>
+      {loaded.length > 0 && (
+        <ul class="font-chips" aria-label="Loaded fonts">
+          {loaded.map(f => (
+            <li key={f}>
+              {f}
+              <button type="button" class="quiet" aria-label={`Remove ${f}`} onClick={() => onChange(withoutFamily(url, f))}>×</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -473,7 +508,7 @@ export function Settings({ settings, onChange, open, dark, themes, onThemes, onI
             {group.title === 'Fonts' && (
               <details class="google-fonts" open={!!settings.fontUrl}>
                 <summary>Google Fonts</summary>
-                <Field field={FONT_URL} value={settings.fontUrl} onInput={update} />
+                <GoogleFonts url={settings.fontUrl} onChange={fontUrl => onChange({ fontUrl })} />
               </details>
             )}
           </fieldset>
