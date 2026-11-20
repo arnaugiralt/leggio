@@ -598,6 +598,9 @@ html:has(dialog.lightbox[open]) {
 .row:hover .pin, .row:focus-within .pin { opacity: 1; }
 @media (hover: none) { .pin { opacity: 1; } } /* touch has no hover to reveal it */
 .pin:hover { color: var(--color-fg); }
+.heading-name { position: relative; flex: 1; display: flex; min-width: 0; }
+.heading-name .pin { position: absolute; right: 0; top: 50%; transform: translateY(-50%); margin-right: 0; background: var(--color-bg); font-weight: 400; }
+.sidebar h2:hover .pin, .sidebar h2:focus-within .pin { opacity: 1; }
 
 .settings fieldset {
   margin: 0 0 1.25rem;
