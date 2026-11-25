@@ -101,12 +101,13 @@ export function Viewer({ text, articleRef, root, dirPath, onFollow, onJump, onRe
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), [])
 
   function zoom(target) {
-    const svg = target.closest('.diagram')?.querySelector('svg')
+    const fig = target.closest('.diagram')
+    const svg = fig?.querySelector('svg')
     if (!svg) return false
     // The viewBox ratio sizes the dialog to the diagram: without it the svg letterboxes
     // inside a full-viewport box and the lightbox is mostly empty background.
     const [, , w, h] = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
-    setZoomed({ html: svg.outerHTML, ratio: w && h ? w / h : null })
+    setZoomed({ html: svg.outerHTML, ratio: w && h ? w / h : null, source: fig.dataset.source })
     return true
   }
 
@@ -156,11 +157,66 @@ function note(img, text, kind) {
   img.after(span)
 }
 
+const canCopyImage = typeof ClipboardItem !== 'undefined'
+
+// The svg draws its colors from --diagram-* on the page, which an image loaded on its own can't see.
+// Each one is resolved here and written on the copy, and the background is painted under it.
+function png(svg) {
+  const [, , w, h] = svg.getAttribute('viewBox').split(/[\s,]+/).map(Number)
+  // 2x for sharpness, but within 16 million pixels: past its area cap Safari draws an empty canvas without an error.
+  const scale = Math.min(2, Math.sqrt(16e6 / (w * h)))
+  const width = Math.ceil(w * scale)
+  const height = Math.ceil(h * scale)
+  const style = getComputedStyle(svg)
+  const copy = svg.cloneNode(true)
+  for (const name of ['bg', 'fg', 'line', 'accent', 'muted']) {
+    const value = style.getPropertyValue(`--${name}`).trim()
+    // An unset --diagram-line or --diagram-muted leaves the svg's own fallback in charge.
+    if (value) copy.style.setProperty(`--${name}`, value)
+    else copy.style.removeProperty(`--${name}`)
+  }
+  copy.setAttribute('width', width)
+  copy.setAttribute('height', height)
+  const img = new Image()
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`
+  return img.decode().then(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = style.backgroundColor
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    return new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/png'))
+  })
+}
+
 // <dialog> carries the top layer, the backdrop, focus containment and Esc; only the
 // backdrop click is ours. Mounted on demand, so there is no exit transition to stage.
-function Lightbox({ html, ratio, onClose }) {
+function Lightbox({ html, ratio, source, onClose }) {
   const ref = useRef(null)
+  const [done, setDone] = useState(null) // { kind, text }: the button that was pressed says how it went
   useEffect(() => ref.current.showModal(), [])
+  useEffect(() => {
+    if (!done) return
+    const t = setTimeout(() => setDone(null), 2000)
+    return () => clearTimeout(t)
+  }, [done])
+
+  // The open dialog covers the notice slot, so the result shows on the button itself.
+  async function copy(kind) {
+    try {
+      if (kind === 'code') await navigator.clipboard.writeText(source)
+      // The clipboard gets the promise, not the blob: drawing is async, and a write after an await may no
+      // longer count as part of the click.
+      else await navigator.clipboard.write([new ClipboardItem({ 'image/png': png(ref.current.querySelector('.lightbox-svg svg')) })])
+      setDone({ kind, text: 'Copied', said: kind === 'code' ? 'Diagram code copied.' : 'Diagram image copied.' })
+    } catch {
+      setDone({ kind, text: "Couldn't copy", said: "Couldn't copy the diagram." })
+    }
+  }
+  const label = (kind, text) => (done?.kind === kind ? done.text : text)
+
   return (
     <dialog
       ref={ref}
@@ -169,10 +225,25 @@ function Lightbox({ html, ratio, onClose }) {
       onClose={onClose}
       onClick={() => ref.current.close()} // the whole surface is the way out; the svg fills it
     >
-      <button type="button" class="lightbox-close quiet" aria-label="Close" title="Close (Esc)">
-        <X size={18} />
-      </button>
-      {/* own element, so the button above is not wiped when the svg is set */}
+      <div class="lightbox-bar">
+        {source != null && (
+          <button type="button" class="quiet" onClick={e => (e.stopPropagation(), copy('code'))}>
+            {label('code', 'Copy code')}
+          </button>
+        )}
+        {canCopyImage && (
+          <button type="button" class="quiet" onClick={e => (e.stopPropagation(), copy('image'))}>
+            {label('image', 'Copy image')}
+          </button>
+        )}
+        <button type="button" class="lightbox-close quiet" aria-label="Close" title="Close (Esc)" autofocus>
+          <X size={18} />
+        </button>
+      </div>
+      {/* A focused button's new label isn't reliably read out, so the result is also said here. Always
+          mounted: a live region that appears with its text is often not announced. */}
+      <span class="visually-hidden" role="status">{done?.said}</span>
+      {/* own element, so the bar above is not wiped when the svg is set */}
       <div class="lightbox-svg" dangerouslySetInnerHTML={{ __html: html }} />
     </dialog>
   )

@@ -33,6 +33,8 @@ const html = md.render('# Hello', { localImages: 'keep' }) // the render env ove
 
 Options: `headingIds`, `taskLists`, `footnotes` and `diagrams` (all on by default), `localImages` (`'defer'` or `'keep'`) and `webImages` (`'load'` or `'defer'`).
 
+A mermaid diagram renders as inline SVG in `<figure class="diagram" data-source="…">`. `data-source` holds the diagram's source, for a host that offers to copy it.
+
 Get the look as CSS, for a host with no DOM:
 
 ```js

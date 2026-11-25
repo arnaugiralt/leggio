@@ -37,6 +37,15 @@ body {
   outline-offset: 2px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Chrome: bar, buttons */
 
 .bar {
@@ -400,13 +409,26 @@ kbd {
    and the dialog wraps it. --diagram-ar comes from the svg's viewBox. */
 .lightbox-svg svg {
   display: block;
-  width: min(100vw - 5rem, (100vh - 5rem) * var(--diagram-ar, 1));
+  width: min(100vw - 5rem, (100vh - 7rem) * var(--diagram-ar, 1));
   height: auto;
+  margin-inline: auto; /* a tall, narrow diagram can be narrower than the bar, which then sets the dialog's width */
+}
+/* Above the svg, not over it: a corner of the diagram can hold a label. The height cap above leaves 2rem
+   more than it did before the bar, for the bar. */
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: -0.4rem -0.4rem 0.6rem;
+}
+/* The dialog wears the diagram's background, which a named diagram theme makes differ from the page's. */
+.lightbox-bar .quiet:not(.lightbox-close) { color: var(--diagram-fg, var(--color-fg)); }
+.lightbox :focus-visible { outline-color: var(--diagram-fg, var(--color-accent)); }
+@media (hover: hover) and (pointer: fine) {
+  .lightbox-bar .quiet:not(.lightbox-close):hover { background: color-mix(in oklab, var(--diagram-fg, var(--color-fg)) 10%, transparent); }
 }
 .lightbox-close {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
+  margin-left: auto;
   display: inline-flex;
   padding: 0.35rem;
   border-radius: 999px;

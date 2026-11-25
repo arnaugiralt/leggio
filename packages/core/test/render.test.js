@@ -44,7 +44,7 @@ test('leaves unknown languages as escaped plain code', () => {
 })
 
 test('renders supported mermaid as inline svg', () => {
-  assert.match(out, /<figure class="diagram"><svg /)
+  assert.match(out, /<figure class="diagram" data-source="[^"]*"><svg /)
   assert.match(out, /--bg:var\(--diagram-bg\)/)
   assert.match(out, /--line:var\(--diagram-line\)/)
   assert.doesNotMatch(out, /--bg:var\(--bg\)/)
@@ -86,9 +86,14 @@ test('linkifies bare urls', () => {
   assert.match(out, /<a href="https:\/\/example.com">https:\/\/example.com<\/a>/)
 })
 
+test('a diagram keeps its source, escaped, in data-source', () => {
+  const html = render('```mermaid\ngraph TD\n  A["<b>&"] --> B\n```')
+  assert.match(html, /data-source="graph TD\n  A\[&quot;&lt;b&gt;&amp;&quot;\] --&gt; B\n"/)
+})
+
 test('class diagrams carry no font imports or web font names', () => {
   const svg = render('```mermaid\nclassDiagram\n  class A {\n    +int x\n  }\n  A <|-- B\n```')
-  assert.match(svg, /<figure class="diagram"><svg /)
+  assert.match(svg, /<figure class="diagram" data-source="[^"]*"><svg /)
   assert.doesNotMatch(svg, /fonts\.googleapis|Inter|JetBrains/)
   assert.match(svg, /text \{ font-family: system-ui, sans-serif; \}/)
   assert.match(svg, /\.mono \{ font-family: ui-monospace, monospace; \}/)
@@ -141,10 +146,13 @@ test('mermaid labels are escaped', () => {
 })
 
 // A diagram style can point a fill at a web URL, which the browser fetches as soon as the SVG is on the page.
+// Only the svg can fetch: the source in data-source is inert text and keeps the address as written.
+const svgOf = html => html.slice(html.indexOf('<svg'))
+
 test('share mode drops web urls from diagrams', () => {
   const src = '```mermaid\nflowchart LR\n  A --> B\n  style A fill:url(https://x.test/a.png)\n```'
-  assert.match(render(src), /x\.test/) // not a share: the reader's own file keeps its style
-  assert.doesNotMatch(render(src, { webImages: 'defer' }), /x\.test/)
+  assert.match(svgOf(render(src)), /x\.test/) // not a share: the reader's own file keeps its style
+  assert.doesNotMatch(svgOf(render(src, { webImages: 'defer' })), /x\.test/)
 })
 
 // Obsidian, Jekyll and Hugo put YAML front matter at the top of every file; it is data, not text.
@@ -344,7 +352,7 @@ test('webImages defer holds back web images and diagram urls', () => {
   }
   const d = render('```mermaid\nflowchart LR\n  A --> B\n  style A fill:url(https://e.com/x)\n```', { webImages: 'defer' })
   assert.match(d, /<svg/)
-  assert.doesNotMatch(d, /https:\/\/e\.com/)
+  assert.doesNotMatch(svgOf(d), /https:\/\/e\.com/)
 })
 
 test('local images defer by default in render and in the plugin', () => {

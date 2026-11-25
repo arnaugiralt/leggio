@@ -136,7 +136,8 @@ export function leggio(md, options = {}) {
         // A style such as fill:url(https://…) would be fetched as soon as the SVG is on the page. In a shared
         // document that request tells the host who opened it, so only same-document references (#id) stay.
         const held = image(env, 'webImages', 'load') === 'defer'
-        return `<figure class="diagram">${held ? svg.replace(/url\((?!\s*['"]?#)[^)]*\)/gi, 'none') : svg}</figure>\n`
+        // The source rides along so a host can offer to copy it (the app's lightbox does).
+        return `<figure class="diagram" data-source="${md.utils.escapeHtml(token.content)}">${held ? svg.replace(/url\((?!\s*['"]?#)[^)]*\)/gi, 'none') : svg}</figure>\n`
       } catch (err) {
         const code = md.utils.escapeHtml(token.content)
         const type = token.content.trim().split(/\s+/)[0]
